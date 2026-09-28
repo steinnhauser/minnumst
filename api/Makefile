@@ -6,7 +6,7 @@ DEV_PORT ?= 8000
 DEV_PID_FILE := .dev-server.pid
 DEV_LOG_FILE := .dev-server.log
 
-.PHONY: help install format format-check lint test test-mariadb generate-openapi check-openapi validate build run-dev stop clean
+.PHONY: help install format format-check lint test test-mariadb generate-openapi check-openapi validate build dev-start run-dev dev-stop stop clean
 
 help:
 	@printf '%s\n' \
@@ -20,8 +20,8 @@ help:
 	  'check-openapi  Check the spec without writing files' \
 	  'validate      Run all checks, tests, and the build' \
 	  'build         Build source and wheel distributions' \
-	  'run-dev       Start the reload-enabled API server in the background' \
-	  'stop          Stop the API server started by run-dev' \
+	  'dev-start     Start the reload-enabled API server in the background' \
+	  'dev-stop      Stop the API server started by dev-start' \
 	  'clean         Remove generated files and the virtual environment'
 
 install:
@@ -37,10 +37,10 @@ lint:
 	$(UV) run ruff check .
 
 test:
-	$(UV) run pytest
+	$(UV) run python -m pytest
 
 test-mariadb:
-	RUN_MARIADB_TESTS=1 $(UV) run pytest tests/test_mariadb.py
+	RUN_MARIADB_TESTS=1 $(UV) run python -m pytest tests/test_mariadb.py
 
 generate-openapi:
 	$(UV) run python scripts/generate_openapi.py
@@ -53,7 +53,7 @@ validate: format-check lint check-openapi test test-mariadb build
 build:
 	$(UV) build
 
-run-dev:
+dev-start:
 	@set -eu; \
 	if [ -f "$(DEV_PID_FILE)" ]; then \
 	  pid=$$(cat "$(DEV_PID_FILE)"); \
@@ -69,7 +69,9 @@ run-dev:
 	printf 'API dev server started at http://%s:%s/ (PID %s).\n' "$(DEV_HOST)" "$(DEV_PORT)" "$$pid"; \
 	printf 'Server output: %s\n' "$(DEV_LOG_FILE)"
 
-stop:
+run-dev: dev-start
+
+dev-stop:
 	@set -eu; \
 	if [ ! -f "$(DEV_PID_FILE)" ]; then printf 'No API dev server is tracked by Make.\n'; exit 0; fi; \
 	pid=$$(cat "$(DEV_PID_FILE)"); \
@@ -79,6 +81,8 @@ stop:
 	  *"uvicorn eftirmal_api.main:app"*) kill -TERM "$$pid"; rm -f "$(DEV_PID_FILE)"; printf 'Stopped API dev server (PID %s).\n' "$$pid" ;; \
 	  *) rm -f "$(DEV_PID_FILE)"; printf 'Removed stale dev-server PID file; no matching Uvicorn process was running.\n' ;; \
 	esac
+
+stop: dev-stop
 
 clean:
 	rm -rf .venv .pytest_cache .ruff_cache build dist

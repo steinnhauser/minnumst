@@ -9,10 +9,10 @@ Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 ```sh
 cp .env.example .env
 make install
-make run-dev
+make dev-start
 ```
 
-The API is available at `http://127.0.0.1:8000`, with interactive documentation at `/docs`. Use `make stop` to stop the background development server. Override `DEV_HOST` and `DEV_PORT` when starting it.
+The API is available at `http://127.0.0.1:8000`, with interactive documentation at `/docs`. Use `make dev-stop` to stop the background server. The local CORS example allows the public frontend on port 5173 and admin on port 5174. Override `DEV_HOST` and `DEV_PORT` when starting it.
 
 ## Database
 
@@ -36,13 +36,13 @@ Set `LOG_LEVEL` in `.env` to `DEBUG`, `INFO`, `WARNING`, or `ERROR`; the default
 - `GET /api/people/{person_id}/blog/revisions` returns the complete revision history in reverse chronological order.
 - `GET /healthz` checks process liveness; `GET /readyz` checks database connectivity.
 
-Person names are normalized for uniqueness using the same accent-insensitive, whitespace-normalized rule as the current admin draft model. A database uniqueness constraint enforces one person per normalized name. Each person has at most one blog row, also enforced by a database constraint. Saving a blog appends an immutable snapshot; it never overwrites an earlier revision.
+Person names are normalized for uniqueness using an accent-insensitive, whitespace-normalized rule. A database uniqueness constraint enforces one person per normalized name. Each person has at most one blog row, also enforced by a database constraint. Saving a blog appends an immutable snapshot; it never overwrites an earlier revision. The public frontend searches with `GET /api/people` and reads the current story with `GET /api/people/by-slug/{slug}`. The admin loads people, creates people, saves revisions with `PUT /api/people/{person_id}/blog`, and reads revision history from the corresponding `/revisions` route.
 
-The current public frontend only implements name search, and the current admin draft editor supplies a person's name, page title, optional introduction, and story. Profile attributes, image upload/storage, and blog delete/restore behavior are not represented yet. A person with blog revisions cannot be hard-deleted, and there is no route to delete revisions. Mutating routes also rely on deployment-level access control: protect them behind the existing Traefik/Authentik boundary before exposing the API.
+The admin supports person-linked blog title, excerpt, and story revisions; profile attributes, image upload/storage, and blog delete/restore behavior are not represented in the current API. A person with blog revisions cannot be hard-deleted, and there is no route to delete revisions. Mutating routes rely on deployment-level access control: protect them behind the existing Traefik/Authentik boundary before exposing the API.
 
 ## Commands
 
-`make install`, `make format`, `make format-check`, `make lint`, `make test`, `make test-mariadb`, `make generate-openapi`, `make check-openapi`, `make validate`, `make build`, `make run-dev`, `make stop`, and `make clean` use UV and Ruff. Cleanup removes the local virtual environment and generated build/test output; it does not remove the local SQLite database or checked-in API specification.
+`make install`, `make format`, `make format-check`, `make lint`, `make test`, `make test-mariadb`, `make generate-openapi`, `make check-openapi`, `make validate`, `make build`, `make dev-start`, `make dev-stop`, and `make clean` use UV and Ruff. `make run-dev` and `make stop` remain compatibility aliases. Cleanup removes the local virtual environment and generated build/test output; it does not remove the local SQLite database or checked-in API specification.
 
 `make test` runs the fast SQLite-backed endpoint suite and verifies the checked-in OpenAPI document is current. `make test-mariadb` starts a disposable `mariadb:11.4` container using Testcontainers and exercises admin writes followed by public reads. It requires Docker access and may need to download the image the first time. Keep it as a separate check for local/CI environments with a Docker daemon.
 

@@ -1,11 +1,11 @@
 .DEFAULT_GOAL := help
 
 DEV_HOST ?= 127.0.0.1
-DEV_PORT ?= 5173
+DEV_PORT ?= 5174
 DEV_PID_FILE := .dev-server.pid
 DEV_LOG_FILE := .dev-server.log
 
-.PHONY: help install format format-check lint test test-watch build run-dev dev-stop preview clean
+.PHONY: help install format format-check lint test test-watch validate build dev-start run-dev dev-stop preview clean
 
 help:
 	@printf '%s\n' \
@@ -15,9 +15,10 @@ help:
 	  'lint          Run ESLint' \
 	  'test          Run tests once' \
 	  'test-watch    Run tests in watch mode' \
+	  'validate      Run formatting, lint, tests, and production build' \
 	  'build         Type-check and build for production' \
-	  'run-dev       Start Vite in the background' \
-	  'dev-stop      Stop the Vite process started by run-dev' \
+	  'dev-start     Start Vite in the background' \
+	  'dev-stop      Stop the Vite process started by dev-start' \
 	  'preview       Preview the production build' \
 	  'clean         Remove generated build and coverage output'
 
@@ -39,10 +40,13 @@ test:
 test-watch:
 	npm run test:watch
 
+validate:
+	npm run validate
+
 build:
 	npm run build
 
-run-dev:
+dev-start:
 	@set -eu; \
 	if [ -f "$(DEV_PID_FILE)" ]; then \
 	  pid=$$(cat "$(DEV_PID_FILE)"); \
@@ -59,6 +63,8 @@ run-dev:
 	printf '%s\n' "$$pid" > "$(DEV_PID_FILE)"; \
 	printf 'Admin dev server started at http://%s:%s/ (PID %s).\n' "$(DEV_HOST)" "$(DEV_PORT)" "$$pid"; \
 	printf 'Server output: %s\n' "$(DEV_LOG_FILE)"
+
+run-dev: dev-start
 
 dev-stop:
 	@set -eu; \

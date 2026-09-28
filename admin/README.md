@@ -11,10 +11,11 @@ React and Vite workspace for drafting name-linked blog pages for the Eftirmal ar
 
 ```sh
 make install
-make run-dev
+cp .env.example .env
+make dev-start
 ```
 
-`make run-dev` starts Vite in the background at `http://127.0.0.1:5173/`. Use `make dev-stop` when you are finished. The process ID and output are stored in ignored `.dev-server.pid` and `.dev-server.log` files. Override the defaults with `make run-dev DEV_HOST=127.0.0.1 DEV_PORT=5174`.
+Start the API separately with `make -C ../eftirmal-api dev-start`. The admin frontend runs at `http://127.0.0.1:5174/`, separate from the public site on port 5173. Use `make dev-stop` to stop it. The process ID and output are stored in ignored `.dev-server.pid` and `.dev-server.log` files; override the defaults with `DEV_HOST` and `DEV_PORT`.
 
 Vite reads `DEBUG` and `VITE_API_URL` from `.env`. Copy `.env.example` to `.env` to start with the documented local settings. `DEBUG=true` shows a local debug indicator; it does not implement or bypass authentication. Authentication is handled upstream by Traefik and Authentik.
 
@@ -28,9 +29,10 @@ Vite reads `DEBUG` and `VITE_API_URL` from `.env`. Copy `.env.example` to `.env`
 | `make lint`         | Run ESLint                                            |
 | `make test`         | Run the Vitest suite once                             |
 | `make test-watch`   | Run Vitest in watch mode                              |
+| `make validate`     | Run formatting, lint, tests, and production build     |
 | `make build`        | Type-check and build the production frontend          |
-| `make run-dev`      | Start Vite in the background                          |
-| `make dev-stop`     | Stop the Vite process started by `make run-dev`       |
+| `make dev-start`    | Start Vite in the background                          |
+| `make dev-stop`     | Stop the process started by `make dev-start`          |
 | `make preview`      | Preview the production build locally                  |
 | `make clean`        | Remove build and coverage output                      |
 
@@ -38,16 +40,12 @@ The matching npm scripts are available directly in `package.json`.
 
 ## Current boundary
 
-The central CRUD API is the planned source for profile data, image uploads, and name-linked blog pages. Its endpoint and payload contracts are not available yet, so the current editor stores blog drafts in this browser's local storage. Each normalized person name has one page, and each save adds a revision. These drafts are not shared between browsers or visible on the public site. Do not invent API endpoints or treat display names as durable profile IDs.
+The central API is the source of truth for people and blog pages. The admin loads people with `GET /api/people`, creates a person with `POST /api/people` when needed, saves edits with `PUT /api/people/{person_id}/blog`, and loads history from `GET /api/people/{person_id}/blog/revisions`. The API assigns stable person IDs, enforces one blog per person, and appends an immutable revision on every save. The public frontend reads the current revision from the same API.
 
-The intended admin workflow is to find, review, edit, and create profiles, including submitting profile images through forms to the API. Blog edits must preserve revision history. Image files must be submitted as files through the agreed API contract, not stored as base64 drafts in local storage.
+The current API supports person creation, name updates, public lookup, and blog revisions. It does not yet define profile image upload or revision restore routes; do not simulate those operations in this frontend.
 
 Local environment files are ignored by Git. `.env.example` is the tracked template; only non-secret browser configuration belongs in `DEBUG` and `VITE_API_URL`.
 
 ## Checks
 
-```sh
-make test
-make lint
-make build
-```
+Run the complete local checks with `make validate`.

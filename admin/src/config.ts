@@ -5,7 +5,7 @@ export type AppEnvironment = {
 
 export function parseAppConfig(env: AppEnvironment) {
   return {
-    apiUrl: env.VITE_API_URL?.trim() ?? "",
+    apiUrl: env.VITE_API_URL?.trim() || "http://127.0.0.1:8000",
     debug: env.DEBUG?.trim().toLowerCase() === "true",
   };
 }

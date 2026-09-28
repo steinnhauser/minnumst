@@ -14,8 +14,11 @@ describe("app configuration", () => {
     });
   });
 
-  it("defaults debug mode off and leaves an unset API URL empty", () => {
-    expect(parseAppConfig({})).toEqual({ apiUrl: "", debug: false });
+  it("defaults to the local API and keeps debug mode off", () => {
+    expect(parseAppConfig({})).toEqual({
+      apiUrl: "http://127.0.0.1:8000",
+      debug: false,
+    });
     expect(parseAppConfig({ DEBUG: "false" }).debug).toBe(false);
   });
 });

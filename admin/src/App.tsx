@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
   BookOpenText,
@@ -10,20 +10,20 @@ import {
   Save,
 } from "lucide-react";
 import {
+  createPerson,
   currentRevision,
-  loadPosts,
-  personKey,
-  persistPosts,
-  savePersonPost,
+  loadPeople,
+  loadPersonRevisions,
+  savePersonRevision,
   type PersonPost,
-} from "./posts";
+} from "./api";
 import { appConfig } from "./config";
 import "./App.css";
 
 type EditorTab = "write" | "preview" | "history";
 
 function App() {
-  const [posts, setPosts] = useState<PersonPost[]>(loadPosts);
+  const [posts, setPosts] = useState<PersonPost[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<EditorTab>("write");
   const [filter, setFilter] = useState("");
@@ -33,9 +33,15 @@ function App() {
   const [content, setContent] = useState("");
   const [message, setMessage] = useState("");
   const [messageIsError, setMessageIsError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const selectionRequest = useRef(0);
 
   const selectedPost = posts.find((post) => post.id === selectedId) ?? null;
   const activeRevision = selectedPost ? currentRevision(selectedPost) : null;
+  const revisionCount =
+    selectedPost?.blog?.revisionCount ?? selectedPost?.revisions.length ?? 0;
   const visiblePosts = useMemo(() => {
     const query = filter.trim().toLocaleLowerCase();
     return posts.filter((post) =>
@@ -43,7 +49,30 @@ function App() {
     );
   }, [filter, posts]);
 
+  useEffect(() => {
+    let active = true;
+    void loadPeople()
+      .then((people) => {
+        if (active) setPosts(people);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setLoadError(
+            error instanceof Error ? error.message : "Could not load people.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   function startNewPage() {
+    selectionRequest.current += 1;
     setSelectedId(null);
     setPersonName("");
     setTitle("");
@@ -53,18 +82,46 @@ function App() {
     setMessage("");
   }
 
-  function selectPost(post: PersonPost) {
+  async function selectPost(post: PersonPost) {
+    const requestId = ++selectionRequest.current;
     const revision = currentRevision(post);
     setSelectedId(post.id);
     setPersonName(post.personName);
-    setTitle(revision?.title ?? "");
-    setExcerpt(revision?.excerpt ?? "");
+    setTitle(revision?.title ?? post.blog?.title ?? "");
+    setExcerpt(revision?.excerpt ?? post.blog?.excerpt ?? "");
     setContent(revision?.content ?? "");
     setTab("write");
     setMessage("");
+
+    if (post.blog && post.revisions.length === 0) {
+      setMessage("Loading saved revisions...");
+      try {
+        const revisions = await loadPersonRevisions(post.id);
+        if (selectionRequest.current !== requestId) return;
+        setPosts((current) =>
+          current.map((item) =>
+            item.id === post.id ? { ...item, revisions } : item,
+          ),
+        );
+        const latest = revisions.at(-1);
+        setTitle(latest?.title ?? post.blog?.title ?? "");
+        setExcerpt(latest?.excerpt ?? post.blog.excerpt);
+        setContent(latest?.content ?? "");
+        setMessage("");
+      } catch (error) {
+        if (selectionRequest.current === requestId) {
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Could not load this page's history.",
+          );
+          setMessageIsError(true);
+        }
+      }
+    }
   }
 
-  function handleSave(event: FormEvent<HTMLFormElement>) {
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!personName.trim() || !title.trim() || !content.trim()) {
       setMessage("Add a person name, page title, and story before saving.");
@@ -72,26 +129,53 @@ function App() {
       return;
     }
 
+    setIsSaving(true);
     try {
-      const updatedPosts = savePersonPost(
-        posts,
-        { personName, title, excerpt, content },
-        new Date().toISOString(),
+      let person = selectedPost;
+      if (!person) {
+        person = await createPerson(personName);
+        setPosts((current) => [person!, ...current]);
+        setSelectedId(person.id);
+        setPersonName(person.personName);
+      }
+
+      const saved = await savePersonRevision(person.id, {
+        title,
+        excerpt,
+        content,
+      });
+      const savedPost: PersonPost = {
+        ...person,
+        blog: {
+          title: saved.revision.title,
+          excerpt: saved.revision.excerpt,
+          savedAt: saved.revision.savedAt,
+          revisionCount: saved.revisionCount,
+        },
+        revisions: [...person.revisions, saved.revision],
+      };
+      setPosts((current) =>
+        current.some((item) => item.id === savedPost.id)
+          ? current.map((item) => (item.id === savedPost.id ? savedPost : item))
+          : [savedPost, ...current],
       );
-      persistPosts(updatedPosts);
-      const savedPost =
-        updatedPosts.find((post) => post.personKey === personKey(personName)) ??
-        updatedPosts[0];
-      setPosts(updatedPosts);
       setSelectedId(savedPost.id);
       setPersonName(savedPost.personName);
-      setMessage("Draft saved in this browser.");
-      setMessageIsError(false);
-    } catch {
       setMessage(
-        "This browser could not store the draft. Check storage settings and try again.",
+        `Saved to the shared archive as revision ${saved.revision.revisionNumber}.`,
+      );
+      setMessageIsError(false);
+    } catch (error) {
+      const apiMessage =
+        error instanceof Error ? error.message : "The page could not be saved.";
+      setMessage(
+        apiMessage === "A person with this normalized name already exists"
+          ? "A person with this name already exists. Select them from the pages list and save the story there."
+          : apiMessage,
       );
       setMessageIsError(true);
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -122,7 +206,7 @@ function App() {
           <p>PEOPLE · STORIES · MEMORY</p>
           <span className="workspace-label">
             <span className="workspace-dot" />
-            Local workspace
+            Shared archive
           </span>
         </div>
       </aside>
@@ -162,8 +246,8 @@ function App() {
           <div className="local-notice" role="note">
             <Info size={17} aria-hidden="true" />
             <p>
-              <strong>Local drafts only.</strong> Pages are saved in this
-              browser and are not visible on the public site yet.
+              <strong>Shared archive.</strong> People and story revisions are
+              loaded from the central API and saved to MariaDB.
             </p>
           </div>
 
@@ -210,26 +294,33 @@ function App() {
                       </span>
                       <span className="page-list-copy">
                         <strong>{post.personName}</strong>
-                        <span>{revision?.title || "Untitled page"}</span>
+                        <span>
+                          {revision?.title ||
+                            post.blog?.title ||
+                            "Untitled page"}
+                        </span>
                       </span>
                       <span
                         className="draft-indicator"
-                        aria-label="Local draft"
+                        aria-label="Saved in shared archive"
                       />
                     </button>
                   );
                 })}
                 {visiblePosts.length === 0 && (
                   <p className="index-empty">
-                    {posts.length === 0
-                      ? "Your pages will appear here."
-                      : "No matching names."}
+                    {isLoading
+                      ? "Loading people..."
+                      : loadError ||
+                        (posts.length === 0
+                          ? "No people have been added yet."
+                          : "No matching names.")}
                   </p>
                 )}
               </div>
               <div className="index-footer">
                 <span className="draft-indicator" aria-hidden="true" />
-                <span>Saved on this device</span>
+                <span>Shared archive</span>
               </div>
             </aside>
 
@@ -276,9 +367,7 @@ function App() {
                   >
                     <History size={14} aria-hidden="true" />
                     History
-                    {selectedPost && (
-                      <span>{selectedPost.revisions.length}</span>
-                    )}
+                    {selectedPost && <span>{revisionCount}</span>}
                   </button>
                 </div>
               </div>
@@ -290,7 +379,7 @@ function App() {
                       <h2>{selectedPost ? "Edit page" : "Create a page"}</h2>
                       <p>Start with the person this story belongs to.</p>
                     </div>
-                    <span className="draft-tag">DRAFT</span>
+                    <span className="draft-tag">API VERSION</span>
                   </div>
 
                   <label className="field-label" htmlFor="person-name">
@@ -349,9 +438,13 @@ function App() {
                     >
                       {message}
                     </p>
-                    <button className="save-button" type="submit">
+                    <button
+                      className="save-button"
+                      type="submit"
+                      disabled={isSaving}
+                    >
                       <Save size={16} aria-hidden="true" />
-                      <span>Save draft</span>
+                      <span>{isSaving ? "Saving..." : "Save revision"}</span>
                     </button>
                   </div>
                 </form>
@@ -373,7 +466,7 @@ function App() {
                   </p>
                   {selectedPost && (
                     <span className="preview-route">
-                      /people/{selectedPost.slug}
+                      Public story · {selectedPost.slug}
                     </span>
                   )}
                 </article>
@@ -386,17 +479,15 @@ function App() {
                       <h2>Revision history</h2>
                       <p>Earlier versions are retained when you save edits.</p>
                     </div>
-                    <span className="draft-tag">
-                      {selectedPost?.revisions.length ?? 0} VERSIONS
-                    </span>
+                    <span className="draft-tag">{revisionCount} VERSIONS</span>
                   </div>
-                  {!selectedPost && (
+                  {(!selectedPost || !selectedPost.blog) && (
                     <div className="history-empty">
                       <History size={23} aria-hidden="true" />
                       <p>Save this page to start its history.</p>
                     </div>
                   )}
-                  {selectedPost && (
+                  {selectedPost?.blog && (
                     <ol className="revision-list">
                       {[...selectedPost.revisions]
                         .reverse()
@@ -436,7 +527,7 @@ function App() {
               <div className="details-heading">
                 <h2>Page details</h2>
                 <span className="detail-status">
-                  <span /> LOCAL
+                  <span /> API
                 </span>
               </div>
               <div className="detail-block">
@@ -456,42 +547,36 @@ function App() {
               <div className="detail-block">
                 <span className="detail-label">API BASE URL</span>
                 <strong>{appConfig.apiUrl || "Not configured"}</strong>
-                <span className="detail-note">
-                  {appConfig.apiUrl
-                    ? "Configured · CRUD integration pending"
-                    : "Set VITE_API_URL when the API is available"}
-                </span>
+                <span className="detail-note">Shared API origin</span>
               </div>
               <div className="detail-block">
                 <span className="detail-label">HISTORY</span>
                 <strong>
-                  {selectedPost?.revisions.length ?? 0} saved
-                  {(selectedPost?.revisions.length ?? 0) === 1
-                    ? " version"
-                    : " versions"}
+                  {revisionCount} saved
+                  {revisionCount === 1 ? " version" : " versions"}
                 </strong>
                 <span className="detail-note">
-                  {activeRevision
-                    ? `Last saved ${new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(activeRevision.savedAt))}`
+                  {activeRevision || selectedPost?.blog?.savedAt
+                    ? `Last saved ${new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(activeRevision?.savedAt ?? selectedPost?.blog?.savedAt ?? ""))}`
                     : "No versions saved"}
                 </span>
               </div>
               <div className="details-warning">
                 <AlertTriangle size={15} aria-hidden="true" />
                 <p>
-                  Local browser storage is temporary and is not shared with the
-                  archive.
+                  Each save creates a new revision; previous versions remain
+                  available in history.
                 </p>
               </div>
               <p className="main-site-link">
-                Public site connection unavailable
+                Public profiles read from this archive.
               </p>
             </aside>
           </section>
 
           <footer className="main-footer">
             <span>
-              STORY DESK <span aria-hidden="true">·</span> LOCAL MODE
+              STORY DESK <span aria-hidden="true">·</span> SHARED ARCHIVE
             </span>
             <span>
               {posts.length} {posts.length === 1 ? "PAGE" : "PAGES"}

@@ -14,6 +14,8 @@ make install
 make run-dev
 ```
 
+`make run-dev` starts Vite in the background at `http://127.0.0.1:5173/`. Use `make dev-stop` when you are finished. The process ID and output are stored in ignored `.dev-server.pid` and `.dev-server.log` files. Override the defaults with `make run-dev DEV_HOST=127.0.0.1 DEV_PORT=5174`.
+
 Vite reads `DEBUG` and `VITE_API_URL` from `.env`. Copy `.env.example` to `.env` to start with the documented local settings. `DEBUG=true` shows a local debug indicator; it does not implement or bypass authentication. Authentication is handled upstream by Traefik and Authentik.
 
 ## Commands
@@ -27,7 +29,8 @@ Vite reads `DEBUG` and `VITE_API_URL` from `.env`. Copy `.env.example` to `.env`
 | `make test`         | Run the Vitest suite once                             |
 | `make test-watch`   | Run Vitest in watch mode                              |
 | `make build`        | Type-check and build the production frontend          |
-| `make run-dev`      | Start the Vite development server                     |
+| `make run-dev`      | Start Vite in the background                          |
+| `make dev-stop`     | Stop the Vite process started by `make run-dev`       |
 | `make preview`      | Preview the production build locally                  |
 | `make clean`        | Remove build and coverage output                      |
 

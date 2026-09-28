@@ -13,6 +13,8 @@ dist-ssr
 *.local
 coverage
 .eslintcache
+.dev-server.pid
+.dev-server.log
 .env
 .env.*
 !.env.example

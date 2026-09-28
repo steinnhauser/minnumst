@@ -11,10 +11,11 @@ The public-facing Node.js frontend for searching the Eftirmal people archive. Th
 
 ```sh
 make install
-make run-dev
+cp .env.example .env
+make dev-start
 ```
 
-Vite prints the local development URL when the server starts.
+Start the API separately with `make -C ../eftirmal-api dev-start`. The public frontend runs at `http://127.0.0.1:5173/`; use `make dev-stop` to stop it. `VITE_API_URL` is the API origin, not an `/api` path. It defaults to `http://127.0.0.1:8000`.
 
 ## Commands
 
@@ -25,8 +26,10 @@ Vite prints the local development URL when the server starts.
 | `make lint`         | Run ESLint                                            |
 | `make test`         | Run the Vitest suite once                             |
 | `make test-watch`   | Run tests in watch mode                               |
+| `make validate`     | Run formatting, lint, tests, and production build     |
 | `make build`        | Type-check and build the production frontend          |
-| `make run-dev`      | Start the Vite development server                     |
+| `make dev-start`    | Start Vite in the background                          |
+| `make dev-stop`     | Stop the process started by `make dev-start`          |
 | `make preview`      | Preview the production build locally                  |
 | `make clean`        | Remove build and coverage output                      |
 
@@ -34,7 +37,7 @@ The matching npm scripts are available directly in `package.json`.
 
 ## Current Scope
 
-The search form validates input and reports that directory search is not connected yet. It does not issue placeholder network requests. Connect it to the central API once the endpoint, query parameters, and person response shape are agreed. The main frontend is public; admin authentication belongs to the separate admin service.
+The public search uses `GET /api/people?query=...&offset=0&limit=50`. Selecting a result loads `GET /api/people/by-slug/{slug}` and displays its current blog revision when one exists. Search and profile details are public; administration is handled by the separate admin service.
 
 The landing photograph is bundled locally from [Unsplash](https://images.unsplash.com/photo-1551632811-561732d1e306), so the page does not depend on an image host at runtime.# React + TypeScript + Vite
 

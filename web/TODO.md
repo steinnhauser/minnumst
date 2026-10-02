@@ -9,7 +9,7 @@ This backlog is owned by the public archive frontend. Items that change shared A
 
 ## Cross-Service Work
 
-- [ ] Publish the public frontend Docker image to GHCR from its tagged workflow. The repository currently builds a local image and publishes a release archive, while deploy still has a placeholder frontend image.
+- [ ] Set the repository Actions variable `VITE_API_URL` to the production API origin, then create the first SemVer release tag and verify the private GHCR image is published. The tagged multi-platform publishing workflow is now implemented; deploy still needs a pinned image version.
 - [ ] Add ancestor portrait display after the API defines a secure media contract, storage lifecycle, and public URL/access policy. Do not embed or fetch image blobs directly from MariaDB in the browser.
 
 ## Acceptance Notes

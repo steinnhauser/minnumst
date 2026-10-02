@@ -1,6 +1,10 @@
-# Eftirmal API
+# Eftirmál | Archive API
 
-FastAPI service for the public Eftirmal directory and the separate admin frontend. MariaDB is the intended shared database in Docker Compose; SQLite is the local development default.
+![Eftirmál concept: a family tree of stories, names, and memories](.github/assets/eftirmal-concept.png)
+
+> Eftirmál is a shared written history of our ancestors, preserving people and their stories across generations.
+
+This FastAPI service is the shared data boundary for the public archive and editorial desk. It owns people and immutable blog revisions; MariaDB is used in deployment and SQLite is the local development default.
 
 ## Run locally
 

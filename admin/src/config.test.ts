@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseAppConfig } from "./config";
+
+afterEach(() => {
+  vi.resetModules();
+  Reflect.deleteProperty(window, "__EFTIRMAL_ENV__");
+});
 
 describe("app configuration", () => {
   it("reads the API base URL and enables debug mode from environment values", () => {
@@ -20,5 +25,22 @@ describe("app configuration", () => {
       debug: false,
     });
     expect(parseAppConfig({ DEBUG: "false" }).debug).toBe(false);
+  });
+
+  it("prefers configuration injected when the container starts", async () => {
+    Object.defineProperty(window, "__EFTIRMAL_ENV__", {
+      configurable: true,
+      value: {
+        VITE_API_URL: "https://runtime.example.test",
+        DEBUG: "true",
+      },
+    });
+    vi.resetModules();
+    const { appConfig: runtimeConfig } = await import("./config");
+
+    expect(runtimeConfig).toEqual({
+      apiUrl: "https://runtime.example.test",
+      debug: true,
+    });
   });
 });

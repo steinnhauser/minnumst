@@ -10,4 +10,7 @@ export function parseAppConfig(env: AppEnvironment) {
   };
 }
 
-export const appConfig = parseAppConfig(__EFTIRMAL_ENV__);
+export const appConfig = parseAppConfig({
+  ...__EFTIRMAL_ENV__,
+  ...window.__EFTIRMAL_ENV__,
+});

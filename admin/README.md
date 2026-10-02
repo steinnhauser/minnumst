@@ -44,13 +44,14 @@ The matching npm scripts are available directly in `package.json`.
 
 ## Container Image
 
-The Dockerfile builds the Vite bundle and serves it as a non-root user on port `8080`. Set `VITE_API_URL` at build time because Vite embeds the API origin in the static assets:
+The Dockerfile builds the Vite bundle and serves it as a non-root user on port `8080`. The image reads `VITE_API_URL` and `DEBUG` from its runtime environment at startup; no deployment configuration is needed during the build:
 
 ```sh
-docker build --build-arg VITE_API_URL=https://api.example.com -t eftirmal-admin:local .
+docker build -t eftirmal-admin:local .
+docker run --rm -p 8080:8080 -e VITE_API_URL=https://api.example.com -e DEBUG=false eftirmal-admin:local
 ```
 
-Tagged releases publish a multi-platform private image to `ghcr.io/steinnhauser/eftirmal-admin` as both `<version>` and `latest`. Before the first image release, set the non-secret repository Actions variable `VITE_API_URL` to the production API origin (for example, `https://api.example.com`). Vite embeds this origin at build time.
+Tagged releases publish a multi-platform private image to `ghcr.io/steinnhauser/eftirmal-admin` as both `<version>` and `latest`. Deployment Compose supplies `VITE_API_URL` from the configured API hostname and `DEBUG` from `eftirmal_admin_debug`.
 
 ## Current boundary
 

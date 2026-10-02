@@ -1,6 +1,10 @@
-# Eftirmal Main Frontend
+# Eftirmál | Public Archive
 
-The public-facing Node.js frontend for searching the Eftirmal people archive. The first screen is an English-language name search, with no sign-in flow.
+![Eftirmál concept: a family tree of stories, names, and memories](.github/assets/eftirmal-concept.png)
+
+> Eftirmál is a shared written history of our ancestors, preserving people and their stories across generations.
+
+This is the public-facing React, TypeScript, and Vite frontend for searching the archive and reading published stories. It is read-only and has no sign-in flow.
 
 ## Requirements
 

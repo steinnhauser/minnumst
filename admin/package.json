@@ -1,5 +1,9 @@
 {
   "name": "eftirmal-admin",
+  "author": {
+    "name": "Steinn Hauser Magnússon",
+    "email": "hausersteinn@gmail.com"
+  },
   "private": true,
   "version": "0.1.0",
   "type": "module",

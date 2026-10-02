@@ -27,6 +27,7 @@ services:
     restart: unless-stopped
     environment:
       VITE_API_URL: {{ ("https://" ~ eftirmal_api_domain) | to_json }}
+      LOG_LEVEL: {{ eftirmal_log_level | to_json }}
     labels:
       traefik.enable: "true"
       traefik.docker.network: eftirmal_edge
@@ -43,6 +44,7 @@ services:
     environment:
       VITE_API_URL: {{ ("https://" ~ eftirmal_api_domain) | to_json }}
       DEBUG: {{ eftirmal_admin_debug | to_json }}
+      LOG_LEVEL: {{ eftirmal_log_level | to_json }}
     labels:
       traefik.enable: "true"
       traefik.docker.network: eftirmal_edge
@@ -62,6 +64,7 @@ services:
     environment:
       DATABASE_URL: {{ ("mysql+pymysql://" ~ mariadb_user ~ ":" ~ (mariadb_password | urlencode) ~ "@mariadb:3306/" ~ mariadb_database ~ "?charset=utf8mb4") | to_json }}
       CORS_ORIGINS: {{ ("https://" ~ eftirmal_domain ~ ",https://" ~ eftirmal_admin_domain) | to_json }}
+      LOG_LEVEL: {{ eftirmal_log_level | to_json }}
     depends_on:
       mariadb:
         condition: service_healthy

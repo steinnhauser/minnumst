@@ -4,10 +4,11 @@ eftirmal_domain: eftirmal.example
 eftirmal_admin_domain: admin.eftirmal.example
 eftirmal_api_domain: api.eftirmal.example
 eftirmal_admin_debug: "false"
+eftirmal_log_level: INFO
 
-eftirmal_public_image: ghcr.io/OWNER/eftirmal:latest
-eftirmal_admin_image: ghcr.io/OWNER/eftirmal-admin:latest
-eftirmal_api_image: ghcr.io/steinnhauser/eftirmal-api:0.1.0
+eftirmal_public_image: ghcr.io/steinnhauser/eftirmal:0.1.1
+eftirmal_admin_image: ghcr.io/steinnhauser/eftirmal-admin:0.2.1
+eftirmal_api_image: ghcr.io/steinnhauser/eftirmal-api:0.1.2
 
 traefik_image: traefik:v3.3
 traefik_acme_email: ops@example.com

@@ -35,13 +35,17 @@ Ansible prompts for the vault password. Use `make deploy VAULT_ARGS=--vault-pass
 
 The frontend images must serve their built Vite assets on port 8080. At startup, each image writes browser configuration from its runtime environment. Compose sets `VITE_API_URL` to `https://{{ eftirmal_api_domain }}` for both frontends and sets admin `DEBUG` from `eftirmal_admin_debug`; configure these values in `inventory/group_vars/all/vars.yml`. The API image must listen on port 8000 and provide the existing `DATABASE_URL`, `CORS_ORIGINS`, and `/readyz` contract. The image references are configurable in `vars.yml`.
 
-The API repository publishes versioned images to `ghcr.io/steinnhauser/eftirmal-api` when an API release tag is pushed. The deployment currently pins API image `0.1.0`; change `eftirmal_api_image` when intentionally upgrading the deployed API. Ensure the GHCR package is public or configure registry authentication on the host before deployment.
+The three services publish versioned private images to `ghcr.io/steinnhauser/eftirmal`, `ghcr.io/steinnhauser/eftirmal-admin`, and `ghcr.io/steinnhauser/eftirmal-api`. The inventory pins logging-enabled releases `0.1.1`, `0.2.1`, and `0.1.2`; ensure the host is authenticated to GHCR before deployment.
 
 The public and admin repositories build/push environment-neutral multi-platform private GHCR images from SemVer tags; no Actions variable is needed for API configuration. The example `OWNER` references remain placeholders; pin each deployed frontend to a published version tag rather than `latest`.
 
+## Logging
+
+Set `eftirmal_log_level` in `inventory/group_vars/all/vars.yml` to `DEBUG`, `INFO`, `WARNING`, or `ERROR`; it defaults to `INFO` and is injected into all three services. Logs are newline-delimited JSON on container stdout/stderr and are available with `docker logs <container>` or `docker compose -f /opt/eftirmal/compose.yml logs -f api public admin`. Frontend access records use sanitized routes; API request IDs can be correlated with the `X-Request-ID` response header. Do not log credentials, request bodies, query values, or person slugs.
+
 ## Release
 
-The initial deployment release is version `0.1.0`, matching `pyproject.toml`. Push the annotated `0.1.0` tag after committing the release files; the GitHub Actions workflow validates the project and creates the GitHub Release. The API image is built by the separate API repository's `0.1.0` tag workflow, not by the deployment tag.
+The deployment repository release remains version `0.1.0`, matching `pyproject.toml`. Service images are independently versioned and pinned in inventory; changing these pins does not create or deploy a service release.
 
 The playbook installs Docker Engine and the Compose plugin from Docker's signed Debian/Ubuntu apt repository, templates `/opt/eftirmal/compose.yml` with mode `0600`, validates it, then pulls and starts the stack. MariaDB data and Traefik ACME state use persistent named volumes. MariaDB is not published on a host port.
 

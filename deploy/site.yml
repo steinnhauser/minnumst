@@ -12,6 +12,7 @@
           - eftirmal_public_image | length > 0
           - eftirmal_admin_image | length > 0
           - eftirmal_api_image | length > 0
+          - eftirmal_log_level in ["DEBUG", "INFO", "WARNING", "ERROR"]
           - authentik_forwardauth_address | length > 0
           - traefik_acme_email | length > 0
           - mariadb_root_password is match('^[A-Za-z0-9_-]+$')

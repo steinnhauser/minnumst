@@ -1,6 +1,10 @@
-# Eftirmal Deployment
+# Eftirmál | Deployment
 
-Ansible deployment for the public frontend, admin frontend, API, MariaDB, and Traefik on a Debian-based host. The apps are deployed as prebuilt container images; this repository does not build or publish those images.
+![Eftirmál concept: a family tree of stories, names, and memories](.github/assets/eftirmal-concept.png)
+
+> Eftirmál is a shared written history of our ancestors, preserving people and their stories across generations.
+
+This repository uses Ansible to deploy the public archive, editorial desk, shared API, MariaDB, and Traefik to Debian-based hosts. Application images are built and published by their owning repositories.
 
 ## Requirements
 

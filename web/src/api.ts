@@ -43,7 +43,9 @@ const apiBaseUrl = (
 async function request<T>(path: string): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${apiBaseUrl}${path}`);
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      headers: { "X-Request-ID": crypto.randomUUID() },
+    });
   } catch {
     throw new Error(
       "Could not reach the Eftirmal API. Check that it is running.",

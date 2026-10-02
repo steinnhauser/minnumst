@@ -17,6 +17,11 @@ describe("public API client", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/people?query=asta+jonsdottir&offset=0&limit=50",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "X-Request-ID": expect.any(String),
+        }),
+      }),
     );
   });
 
@@ -38,6 +43,11 @@ describe("public API client", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://runtime.example.test/api/people?query=ada&offset=0&limit=50",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "X-Request-ID": expect.any(String),
+        }),
+      }),
     );
   });
 
@@ -50,6 +60,11 @@ describe("public API client", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/people/by-slug/asta%2Fjonsdottir",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "X-Request-ID": expect.any(String),
+        }),
+      }),
     );
   });
 
@@ -80,6 +95,11 @@ describe("public API client", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/people?query=ada&offset=0&limit=8",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "X-Request-ID": expect.any(String),
+        }),
+      }),
     );
   });
 });

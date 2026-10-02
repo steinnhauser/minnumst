@@ -47,14 +47,16 @@ The landing photograph is bundled locally from [Unsplash](https://images.unsplas
 
 ## Container Image
 
-The Dockerfile builds the Vite bundle and serves it as a non-root user on port `8080`. The image reads `VITE_API_URL` from its runtime environment at startup; no API URL is required during the build:
+The Dockerfile builds the Vite bundle and serves it as a non-root user on port `8080`. The image reads `VITE_API_URL` and `LOG_LEVEL` from its runtime environment; no API URL is required during the build. The HTTP server writes one-line JSON startup and access logs to stdout for `docker logs`.
 
 ```sh
 docker build -t eftirmal:local .
-docker run --rm -p 8080:8080 -e VITE_API_URL=https://api.example.com eftirmal:local
+docker run --rm -p 8080:8080 -e VITE_API_URL=https://api.example.com -e LOG_LEVEL=DEBUG eftirmal:local
 ```
 
 Tagged releases publish a multi-platform private image to `ghcr.io/steinnhauser/eftirmal` as both `<version>` and `latest`. The image is environment-neutral; deployment Compose supplies `VITE_API_URL` from the configured API hostname.
+
+`LOG_LEVEL` accepts `DEBUG`, `INFO`, `WARNING`, or `ERROR` and defaults to `INFO`. Use `docker logs <container>` to read its JSON startup/access records. Access records include a request ID, method, sanitized route, status, and duration; query strings and person slugs are not logged. API calls carry the same `X-Request-ID` into the API logs.
 
 ```
 

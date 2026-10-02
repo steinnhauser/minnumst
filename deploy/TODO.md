@@ -4,7 +4,7 @@ This backlog is owned by the Ansible/Compose deployment repository. Production h
 
 ## Readiness Blockers
 
-- [ ] Publish public and admin frontend images to GHCR, then replace their `OWNER` placeholders with immutable version tags. Their current workflows publish build archives, not images; the API image alone is currently published by its API tag workflow.
+- [ ] Verify the initial SemVer tags produced private GHCR packages, then replace the `OWNER` placeholders with immutable version tags. Compose injects each frontend's runtime configuration; the API package is published separately.
 - [ ] Provision/configure the external Authentik instance and its Google Authenticator-compatible TOTP MFA flow. The Compose template already routes the admin host and API write methods through Authentik forward-auth; validate the real outpost URL, policies, session flow, and that unauthenticated writes are rejected while public reads remain available.
 - [ ] Confirm the final production DNS names (including `admin.eftirmal.is`), TLS issuance, and Traefik routing with authenticated and unauthenticated smoke tests before exposing the host.
 

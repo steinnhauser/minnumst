@@ -33,11 +33,11 @@ Ansible prompts for the vault password. Use `make deploy VAULT_ARGS=--vault-pass
 
 ## Image contract
 
-The frontend images must serve their built Vite assets on port 8080. Build each frontend with `VITE_API_URL=https://<api-host>` before publishing; Vite embeds this value into the static bundle, so setting a container runtime environment variable cannot change it later. The API image must listen on port 8000 and provide the existing `DATABASE_URL`, `CORS_ORIGINS`, and `/readyz` contract. The image references are configurable in `vars.yml`.
+The frontend images must serve their built Vite assets on port 8080. At startup, each image writes browser configuration from its runtime environment. Compose sets `VITE_API_URL` to `https://{{ eftirmal_api_domain }}` for both frontends and sets admin `DEBUG` from `eftirmal_admin_debug`; configure these values in `inventory/group_vars/all/vars.yml`. The API image must listen on port 8000 and provide the existing `DATABASE_URL`, `CORS_ORIGINS`, and `/readyz` contract. The image references are configurable in `vars.yml`.
 
 The API repository publishes versioned images to `ghcr.io/steinnhauser/eftirmal-api` when an API release tag is pushed. The deployment currently pins API image `0.1.0`; change `eftirmal_api_image` when intentionally upgrading the deployed API. Ensure the GHCR package is public or configure registry authentication on the host before deployment.
 
-The public and admin repositories have Dockerfiles but their current release workflows publish build archives, not container images. Configure and publish those frontend images before using this deployment on a host; the example `OWNER` references are placeholders.
+The public and admin repositories build/push environment-neutral multi-platform private GHCR images from SemVer tags; no Actions variable is needed for API configuration. The example `OWNER` references remain placeholders; pin each deployed frontend to a published version tag rather than `latest`.
 
 ## Release
 

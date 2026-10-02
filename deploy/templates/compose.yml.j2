@@ -25,6 +25,8 @@ services:
   public:
     image: {{ eftirmal_public_image | to_json }}
     restart: unless-stopped
+    environment:
+      VITE_API_URL: {{ ("https://" ~ eftirmal_api_domain) | to_json }}
     labels:
       traefik.enable: "true"
       traefik.docker.network: eftirmal_edge
@@ -38,6 +40,9 @@ services:
   admin:
     image: {{ eftirmal_admin_image | to_json }}
     restart: unless-stopped
+    environment:
+      VITE_API_URL: {{ ("https://" ~ eftirmal_api_domain) | to_json }}
+      DEBUG: {{ eftirmal_admin_debug | to_json }}
     labels:
       traefik.enable: "true"
       traefik.docker.network: eftirmal_edge

@@ -3,6 +3,7 @@ eftirmal_deploy_dir: /opt/eftirmal
 eftirmal_domain: eftirmal.example
 eftirmal_admin_domain: admin.eftirmal.example
 eftirmal_api_domain: api.eftirmal.example
+eftirmal_admin_debug: "false"
 
 eftirmal_public_image: ghcr.io/OWNER/eftirmal:latest
 eftirmal_admin_image: ghcr.io/OWNER/eftirmal-admin:latest

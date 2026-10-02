@@ -1,2 +1,4 @@
+# TODO: Replace with the created server's SSH-reachable public or VPN IP address.
+# TODO: Replace with an SSH user that can become root (sudo/become).
 [eftirmal]
 server ansible_host=192.0.2.10 ansible_user=deployer

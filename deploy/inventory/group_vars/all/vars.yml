@@ -1,7 +1,10 @@
 ---
 eftirmal_deploy_dir: /opt/eftirmal
+# TODO: Set the production public hostname; point its DNS record to the server IP.
 eftirmal_domain: eftirmal.example
+# TODO: Set the production admin hostname; point its DNS record to the server IP.
 eftirmal_admin_domain: admin.eftirmal.example
+# TODO: Set the production API hostname; point its DNS record to the server IP.
 eftirmal_api_domain: api.eftirmal.example
 eftirmal_admin_debug: "false"
 eftirmal_log_level: INFO
@@ -11,8 +14,13 @@ eftirmal_admin_image: ghcr.io/steinnhauser/eftirmal-admin:0.2.1
 eftirmal_api_image: ghcr.io/steinnhauser/eftirmal-api:0.1.2
 
 traefik_image: traefik:v3.3
+# TODO: Set a monitored email address for Let's Encrypt certificate notices.
 traefik_acme_email: ops@example.com
+# TODO: Set the reachable Authentik Traefik outpost URL for this deployment.
 authentik_forwardauth_address: https://auth.example.com/outpost.goauthentik.io/auth/traefik
+
+# TODO: Authenticate the host to private GHCR packages with a read-only token before deploying.
+# Do not put the token in inventory or Compose; use `docker login ghcr.io` on the host.
 
 mariadb_database: eftirmal
 mariadb_user: eftirmal

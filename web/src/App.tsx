@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowUpRight, Search } from "lucide-react";
 import {
   getPersonBySlug,
@@ -11,15 +11,54 @@ import "./App.css";
 function App() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchMessage, setSearchMessage] = useState("");
+  const [suggestions, setSuggestions] = useState<Person[]>([]);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [people, setPeople] = useState<Person[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonDetail | null>(
     null,
   );
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingPerson, setIsLoadingPerson] = useState(false);
+  const suggestionRequest = useRef(0);
+
+  useEffect(() => {
+    const query = searchTerm.trim();
+    const requestId = ++suggestionRequest.current;
+
+    if (query.length < 2) return;
+    const timeoutId = window.setTimeout(() => {
+      if (requestId !== suggestionRequest.current) return;
+      setIsLoadingSuggestions(true);
+      void searchPeople(query, 8)
+        .then((page) => {
+          if (requestId === suggestionRequest.current) {
+            setSuggestions(page.items);
+          }
+        })
+        .catch(() => {
+          if (requestId === suggestionRequest.current) setSuggestions([]);
+        })
+        .finally(() => {
+          if (requestId === suggestionRequest.current) {
+            setIsLoadingSuggestions(false);
+          }
+        });
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  function dismissSuggestions() {
+    suggestionRequest.current += 1;
+    setSuggestions([]);
+    setActiveSuggestionIndex(-1);
+    setIsLoadingSuggestions(false);
+  }
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    dismissSuggestions();
 
     if (!searchTerm.trim()) {
       setPeople([]);
@@ -50,6 +89,7 @@ function App() {
   }
 
   async function handleSelectPerson(person: Person) {
+    dismissSuggestions();
     setIsLoadingPerson(true);
     setSelectedPerson(null);
     try {
@@ -89,21 +129,87 @@ function App() {
 
           <form className="search-form" onSubmit={handleSearch} role="search">
             <label htmlFor="person-search">Search by name</label>
-            <div className="search-control">
-              <Search size={20} strokeWidth={1.8} aria-hidden="true" />
-              <input
-                id="person-search"
-                type="search"
-                placeholder="Search for a persons details..."
-                value={searchTerm}
-                onChange={(event) => {
-                  setSearchTerm(event.target.value);
-                  setSearchMessage("");
-                  setPeople([]);
-                  setSelectedPerson(null);
-                }}
-                autoComplete="off"
-              />
+            <div className="search-autocomplete">
+              <div className="search-control">
+                <Search size={20} strokeWidth={1.8} aria-hidden="true" />
+                <input
+                  id="person-search"
+                  type="search"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={suggestions.length > 0}
+                  aria-controls="person-suggestions"
+                  aria-activedescendant={
+                    activeSuggestionIndex >= 0
+                      ? `person-suggestion-${suggestions[activeSuggestionIndex]?.id}`
+                      : undefined
+                  }
+                  aria-busy={isLoadingSuggestions}
+                  placeholder="Search for a persons details..."
+                  value={searchTerm}
+                  onChange={(event) => {
+                    dismissSuggestions();
+                    setSearchTerm(event.target.value);
+                    setSearchMessage("");
+                    setPeople([]);
+                    setSelectedPerson(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (!suggestions.length) return;
+                    if (event.key === "ArrowDown") {
+                      event.preventDefault();
+                      setActiveSuggestionIndex((current) =>
+                        current < 0
+                          ? 0
+                          : Math.min(current + 1, suggestions.length - 1),
+                      );
+                    } else if (event.key === "ArrowUp") {
+                      event.preventDefault();
+                      setActiveSuggestionIndex((current) =>
+                        current <= 0 ? suggestions.length - 1 : current - 1,
+                      );
+                    } else if (
+                      event.key === "Enter" &&
+                      activeSuggestionIndex >= 0
+                    ) {
+                      event.preventDefault();
+                      void handleSelectPerson(
+                        suggestions[activeSuggestionIndex],
+                      );
+                    } else if (event.key === "Escape") {
+                      event.preventDefault();
+                      dismissSuggestions();
+                    }
+                  }}
+                  autoComplete="off"
+                />
+              </div>
+              <div
+                className="people-suggestions"
+                id="person-suggestions"
+                role="listbox"
+                aria-label="Search suggestions"
+                hidden={!suggestions.length}
+              >
+                {suggestions.map((person, index) => (
+                  <button
+                    className="person-result"
+                    id={`person-suggestion-${person.id}`}
+                    key={person.id}
+                    type="button"
+                    role="option"
+                    aria-selected={index === activeSuggestionIndex}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => void handleSelectPerson(person)}
+                  >
+                    <span>
+                      <strong>{person.name}</strong>
+                      <span>{person.blog?.title ?? "Person profile"}</span>
+                    </span>
+                    <ArrowUpRight size={16} aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
             </div>
             <button
               className="search-button"

@@ -118,6 +118,12 @@
     box-shadow 160ms ease;
 }
 
+.search-autocomplete {
+  position: relative;
+  grid-column: 1;
+  min-width: 0;
+}
+
 .search-control:focus-within {
   border-color: var(--ink);
   box-shadow: 0 0 0 3px rgb(24 59 52 / 9%);
@@ -191,6 +197,20 @@
   border-top: 1px solid var(--line);
 }
 
+.people-suggestions {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  max-height: 210px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(31 52 44 / 12%);
+}
+
 .person-result {
   display: flex;
   width: 100%;
@@ -225,6 +245,10 @@
 
 .person-result:hover strong {
   color: var(--coral-dark);
+}
+
+.person-result[aria-selected="true"] {
+  background: #f5f6f2;
 }
 
 .person-result:focus-visible {

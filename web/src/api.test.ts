@@ -42,4 +42,19 @@ describe("public API client", () => {
       "Person not found",
     );
   });
+
+  it("allows the autocomplete to request a bounded result page", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        Response.json({ items: [], total: 0, offset: 0, limit: 8 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await searchPeople("ada", 8);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/people?query=ada&offset=0&limit=8",
+    );
+  });
 });

@@ -62,8 +62,12 @@ async function request<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function searchPeople(query: string): Promise<PersonPage> {
-  const params = new URLSearchParams({ query, offset: "0", limit: "50" });
+export function searchPeople(query: string, limit = 50): Promise<PersonPage> {
+  const params = new URLSearchParams({
+    query,
+    offset: "0",
+    limit: String(limit),
+  });
   return request<PersonPage>(`/api/people?${params.toString()}`);
 }
 

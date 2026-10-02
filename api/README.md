@@ -40,6 +40,10 @@ Person names are normalized for uniqueness using an accent-insensitive, whitespa
 
 The admin supports person-linked blog title, excerpt, and story revisions; profile attributes, image upload/storage, and blog delete/restore behavior are not represented in the current API. A person with blog revisions cannot be hard-deleted, and there is no route to delete revisions. Mutating routes rely on deployment-level access control: protect them behind the existing Traefik/Authentik boundary before exposing the API.
 
+## Container image
+
+Build locally with `docker build -t eftirmal-api:local .`. Pushing a plain SemVer API tag runs the release workflow, builds `linux/amd64` and `linux/arm64` images, and publishes `ghcr.io/steinnhauser/eftirmal-api:<version>` plus `:latest`. The image listens on port 8000, runs as a non-root user, and exposes `/healthz` as its container healthcheck. Make the GHCR package public in its package settings before pulling it from a host that has not authenticated to GitHub Container Registry.
+
 ## Commands
 
 `make install`, `make format`, `make format-check`, `make lint`, `make test`, `make test-mariadb`, `make generate-openapi`, `make check-openapi`, `make validate`, `make build`, `make dev-start`, `make dev-stop`, and `make clean` use UV and Ruff. `make run-dev` and `make stop` remain compatibility aliases. Cleanup removes the local virtual environment and generated build/test output; it does not remove the local SQLite database or checked-in API specification.

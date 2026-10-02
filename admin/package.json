@@ -23,8 +23,10 @@
   },
   "dependencies": {
     "lucide-react": "^1.48.0",
+    "pino": "10.4.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "serve-handler": "6.1.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

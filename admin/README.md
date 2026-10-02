@@ -44,14 +44,16 @@ The matching npm scripts are available directly in `package.json`.
 
 ## Container Image
 
-The Dockerfile builds the Vite bundle and serves it as a non-root user on port `8080`. The image reads `VITE_API_URL` and `DEBUG` from its runtime environment at startup; no deployment configuration is needed during the build:
+The Dockerfile builds the Vite bundle and serves it as a non-root user on port `8080`. The image reads `VITE_API_URL`, `DEBUG`, and `LOG_LEVEL` from its runtime environment; no deployment configuration is needed during the build. The HTTP server writes one-line JSON startup and access logs to stdout for `docker logs`:
 
 ```sh
 docker build -t eftirmal-admin:local .
-docker run --rm -p 8080:8080 -e VITE_API_URL=https://api.example.com -e DEBUG=false eftirmal-admin:local
+docker run --rm -p 8080:8080 -e VITE_API_URL=https://api.example.com -e DEBUG=false -e LOG_LEVEL=DEBUG eftirmal-admin:local
 ```
 
-Tagged releases publish a multi-platform private image to `ghcr.io/steinnhauser/eftirmal-admin` as both `<version>` and `latest`. Deployment Compose supplies `VITE_API_URL` from the configured API hostname and `DEBUG` from `eftirmal_admin_debug`.
+Tagged releases publish a multi-platform private image to `ghcr.io/steinnhauser/eftirmal-admin` as both `<version>` and `latest`. Deployment Compose supplies `VITE_API_URL` from the configured API hostname, `DEBUG` from `eftirmal_admin_debug`, and the shared `LOG_LEVEL`.
+
+`LOG_LEVEL` accepts `DEBUG`, `INFO`, `WARNING`, or `ERROR` and defaults to `INFO`. Use `docker logs <container>` to read its JSON startup/access records. Access records include a request ID, method, sanitized route, status, and duration; query strings and person slugs are not logged. API calls carry the same `X-Request-ID` into the API logs.
 
 ## Current boundary
 

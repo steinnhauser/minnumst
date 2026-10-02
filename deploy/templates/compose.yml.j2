@@ -31,7 +31,7 @@ services:
       traefik.http.routers.eftirmal-public.rule: "Host(`{{ eftirmal_domain }}`)"
       traefik.http.routers.eftirmal-public.entrypoints: websecure
       traefik.http.routers.eftirmal-public.tls.certresolver: le
-      traefik.http.services.eftirmal-public.loadbalancer.server.port: "80"
+      traefik.http.services.eftirmal-public.loadbalancer.server.port: "8080"
     networks:
       - edge
 
@@ -45,7 +45,7 @@ services:
       traefik.http.routers.eftirmal-admin.entrypoints: websecure
       traefik.http.routers.eftirmal-admin.tls.certresolver: le
       traefik.http.routers.eftirmal-admin.middlewares: authentik
-      traefik.http.services.eftirmal-admin.loadbalancer.server.port: "80"
+      traefik.http.services.eftirmal-admin.loadbalancer.server.port: "8080"
       traefik.http.middlewares.authentik.forwardauth.address: {{ authentik_forwardauth_address | to_json }}
       traefik.http.middlewares.authentik.forwardauth.trustForwardHeader: "true"
     networks:

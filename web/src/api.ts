@@ -35,7 +35,9 @@ type PersonPage = {
 };
 
 const apiBaseUrl = (
-  import.meta.env.VITE_API_URL?.trim() || "http://127.0.0.1:8000"
+  window.__EFTIRMAL_ENV__?.VITE_API_URL?.trim() ||
+  import.meta.env.VITE_API_URL?.trim() ||
+  "http://127.0.0.1:8000"
 ).replace(/\/+$/, "");
 
 async function request<T>(path: string): Promise<T> {

@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getPersonBySlug, searchPeople } from "./api";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.resetModules();
+  Reflect.deleteProperty(window, "__EFTIRMAL_ENV__");
+});
 
 describe("public API client", () => {
   it("searches people using the API paging contract", async () => {
@@ -13,6 +17,27 @@ describe("public API client", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/people?query=asta+jonsdottir&offset=0&limit=50",
+    );
+  });
+
+  it("uses the API origin injected at container startup", async () => {
+    Object.defineProperty(window, "__EFTIRMAL_ENV__", {
+      configurable: true,
+      value: { VITE_API_URL: "https://runtime.example.test" },
+    });
+    vi.resetModules();
+    const { searchPeople: searchWithRuntimeConfig } = await import("./api");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        Response.json({ items: [], total: 0, offset: 0, limit: 50 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await searchWithRuntimeConfig("ada");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://runtime.example.test/api/people?query=ada&offset=0&limit=50",
     );
   });
 

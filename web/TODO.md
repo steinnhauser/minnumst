@@ -9,7 +9,7 @@ This backlog is owned by the public archive frontend. Items that change shared A
 
 ## Cross-Service Work
 
-- [ ] Set the repository Actions variable `VITE_API_URL` to the production API origin, then create the first SemVer release tag and verify the private GHCR image is published. The tagged multi-platform publishing workflow is now implemented; deploy still needs a pinned image version.
+- [ ] Verify the first tagged GHCR image is published and pin its deployment image to an explicit version in eftirmal-deploy. The image reads `VITE_API_URL` from deployment Compose at runtime.
 - [ ] Add ancestor portrait display after the API defines a secure media contract, storage lifecycle, and public URL/access policy. Do not embed or fetch image blobs directly from MariaDB in the browser.
 
 ## Acceptance Notes

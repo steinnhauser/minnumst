@@ -7,9 +7,6 @@ RUN npm ci
 
 COPY . .
 
-ARG VITE_API_URL=http://127.0.0.1:8000
-ENV VITE_API_URL=${VITE_API_URL}
-
 RUN npm run build
 
 FROM node:22-alpine AS runtime
@@ -19,8 +16,9 @@ WORKDIR /app
 
 RUN npm install --global serve@14.2.4
 COPY --from=build --chown=node:node /app/dist ./dist
+COPY --chown=node:node runtime-config.mjs ./runtime-config.mjs
 
 USER node
 EXPOSE 8080
 
-CMD ["serve", "--single", "--listen", "tcp://0.0.0.0:8080", "dist"]
+CMD ["sh", "-c", "node runtime-config.mjs && exec serve --single --listen tcp://0.0.0.0:8080 dist"]

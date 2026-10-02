@@ -38,6 +38,16 @@ Vite reads `DEBUG` and `VITE_API_URL` from `.env`. Copy `.env.example` to `.env`
 
 The matching npm scripts are available directly in `package.json`.
 
+## Container Image
+
+The Dockerfile builds the Vite bundle and serves it as a non-root user on port `8080`. Set `VITE_API_URL` at build time because Vite embeds the API origin in the static assets:
+
+```sh
+docker build --build-arg VITE_API_URL=https://api.example.com -t eftirmal-admin:local .
+```
+
+The GitHub workflow publishes tagged frontend build archives as releases; it does not currently publish a container image.
+
 ## Current boundary
 
 The central API is the source of truth for people and blog pages. The admin loads people with `GET /api/people`, creates a person with `POST /api/people` when needed, saves edits with `PUT /api/people/{person_id}/blog`, and loads history from `GET /api/people/{person_id}/blog/revisions`. The API assigns stable person IDs, enforces one blog per person, and appends an immutable revision on every save. The public frontend reads the current revision from the same API.

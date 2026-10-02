@@ -1,6 +1,10 @@
-# Eftirmal Admin
+# Eftirmál | Editorial Desk
 
-React and Vite workspace for drafting name-linked blog pages for the Eftirmal archive.
+![Eftirmál concept: a family tree of stories, names, and memories](.github/assets/eftirmal-concept.png)
+
+> Eftirmál is a shared written history of our ancestors, preserving people and their stories across generations.
+
+This React, TypeScript, and Vite application is the editorial workspace for creating people and saving append-only story revisions through the shared API.
 
 ## Requirements
 

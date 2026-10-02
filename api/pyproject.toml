@@ -1,4 +1,5 @@
 [project]
+authors = [{name = "Steinn Hauser Magnússon", email = "hausersteinn@gmail.com"}]
 dependencies = [
   "fastapi>=0.115,<1.0",
   "pydantic-settings>=2.6,<3.0",

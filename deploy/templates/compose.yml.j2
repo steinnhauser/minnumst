@@ -1,0 +1,110 @@
+services:
+  traefik:
+    image: {{ traefik_image | to_json }}
+    restart: unless-stopped
+    command:
+      - --api.dashboard=false
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=eftirmal_edge
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --certificatesresolvers.le.acme.email={{ traefik_acme_email }}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_acme:/letsencrypt
+    networks:
+      - edge
+
+  public:
+    image: {{ eftirmal_public_image | to_json }}
+    restart: unless-stopped
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: eftirmal_edge
+      traefik.http.routers.eftirmal-public.rule: "Host(`{{ eftirmal_domain }}`)"
+      traefik.http.routers.eftirmal-public.entrypoints: websecure
+      traefik.http.routers.eftirmal-public.tls.certresolver: le
+      traefik.http.services.eftirmal-public.loadbalancer.server.port: "80"
+    networks:
+      - edge
+
+  admin:
+    image: {{ eftirmal_admin_image | to_json }}
+    restart: unless-stopped
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: eftirmal_edge
+      traefik.http.routers.eftirmal-admin.rule: "Host(`{{ eftirmal_admin_domain }}`)"
+      traefik.http.routers.eftirmal-admin.entrypoints: websecure
+      traefik.http.routers.eftirmal-admin.tls.certresolver: le
+      traefik.http.routers.eftirmal-admin.middlewares: authentik
+      traefik.http.services.eftirmal-admin.loadbalancer.server.port: "80"
+      traefik.http.middlewares.authentik.forwardauth.address: {{ authentik_forwardauth_address | to_json }}
+      traefik.http.middlewares.authentik.forwardauth.trustForwardHeader: "true"
+    networks:
+      - edge
+
+  api:
+    image: {{ eftirmal_api_image | to_json }}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: {{ ("mysql+pymysql://" ~ mariadb_user ~ ":" ~ (mariadb_password | urlencode) ~ "@mariadb:3306/" ~ mariadb_database ~ "?charset=utf8mb4") | to_json }}
+      CORS_ORIGINS: {{ ("https://" ~ eftirmal_domain ~ ",https://" ~ eftirmal_admin_domain) | to_json }}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: eftirmal_edge
+      traefik.http.routers.eftirmal-api-read.rule: "Host(`{{ eftirmal_api_domain }}`)"
+      traefik.http.routers.eftirmal-api-read.entrypoints: websecure
+      traefik.http.routers.eftirmal-api-read.priority: "1"
+      traefik.http.routers.eftirmal-api-read.tls.certresolver: le
+      traefik.http.routers.eftirmal-api-read.service: eftirmal-api
+      traefik.http.routers.eftirmal-api-write.rule: "Host(`{{ eftirmal_api_domain }}`) && (Method(`POST`) || Method(`PUT`) || Method(`PATCH`) || Method(`DELETE`))"
+      traefik.http.routers.eftirmal-api-write.entrypoints: websecure
+      traefik.http.routers.eftirmal-api-write.priority: "100"
+      traefik.http.routers.eftirmal-api-write.tls.certresolver: le
+      traefik.http.routers.eftirmal-api-write.middlewares: authentik
+      traefik.http.routers.eftirmal-api-write.service: eftirmal-api
+      traefik.http.services.eftirmal-api.loadbalancer.server.port: "8000"
+      traefik.http.middlewares.authentik.forwardauth.address: {{ authentik_forwardauth_address | to_json }}
+      traefik.http.middlewares.authentik.forwardauth.trustForwardHeader: "true"
+    networks:
+      - edge
+      - backend
+
+  mariadb:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: {{ mariadb_database | to_json }}
+      MARIADB_USER: {{ mariadb_user | to_json }}
+      MARIADB_PASSWORD: {{ mariadb_password | to_json }}
+      MARIADB_ROOT_PASSWORD: {{ mariadb_root_password | to_json }}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - backend
+
+volumes:
+  mariadb_data:
+  traefik_acme:
+
+networks:
+  edge:
+  backend:
+    internal: true

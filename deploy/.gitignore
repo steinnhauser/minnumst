@@ -2,6 +2,11 @@
 __pycache__/
 *.py[codz]
 *$py.class
+.venv/
+.ruff_cache/
+.ansible/
+inventory/hosts.ini
+inventory/group_vars/all/vault.yml
 
 # C extensions
 *.so

@@ -1,0 +1,22 @@
+[project]
+dependencies = ["ansible-core>=2.16,<3.0"]
+description = "Ansible deployment for the Eftirmal services"
+name = "eftirmal-deploy"
+requires-python = ">=3.11"
+version = "0.1.0"
+
+[dependency-groups]
+dev = [
+  "ansible-lint>=24.10,<26.0",
+  "ruff>=0.8,<1.0",
+]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.format]
+indent-style = "space"
+quote-style = "double"

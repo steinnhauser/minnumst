@@ -1,0 +1,16 @@
+---
+eftirmal_deploy_dir: /opt/eftirmal
+eftirmal_domain: eftirmal.example
+eftirmal_admin_domain: admin.eftirmal.example
+eftirmal_api_domain: api.eftirmal.example
+
+eftirmal_public_image: ghcr.io/OWNER/eftirmal:latest
+eftirmal_admin_image: ghcr.io/OWNER/eftirmal-admin:latest
+eftirmal_api_image: ghcr.io/OWNER/eftirmal-api:latest
+
+traefik_image: traefik:v3.3
+traefik_acme_email: ops@example.com
+authentik_forwardauth_address: https://auth.example.com/outpost.goauthentik.io/auth/traefik
+
+mariadb_database: eftirmal
+mariadb_user: eftirmal

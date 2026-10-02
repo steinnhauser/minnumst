@@ -6,7 +6,7 @@ eftirmal_api_domain: api.eftirmal.example
 
 eftirmal_public_image: ghcr.io/OWNER/eftirmal:latest
 eftirmal_admin_image: ghcr.io/OWNER/eftirmal-admin:latest
-eftirmal_api_image: ghcr.io/OWNER/eftirmal-api:latest
+eftirmal_api_image: ghcr.io/steinnhauser/eftirmal-api:0.1.0
 
 traefik_image: traefik:v3.3
 traefik_acme_email: ops@example.com

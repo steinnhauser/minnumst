@@ -50,7 +50,7 @@ The Dockerfile builds the Vite bundle and serves it as a non-root user on port `
 docker build --build-arg VITE_API_URL=https://api.example.com -t eftirmal-admin:local .
 ```
 
-The GitHub workflow publishes tagged frontend build archives as releases; it does not currently publish a container image.
+Tagged releases publish a multi-platform private image to `ghcr.io/steinnhauser/eftirmal-admin` as both `<version>` and `latest`. Before the first image release, set the non-secret repository Actions variable `VITE_API_URL` to the production API origin (for example, `https://api.example.com`). Vite embeds this origin at build time.
 
 ## Current boundary
 

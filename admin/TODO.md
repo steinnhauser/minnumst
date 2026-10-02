@@ -12,7 +12,7 @@ This backlog is owned by the editorial studio. The API remains the source of tru
 
 - [ ] Add secure profile-portrait selection/upload only after the API defines the media contract, size/type validation, storage, authorization, and delete/retention behavior. The current API has no image upload or fetch route; do not store image bytes in browser state or imply this feature exists.
 - [ ] Verify Authentik protects the admin route in the deployed environment. Authentication is upstream in Traefik/Authentik; do not add an app-local login or Google Authenticator implementation here.
-- [ ] Publish the admin Docker image from a tag workflow before replacing its placeholder image in deploy.
+- [ ] Set the repository Actions variable `VITE_API_URL` to the production API origin, then create the first SemVer release tag and verify the private GHCR image is published. The tagged multi-platform publishing workflow is now implemented; deploy still needs a pinned image version.
 
 ## Acceptance Notes
 

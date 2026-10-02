@@ -72,3 +72,105 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" release-assets/* --verify-tag --generate-notes --title "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"
+
+  publish-image:
+    needs: validate
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Validate production API origin
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: |
+          if [ -z "$VITE_API_URL" ]; then
+            echo "::error::Set the repository Actions variable VITE_API_URL to the production API origin before publishing."
+            exit 1
+          fi
+          node -e 'const url = new URL(process.env.VITE_API_URL); if (url.protocol !== "https:" || url.pathname !== "/" || url.search || url.hash || url.username || url.password) throw new Error("VITE_API_URL must be an HTTPS origin without credentials, path, query, or fragment")'
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and publish admin frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            VITE_API_URL=${{ vars.VITE_API_URL }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/eftirmal-admin:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/eftirmal-admin:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.description=Eftirmal editorial frontend
+            org.opencontainers.image.licenses=Apache-2.0
+
+  publish-image:
+    needs: validate
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Validate production API origin
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: |
+          if [ -z "$VITE_API_URL" ]; then
+            echo "::error::Set the repository Actions variable VITE_API_URL to the production API origin before publishing."
+            exit 1
+          fi
+          node -e 'const url = new URL(process.env.VITE_API_URL); if (url.protocol !== "https:" || url.pathname !== "/" || url.search || url.hash) throw new Error("VITE_API_URL must be an HTTPS origin without a path, query, or fragment")'
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and publish admin frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            VITE_API_URL=${{ vars.VITE_API_URL }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/eftirmal-admin:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/eftirmal-admin:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.description=Eftirmal editorial frontend
+            org.opencontainers.image.licenses=Apache-2.0

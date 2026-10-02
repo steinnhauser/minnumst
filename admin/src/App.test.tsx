@@ -27,6 +27,114 @@ function savedBlog(revisionNumber: number, title: string, content: string) {
 }
 
 describe("blog page editor", () => {
+  it("renames an existing person without creating a story revision", async () => {
+    const user = userEvent.setup();
+    const existingPerson = {
+      id: "person-1",
+      name: "Ada Lovelace",
+      slug: "ada-lovelace",
+      blog: null,
+    };
+    const renamedPerson = {
+      ...existingPerson,
+      name: "Ada Byron",
+      slug: "ada-lovelace",
+    };
+    const fetchMock = vi.fn((_: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        Response.json(
+          init?.method === "PATCH"
+            ? renamedPerson
+            : {
+                items: [existingPerson],
+                total: 1,
+                offset: 0,
+                limit: 100,
+              },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /Ada Lovelace/ }),
+    );
+    const nameInput = screen.getByLabelText(/Person name/);
+    await user.clear(nameInput);
+    await user.type(nameInput, "  Ada   Byron ");
+    await user.click(screen.getByRole("button", { name: "Save revision" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Update the person name before saving a story revision.",
+    );
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
+
+    await user.click(screen.getByRole("button", { name: "Update name" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Person name updated in the shared archive.",
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/people/person-1",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ name: "Ada Byron" }),
+      }),
+    );
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
+    expect(
+      screen.getByRole("button", { name: /Ada Byron/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a normalized-name conflict when renaming a person", async () => {
+    const user = userEvent.setup();
+    const person = {
+      id: "person-1",
+      name: "Ada Lovelace",
+      slug: "ada-lovelace",
+      blog: null,
+    };
+    const fetchMock = vi.fn((_: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === "PATCH"
+          ? Response.json(
+              { detail: "A person with this normalized name already exists" },
+              { status: 409 },
+            )
+          : Response.json({
+              items: [person],
+              total: 1,
+              offset: 0,
+              limit: 100,
+            }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /Ada Lovelace/ }),
+    );
+    await user.clear(screen.getByLabelText(/Person name/));
+    await user.type(screen.getByLabelText(/Person name/), "Another Person");
+    await user.click(screen.getByRole("button", { name: "Update name" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Another person already uses this normalized name.",
+    );
+    expect(
+      screen.getByRole("button", { name: /Ada Lovelace/ }),
+    ).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([, init]) => init?.method === "PUT"),
+    ).toBe(false);
+  });
+
   it("creates one person and appends each edit to API revision history", async () => {
     const user = userEvent.setup();
     const fetchMock = vi

@@ -56,7 +56,7 @@ The GitHub workflow publishes tagged frontend build archives as releases; it doe
 
 The central API is the source of truth for people and blog pages. The admin loads people with `GET /api/people`, creates a person with `POST /api/people` when needed, saves edits with `PUT /api/people/{person_id}/blog`, and loads history from `GET /api/people/{person_id}/blog/revisions`. The API assigns stable person IDs, enforces one blog per person, and appends an immutable revision on every save. The public frontend reads the current revision from the same API.
 
-The current API supports person creation, name updates, public lookup, and blog revisions. It does not yet define profile image upload or revision restore routes; do not simulate those operations in this frontend.
+The admin supports person-name updates through `PATCH /api/people/{person_id}`, as well as person creation, public lookup, and blog revisions. The API does not yet define profile image upload or revision restore routes; do not simulate those operations in this frontend.
 
 Local environment files are ignored by Git. `.env.example` is the tracked template; only non-secret browser configuration belongs in `DEBUG` and `VITE_API_URL`.
 

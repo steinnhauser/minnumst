@@ -159,6 +159,20 @@ export async function createPerson(name: string): Promise<PersonPost> {
   return mapPerson(person);
 }
 
+export async function updatePersonName(
+  personId: string,
+  name: string,
+): Promise<PersonPost> {
+  const person = await request<ApiPerson>(
+    `/api/people/${encodeURIComponent(personId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ name: name.trim().replace(/\s+/g, " ") }),
+    },
+  );
+  return mapPerson(person);
+}
+
 export async function loadPersonRevisions(
   personId: string,
 ): Promise<PostRevision[]> {

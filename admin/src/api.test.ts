@@ -4,6 +4,7 @@ import {
   loadPeople,
   loadPersonRevisions,
   savePersonRevision,
+  updatePersonName,
 } from "./api";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -62,6 +63,33 @@ describe("admin API client", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ name: "Ada Lovelace" }),
+      }),
+    );
+  });
+
+  it("updates a person's name through the existing API endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        id: "person-1",
+        name: "Ada Byron",
+        slug: "ada-byron",
+        blog: null,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      updatePersonName("person-1", "  Ada   Byron "),
+    ).resolves.toMatchObject({
+      id: "person-1",
+      personName: "Ada Byron",
+      slug: "ada-byron",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/people/person-1",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ name: "Ada Byron" }),
       }),
     );
   });

@@ -15,6 +15,7 @@ import {
   loadPeople,
   loadPersonRevisions,
   savePersonRevision,
+  updatePersonName,
   type PersonPost,
 } from "./api";
 import { appConfig } from "./config";
@@ -123,6 +124,14 @@ function App() {
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (
+      selectedPost &&
+      personName.trim().replace(/\s+/g, " ") !== selectedPost.personName
+    ) {
+      setMessage("Update the person name before saving a story revision.");
+      setMessageIsError(true);
+      return;
+    }
     if (!personName.trim() || !title.trim() || !content.trim()) {
       setMessage("Add a person name, page title, and story before saving.");
       setMessageIsError(true);
@@ -171,6 +180,48 @@ function App() {
       setMessage(
         apiMessage === "A person with this normalized name already exists"
           ? "A person with this name already exists. Select them from the pages list and save the story there."
+          : apiMessage,
+      );
+      setMessageIsError(true);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleRenamePerson() {
+    if (!selectedPost) return;
+    const cleanedName = personName.trim().replace(/\s+/g, " ");
+    if (!cleanedName) {
+      setMessage("Add a person name before updating it.");
+      setMessageIsError(true);
+      return;
+    }
+    if (cleanedName === selectedPost.personName) return;
+
+    setIsSaving(true);
+    try {
+      const updated = await updatePersonName(selectedPost.id, cleanedName);
+      const renamedPost = {
+        ...selectedPost,
+        personName: updated.personName,
+        slug: updated.slug,
+      };
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === renamedPost.id ? renamedPost : post,
+        ),
+      );
+      setPersonName(renamedPost.personName);
+      setMessage("Person name updated in the shared archive.");
+      setMessageIsError(false);
+    } catch (error) {
+      const apiMessage =
+        error instanceof Error
+          ? error.message
+          : "The name could not be updated.";
+      setMessage(
+        apiMessage === "A person with this normalized name already exists"
+          ? "Another person already uses this normalized name."
           : apiMessage,
       );
       setMessageIsError(true);
@@ -391,9 +442,29 @@ function App() {
                     autoComplete="off"
                     placeholder="e.g. Sigríður Jónsdóttir"
                     value={personName}
-                    disabled={Boolean(selectedPost)}
                     onChange={(event) => setPersonName(event.target.value)}
                   />
+                  {selectedPost && (
+                    <div className="person-name-actions">
+                      <p className="person-name-note">
+                        Updates the shared public profile name without changing
+                        story history.
+                      </p>
+                      <button
+                        className="name-update-button"
+                        type="button"
+                        disabled={
+                          isSaving ||
+                          !personName.trim() ||
+                          personName.trim().replace(/\s+/g, " ") ===
+                            selectedPost.personName
+                        }
+                        onClick={() => void handleRenamePerson()}
+                      >
+                        Update name
+                      </button>
+                    </div>
+                  )}
 
                   <label className="field-label" htmlFor="page-title-input">
                     Page title <span>Required</span>

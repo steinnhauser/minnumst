@@ -33,6 +33,8 @@ The frontend images must serve their built Vite assets on port 8080. Build each 
 
 The API repository publishes versioned images to `ghcr.io/steinnhauser/eftirmal-api` when an API release tag is pushed. The deployment currently pins API image `0.1.0`; change `eftirmal_api_image` when intentionally upgrading the deployed API. Ensure the GHCR package is public or configure registry authentication on the host before deployment.
 
+The public and admin repositories have Dockerfiles but their current release workflows publish build archives, not container images. Configure and publish those frontend images before using this deployment on a host; the example `OWNER` references are placeholders.
+
 ## Release
 
 The initial deployment release is version `0.1.0`, matching `pyproject.toml`. Push the annotated `0.1.0` tag after committing the release files; the GitHub Actions workflow validates the project and creates the GitHub Release. The API image is built by the separate API repository's `0.1.0` tag workflow, not by the deployment tag.

@@ -4,6 +4,8 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
+from eftirmal_api.config import settings
+from eftirmal_api.logging_config import configure_logging
 from eftirmal_api.main import create_app
 
 
@@ -98,6 +100,51 @@ def test_missing_person_returns_not_found(client: TestClient) -> None:
     assert response.status_code == 404
 
 
+def test_successful_health_checks_are_debug_level(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+
+    response = client.get("/healthz")
+
+    assert response.status_code == 200
+    health_log = next(
+        record
+        for record in caplog.records
+        if record.getMessage() == "Request completed"
+        and getattr(record, "route", None) == "/healthz"
+    )
+    assert health_log.levelno == logging.DEBUG
+
+
+def test_cors_allows_and_exposes_request_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "cors_origins", "https://public.example")
+    app = create_app(database_url="sqlite://", create_tables=True)
+
+    with TestClient(app) as test_client:
+        preflight = test_client.options(
+            "/api/people",
+            headers={
+                "Origin": "https://public.example",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "x-request-id",
+            },
+        )
+        response = test_client.get(
+            "/api/people",
+            headers={
+                "Origin": "https://public.example",
+                "X-Request-ID": "cors-request-123",
+            },
+        )
+
+    assert preflight.status_code == 200
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "https://public.example"
+    assert "x-request-id" in preflight.headers["access-control-allow-headers"].lower()
+    assert response.headers["access-control-expose-headers"] == "X-Request-ID"
+
+
 def test_person_without_blog_can_be_deleted(client: TestClient) -> None:
     person = create_person(client)
 
@@ -113,12 +160,30 @@ def test_request_logs_route_and_status_without_logging_search_text(
 ) -> None:
     search_text = "private-person-search"
     caplog.set_level(logging.DEBUG)
+    configure_logging("DEBUG")
 
-    response = client.get("/api/people", params={"query": search_text})
+    response = client.get(
+        "/api/people",
+        params={"query": search_text},
+        headers={"X-Request-ID": "test-request-123"},
+    )
 
     assert response.status_code == 200
-    assert "Request completed method=GET route=/api/people status_code=200" in (
-        caplog.text
+    assert response.headers["X-Request-ID"] == "test-request-123"
+    request_log = next(
+        record
+        for record in caplog.records
+        if record.getMessage() == "Request completed"
+    )
+    assert request_log.request_id == "test-request-123"
+    assert request_log.method == "GET"
+    assert request_log.route == "/api/people"
+    assert request_log.status_code == 200
+    assert any(
+        record.name == "eftirmal_api.api"
+        and getattr(record, "request_id", None) == "test-request-123"
+        for record in caplog.records
     )
     assert "query_present=True" in caplog.text
     assert search_text not in caplog.text
+    configure_logging("INFO")

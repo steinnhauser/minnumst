@@ -28,7 +28,7 @@ mysql+pymysql://eftirmal:password@mariadb:3306/eftirmal?charset=utf8mb4
 
 Keep credentials in the deployment secret mechanism, not in tracked files. The application creates tables on startup for this initial implementation; introduce versioned migrations before applying schema changes to a production database.
 
-Set `LOG_LEVEL` in `.env` to `DEBUG`, `INFO`, `WARNING`, or `ERROR`; the default is `INFO`. Other values are rejected during settings validation.
+Set `LOG_LEVEL` in `.env` or the container environment to `DEBUG`, `INFO`, `WARNING`, or `ERROR`; the default is `INFO`. Other values are rejected during settings validation. The API writes one-line JSON logs to stdout/stderr, so they are available through `docker logs <container>`. Records include timestamp, level, service/logger, and structured request fields. Request records include a validated `X-Request-ID`, method, route template, status, and duration; query values and request bodies are not logged. The API echoes the ID in its response header for correlation. Uvicorn's duplicate access logger is disabled.
 
 ## Initial API contract
 

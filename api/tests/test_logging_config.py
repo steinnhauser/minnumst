@@ -1,10 +1,11 @@
+import json
 import logging
 
 import pytest
 from pydantic import ValidationError
 
 from eftirmal_api.config import Settings
-from eftirmal_api.logging_config import configure_logging
+from eftirmal_api.logging_config import JsonFormatter, configure_logging
 
 
 def test_log_level_defaults_to_info(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -39,3 +40,26 @@ def test_configure_logging_sets_application_and_server_levels() -> None:
     assert logging.getLogger("httpx").level == logging.WARNING
 
     configure_logging("INFO")
+
+
+def test_json_formatter_includes_trace_fields() -> None:
+    record = logging.LogRecord(
+        "eftirmal_api.main",
+        logging.INFO,
+        __file__,
+        1,
+        "Request completed",
+        (),
+        None,
+    )
+    record.request_id = "request-123"
+    record.route = "/api/people/{person_id}"
+    record.status_code = 200
+
+    payload = json.loads(JsonFormatter().format(record))
+
+    assert payload["service"] == "eftirmal-api"
+    assert payload["level"] == "INFO"
+    assert payload["request_id"] == "request-123"
+    assert payload["route"] == "/api/people/{person_id}"
+    assert payload["status_code"] == 200

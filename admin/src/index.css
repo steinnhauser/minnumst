@@ -1,0 +1,68 @@
+:root {
+  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+  color: #233c34;
+  background: #f5f4ef;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  font-weight: 400;
+
+  --paper: #fbfaf7;
+  --canvas: #f2f1eb;
+  --ink: #233c34;
+  --muted: #748079;
+  --soft-muted: #929b94;
+  --line: #e0e3dc;
+  --green: #315e50;
+  --green-dark: #234438;
+  --coral: #e76568;
+  --coral-pale: #faeeee;
+  --sage: #e8eee7;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  min-height: 100%;
+  background: var(--canvas);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgb(231 101 104 / 38%);
+  outline-offset: 2px;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::selection {
+  color: var(--ink);
+  background: #f6cfd0;
+}

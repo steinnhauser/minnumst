@@ -1,0 +1,50 @@
+:root {
+  --paper: #fff;
+  --ink: #1f342c;
+  --muted: #68756e;
+  --line: #e2e7e1;
+  --coral: #f04d61;
+  --coral-dark: #c9384c;
+  --font-body: "Avenir Next", "Trebuchet MS", sans-serif;
+  --font-display:
+    "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--paper);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100svh;
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+::selection {
+  background: #f9cbd1;
+  color: var(--ink);
+}

@@ -7,6 +7,8 @@ updates:
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
+      npm-major:
+        update-types: [major]
     commit-message: { prefix: "chore(deps)" }
 
   - package-ecosystem: uv
@@ -15,6 +17,8 @@ updates:
     groups:
       uv-minor-and-patch:
         update-types: [minor, patch]
+      uv-major:
+        update-types: [major]
     commit-message: { prefix: "chore(deps)" }
 
   - package-ecosystem: docker

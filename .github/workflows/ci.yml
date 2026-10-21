@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: api (lint, OpenAPI, tests incl. MariaDB, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - run: uv sync --locked --all-groups
+      - run: make validate
+
+  frontend:
+    name: ${{ matrix.component }} (format, lint, tests, type-check, build)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [web, admin]
+    defaults:
+      run:
+        working-directory: ${{ matrix.component }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20.19"
+          cache: npm
+          cache-dependency-path: ${{ matrix.component }}/package-lock.json
+      - run: npm ci
+      - run: npm run validate
+
+  deploy:
+    name: deploy (Ruff, ansible-lint, syntax check)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: deploy
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - run: uv sync --locked --all-groups
+      - run: make validate
+
+  e2e:
+    name: e2e (full stack with MariaDB)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.11"
+          enable-cache: true
+      - name: Install the deployment tooling used to render Compose
+        run: make -C deploy install
+      - name: Build and start the stack
+        run: make -C tools compose-up
+      - name: Wait for the API to be ready
+        run: |
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8000/readyz && exit 0
+            sleep 2
+          done
+          make -C tools compose-logs SERVICES=api &
+          sleep 5
+          exit 1
+      - name: Seed sample data and run end-to-end API tests
+        run: make -C tools db-seed e2e
+      - name: Check that both frontends serve
+        run: |
+          curl -fsS http://127.0.0.1:5173/runtime-config.js
+          curl -fsS http://127.0.0.1:5174/runtime-config.js
+      - name: Stop the stack
+        if: always()
+        run: make -C tools compose-down

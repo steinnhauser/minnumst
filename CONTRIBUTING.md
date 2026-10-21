@@ -26,3 +26,5 @@ Run `make -C tools validate` to check everything, or the owning component's targ
 | `tools/`         | Docker and docker-compose                                   | `make compose-config`. For changes that span components, also run `make compose-up db-seed e2e`.                                                                                                                                                                 |
 
 Copy each component's `.env.example` to `.env` for local development.
+
+The same checks run in CI on every push and pull request (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)), together with an end-to-end run of the full stack.

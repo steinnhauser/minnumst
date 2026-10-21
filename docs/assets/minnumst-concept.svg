@@ -2,13 +2,10 @@
     <rect width="960" height="150" fill="#fff" />
     <text x="48" y="82" fill="#1f342c"
         font-family="'Avenir Next', 'Trebuchet MS', Arial, sans-serif" font-size="28"
-        font-weight="700" letter-spacing="2.8">EFTIRMAL</text>
-    <text x="223" y="82" fill="#f04d61"
-        font-family="'Avenir Next', 'Trebuchet MS', Arial, sans-serif" font-size="28"
-        font-weight="700">.</text>
+        font-weight="700" letter-spacing="2.8">MINNUMST<tspan dx="4" fill="#f04d61">.</tspan></text>
     <path d="M270 42v66" stroke="#e2e7e1" stroke-width="1" />
     <text x="306" y="72" fill="#1f342c"
-        font-family="'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Georgia, serif"
+        font-family="'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Georgia, 'Liberation Serif', 'DejaVu Serif', serif"
         font-size="23">A written history of our ancestors.</text>
     <text x="308" y="101" fill="#68756e"
         font-family="'Avenir Next', 'Trebuchet MS', Arial, sans-serif" font-size="10"

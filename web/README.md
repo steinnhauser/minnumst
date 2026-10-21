@@ -1,6 +1,6 @@
 # Eftirmál | Public Archive
 
-![Eftirmál concept: a family tree of stories, names, and memories](.github/assets/eftirmal-concept.png)
+![Eftirmál concept: a family tree of stories, names, and memories](../docs/assets/minnumst-concept.png)
 
 > Eftirmál is a shared written history of our ancestors, preserving people and their stories across generations.
 

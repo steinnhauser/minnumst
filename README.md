@@ -7,6 +7,16 @@
 Minnumst has a public archive for reading stories, an editorial desk for writing them, and an API that keeps every story revision.
 It is self-hosted with Ansible and Docker Compose behind Traefik, with Authentik guarding everything that writes.
 
+<p align="center">
+  <img src="docs/assets/screenshot-web.jpg" alt="Public archive on desktop: name search with a person's profile and story" width="72%">
+  &nbsp;
+  <img src="docs/assets/screenshot-mobile.jpg" alt="Public archive on a phone: search result and story" width="22%">
+</p>
+<p align="center">
+  <img src="docs/assets/screenshot-admin.png" alt="Editorial desk: list of pages and the revision history of one story" width="95%">
+</p>
+<p align="center"><sub>The public archive (desktop and phone) and the editorial desk with a story's revision history. All people and stories shown are fictional sample data.</sub></p>
+
 ## Architecture
 
 ```text

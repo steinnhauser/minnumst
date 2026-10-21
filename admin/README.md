@@ -51,7 +51,7 @@ docker build -t minnumst-admin:local .
 docker run --rm -p 8080:8080 -e VITE_API_URL=https://api.example.com -e DEBUG=false -e LOG_LEVEL=DEBUG minnumst-admin:local
 ```
 
-Tagged releases publish a multi-platform private image to `ghcr.io/steinnhauser/minnumst-admin` as both `<version>` and `latest`. Deployment Compose supplies `VITE_API_URL` from the configured API hostname, `DEBUG` from `minnumst_admin_debug`, and the shared `LOG_LEVEL`.
+Multi-platform images will be published as `ghcr.io/steinnhauser/minnumst-admin:<version>` by the repository-level release workflow, which is not in place yet. Deployment Compose supplies `VITE_API_URL` from the configured API hostname, `DEBUG` from `minnumst_admin_debug`, and the shared `LOG_LEVEL`.
 
 `LOG_LEVEL` accepts `DEBUG`, `INFO`, `WARNING`, or `ERROR` and defaults to `INFO`. Use `docker logs <container>` to read its JSON startup/access records. Access records include a request ID, method, sanitized route, status, and duration; query strings and person slugs are not logged. API calls carry the same `X-Request-ID` into the API logs.
 

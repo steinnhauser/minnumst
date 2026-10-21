@@ -4,7 +4,7 @@
 
 > Minnumst is a shared written history of our ancestors, preserving people and their stories across generations.
 
-This repository uses Ansible to deploy the public archive, editorial desk, shared API, MariaDB, and Traefik to Debian-based hosts. Application images are built and published by their owning repositories.
+This component uses Ansible to deploy the public archive, editorial desk, shared API, MariaDB, and Traefik to Debian-based hosts. Application images are built and published by their owning repositories.
 
 ## Requirements
 

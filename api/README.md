@@ -46,9 +46,8 @@ The admin supports person-linked blog title, excerpt, and story revisions; profi
 
 ## Container image
 
-Build locally with `docker build -t minnumst-api:local .`. Pushing a plain SemVer API tag runs the release workflow, builds `linux/amd64` and `linux/arm64` images, and publishes `ghcr.io/steinnhauser/minnumst-api:<version>` plus `:latest`. The image listens on port 8000, runs as a non-root user, and exposes `/healthz` as its container healthcheck. Make the GHCR package public in its package settings before pulling it from a host that has not authenticated to GitHub Container Registry.
+Build locally with `docker build -t minnumst-api:local .`. Multi-platform images (`linux/amd64`, `linux/arm64`) will be published as `ghcr.io/steinnhauser/minnumst-api:<version>` by the repository-level release workflow, which is not in place yet. The image listens on port 8000, runs as a non-root user, and exposes `/healthz` as its container healthcheck. Make the GHCR package public in its package settings before pulling it from a host that has not authenticated to GitHub Container Registry.
 
-To rerun publishing for an existing tag without moving or recreating it, manually dispatch the `CI and Release` workflow using that tag as the ref, for example `gh workflow run ci.yml --repo steinnhauser/minnumst --ref api-0.1.0`. Publishing jobs only run when the selected ref is a SemVer tag.
 
 ## Commands
 

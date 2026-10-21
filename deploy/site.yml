@@ -1,0 +1,143 @@
+---
+- name: Deploy Eftirmal services
+  hosts: eftirmal
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Check required deployment settings
+      ansible.builtin.assert:
+        that:
+          - eftirmal_domain | length > 0
+          - eftirmal_public_image | length > 0
+          - eftirmal_admin_image | length > 0
+          - eftirmal_api_image | length > 0
+          - eftirmal_log_level in ["DEBUG", "INFO", "WARNING", "ERROR"]
+          - authentik_forwardauth_address | length > 0
+          - traefik_acme_email | length > 0
+          - mariadb_root_password is match('^[A-Za-z0-9_-]+$')
+          - mariadb_password is match('^[A-Za-z0-9_-]+$')
+        fail_msg: >-
+          Set the image, domain, Authentik, and ACME variables, and use
+          URL-safe MariaDB passwords in the inventory and Ansible Vault.
+      no_log: true
+
+    - name: Require a Debian-family target
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == "Debian"
+        fail_msg: This playbook supports Debian and Ubuntu hosts.
+
+  tasks:
+    - name: Install Docker repository prerequisites
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - python3-debian
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Ensure apt keyring directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Install Docker repository signing key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Read Debian package architecture
+      ansible.builtin.command:
+        argv:
+          - dpkg
+          - --print-architecture
+      register: docker_architecture
+      changed_when: false
+
+    - name: Configure Docker apt repository
+      ansible.builtin.deb822_repository:
+        name: docker
+        types:
+          - deb
+        uris:
+          - https://download.docker.com/linux/{{ ansible_distribution | lower }}
+        suites:
+          - "{{ ansible_distribution_release }}"
+        components:
+          - stable
+        architectures:
+          - "{{ docker_architecture.stdout }}"
+        signed_by: /etc/apt/keyrings/docker.asc
+        state: present
+
+    - name: Install Docker Engine and Compose plugin
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: Ensure Docker is enabled and running
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Create deployment directory
+      ansible.builtin.file:
+        path: "{{ eftirmal_deploy_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Render Compose deployment
+      ansible.builtin.template:
+        src: templates/compose.yml.j2
+        dest: "{{ eftirmal_deploy_dir }}/compose.yml"
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Validate rendered Compose configuration
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --project-name
+          - eftirmal
+          - --file
+          - "{{ eftirmal_deploy_dir }}/compose.yml"
+          - config
+          - --quiet
+      changed_when: false
+
+    - name: Pull and start Eftirmal services
+      ansible.builtin.command:
+        argv:
+          - docker
+          - compose
+          - --project-name
+          - eftirmal
+          - --file
+          - "{{ eftirmal_deploy_dir }}/compose.yml"
+          - up
+          - --detach
+          - --remove-orphans
+          - --pull
+          - always
+
+      changed_when: true

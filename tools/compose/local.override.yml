@@ -1,0 +1,30 @@
+services:
+  public:
+    image: minnumst-local/public:dev
+    build:
+      context: ../../../web
+    environment:
+      VITE_API_URL: http://127.0.0.1:8000
+    ports:
+      - "127.0.0.1:5173:8080"
+
+  admin:
+    image: minnumst-local/admin:dev
+    build:
+      context: ../../../admin
+    environment:
+      VITE_API_URL: http://127.0.0.1:8000
+    ports:
+      - "127.0.0.1:5174:8080"
+
+  api:
+    image: minnumst-local/api:dev
+    build:
+      context: ../../../api
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      CORS_ORIGINS: http://127.0.0.1:5173,http://127.0.0.1:5174
+    volumes:
+      - ../../../tools/scripts/seed_local_db.py:/opt/minnumst/seed_local_db.py:ro
+      - ../../../tools/scripts/e2e_api.py:/opt/minnumst/e2e_api.py:ro

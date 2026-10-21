@@ -1,0 +1,20 @@
+---
+- name: Render local Minnumst Compose configuration
+  hosts: localhost
+  connection: local
+  become: false
+  gather_facts: false
+  vars_files:
+    - ../../deploy/inventory/group_vars/all/vars.yml
+  tasks:
+    - name: Create private generated configuration directory
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/.local"
+        state: directory
+        mode: "0700"
+
+    - name: Render deployment Compose template
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../../deploy/templates/compose.yml.j2"
+        dest: "{{ playbook_dir }}/.local/compose.yml"
+        mode: "0600"

@@ -1,0 +1,17 @@
+minnumst_domain: minnumst.local
+minnumst_admin_domain: admin.minnumst.local
+minnumst_api_domain: api.minnumst.local
+minnumst_log_level: INFO
+
+minnumst_public_image: ghcr.io/OWNER/minnumst-web:latest
+minnumst_admin_image: ghcr.io/OWNER/minnumst-admin:latest
+minnumst_api_image: ghcr.io/OWNER/minnumst-api:latest
+
+traefik_image: traefik:v3.3
+traefik_acme_email: developer@example.invalid
+authentik_forwardauth_address: http://127.0.0.1:9000/outpost.goauthentik.io/auth/traefik
+
+mariadb_database: minnumst_local
+mariadb_user: minnumst_local
+mariadb_root_password: local_only_root_password
+mariadb_password: local_only_application_password

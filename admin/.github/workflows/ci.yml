@@ -45,14 +45,14 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         env:
           RELEASE_TAG: ${{ github.ref_name }}
-        run: tar -czf "eftirmal-admin-${RELEASE_TAG}.tar.gz" -C dist .
+        run: tar -czf "minnumst-admin-${RELEASE_TAG}.tar.gz" -C dist .
 
       - name: Upload release asset
         if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
         with:
           name: release-assets
-          path: eftirmal-admin-${{ github.ref_name }}.tar.gz
+          path: minnumst-admin-${{ github.ref_name }}.tar.gz
           if-no-files-found: error
 
   publish:
@@ -104,10 +104,10 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/eftirmal-admin:${{ github.ref_name }}
-            ghcr.io/${{ github.repository_owner }}/eftirmal-admin:latest
+            ghcr.io/${{ github.repository_owner }}/minnumst-admin:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/minnumst-admin:latest
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.version=${{ github.ref_name }}
-            org.opencontainers.image.description=Eftirmal editorial frontend
+            org.opencontainers.image.description=Minnumst editorial frontend
             org.opencontainers.image.licenses=Apache-2.0

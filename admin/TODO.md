@@ -1,6 +1,6 @@
 # Admin Frontend Roadmap
 
-This backlog is owned by the editorial studio. The API remains the source of truth for people and immutable blog revisions. Items needing data/API changes must be coordinated with `eftirmal-api`.
+This backlog is owned by the editorial studio. The API remains the source of truth for people and immutable blog revisions. Items needing data/API changes must be coordinated with `api/`.
 
 ## Quick Wins
 
@@ -12,7 +12,7 @@ This backlog is owned by the editorial studio. The API remains the source of tru
 
 - [ ] Add secure profile-portrait selection/upload only after the API defines the media contract, size/type validation, storage, authorization, and delete/retention behavior. The current API has no image upload or fetch route; do not store image bytes in browser state or imply this feature exists.
 - [ ] Verify Authentik protects the admin route in the deployed environment. Authentication is upstream in Traefik/Authentik; do not add an app-local login or Google Authenticator implementation here.
-- [ ] Verify the first tagged GHCR image is published and pin its deployment image to an explicit version in eftirmal-deploy. The image reads `VITE_API_URL` and `DEBUG` from deployment Compose at runtime.
+- [ ] Verify the first tagged GHCR image is published and pin its deployment image to an explicit version in `deploy/`. The image reads `VITE_API_URL` and `DEBUG` from deployment Compose at runtime.
 
 ## Acceptance Notes
 

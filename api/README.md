@@ -1,8 +1,8 @@
-# Eftirmál | Archive API
+# Minnumst | Archive API
 
-![Eftirmál concept: a family tree of stories, names, and memories](../docs/assets/minnumst-concept.png)
+![Minnumst concept: a family tree of stories, names, and memories](../docs/assets/minnumst-concept.png)
 
-> Eftirmál is a shared written history of our ancestors, preserving people and their stories across generations.
+> Minnumst is a shared written history of our ancestors, preserving people and their stories across generations.
 
 This FastAPI service is the shared data boundary for the public archive and editorial desk. It owns people and immutable blog revisions; MariaDB is used in deployment and SQLite is the local development default.
 
@@ -23,7 +23,7 @@ The API is available at `http://127.0.0.1:8000`, with interactive documentation 
 Set `DATABASE_URL` in the API service environment. For MariaDB in the same Compose network, use a URL like:
 
 ```text
-mysql+pymysql://eftirmal:password@mariadb:3306/eftirmal?charset=utf8mb4
+mysql+pymysql://minnumst:password@mariadb:3306/minnumst?charset=utf8mb4
 ```
 
 Keep credentials in the deployment secret mechanism, not in tracked files. The application creates tables on startup for this initial implementation; introduce versioned migrations before applying schema changes to a production database.
@@ -46,9 +46,9 @@ The admin supports person-linked blog title, excerpt, and story revisions; profi
 
 ## Container image
 
-Build locally with `docker build -t eftirmal-api:local .`. Pushing a plain SemVer API tag runs the release workflow, builds `linux/amd64` and `linux/arm64` images, and publishes `ghcr.io/steinnhauser/eftirmal-api:<version>` plus `:latest`. The image listens on port 8000, runs as a non-root user, and exposes `/healthz` as its container healthcheck. Make the GHCR package public in its package settings before pulling it from a host that has not authenticated to GitHub Container Registry.
+Build locally with `docker build -t minnumst-api:local .`. Pushing a plain SemVer API tag runs the release workflow, builds `linux/amd64` and `linux/arm64` images, and publishes `ghcr.io/steinnhauser/minnumst-api:<version>` plus `:latest`. The image listens on port 8000, runs as a non-root user, and exposes `/healthz` as its container healthcheck. Make the GHCR package public in its package settings before pulling it from a host that has not authenticated to GitHub Container Registry.
 
-To rerun publishing for an existing tag without moving or recreating it, manually dispatch the `CI and Release` workflow using that tag as the ref, for example `gh workflow run ci.yml --repo steinnhauser/eftirmal-api --ref 0.1.0`. Publishing jobs only run when the selected ref is a SemVer tag.
+To rerun publishing for an existing tag without moving or recreating it, manually dispatch the `CI and Release` workflow using that tag as the ref, for example `gh workflow run ci.yml --repo steinnhauser/minnumst --ref api-0.1.0`. Publishing jobs only run when the selected ref is a SemVer tag.
 
 ## Commands
 

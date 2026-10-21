@@ -5,8 +5,8 @@ import pytest
 from fastapi.testclient import TestClient
 from testcontainers.community.mysql import MySqlContainer
 
-from eftirmal_api.main import create_app
-from eftirmal_api.models import Base
+from minnumst_api.main import create_app
+from minnumst_api.models import Base
 
 
 @pytest.fixture(scope="module")
@@ -17,9 +17,9 @@ def mariadb_url() -> Iterator[str]:
     with MySqlContainer(
         image="mariadb:11.4",
         dialect="pymysql",
-        username="eftirmal",
-        password="eftirmal-test",
-        dbname="eftirmal",
+        username="minnumst",
+        password="minnumst-test",
+        dbname="minnumst",
     ) as database:
         yield database.get_connection_url()
 

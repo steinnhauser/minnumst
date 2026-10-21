@@ -111,8 +111,8 @@ function App() {
         aria-labelledby="page-title"
       >
         <header className="site-header">
-          <a className="wordmark" href="#search" aria-label="Eftirmal home">
-            EFTIRMAL<span>.</span>
+          <a className="wordmark" href="#search" aria-label="Minnumst home">
+            MINNUMST<span>.</span>
           </a>
           <p className="header-note">A PUBLIC PEOPLE ARCHIVE</p>
         </header>

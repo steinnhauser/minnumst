@@ -1,6 +1,6 @@
 # Public Frontend Roadmap
 
-This backlog is owned by the public archive frontend. Items that change shared API behavior must be coordinated with `eftirmal-api`; deployment/image work belongs in `eftirmal-deploy` and the image-owning repo. Ordered roughly from low-effort improvements to cross-service work.
+This backlog is owned by the public archive frontend. Items that change shared API behavior must be coordinated with `api/`; deployment/image work belongs in `deploy/` and the image-owning repo. Ordered roughly from low-effort improvements to cross-service work.
 
 ## Quick Wins
 
@@ -9,7 +9,7 @@ This backlog is owned by the public archive frontend. Items that change shared A
 
 ## Cross-Service Work
 
-- [ ] Verify the first tagged GHCR image is published and pin its deployment image to an explicit version in eftirmal-deploy. The image reads `VITE_API_URL` from deployment Compose at runtime.
+- [ ] Verify the first tagged GHCR image is published and pin its deployment image to an explicit version in `deploy/`. The image reads `VITE_API_URL` from deployment Compose at runtime.
 - [ ] Add ancestor portrait display after the API defines a secure media contract, storage lifecycle, and public URL/access policy. Do not embed or fetch image blobs directly from MariaDB in the browser.
 
 ## Acceptance Notes

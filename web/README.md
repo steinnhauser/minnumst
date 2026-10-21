@@ -1,8 +1,8 @@
-# Eftirmál | Public Archive
+# Minnumst | Public Archive
 
-![Eftirmál concept: a family tree of stories, names, and memories](../docs/assets/minnumst-concept.png)
+![Minnumst concept: a family tree of stories, names, and memories](../docs/assets/minnumst-concept.png)
 
-> Eftirmál is a shared written history of our ancestors, preserving people and their stories across generations.
+> Minnumst is a shared written history of our ancestors, preserving people and their stories across generations.
 
 This is the public-facing React, TypeScript, and Vite frontend for searching the archive and reading published stories. It is read-only and has no sign-in flow.
 
@@ -19,7 +19,7 @@ cp .env.example .env
 make dev-start
 ```
 
-Start the API separately with `make -C ../eftirmal-api dev-start`. The public frontend runs at `http://127.0.0.1:5173/`; use `make dev-stop` to stop it. `VITE_API_URL` is the API origin, not an `/api` path. It defaults to `http://127.0.0.1:8000`.
+Start the API separately with `make -C ../api dev-start`. The public frontend runs at `http://127.0.0.1:5173/`; use `make dev-stop` to stop it. `VITE_API_URL` is the API origin, not an `/api` path. It defaults to `http://127.0.0.1:8000`.
 
 ## Commands
 
@@ -50,11 +50,11 @@ The landing photograph is bundled locally from [Unsplash](https://images.unsplas
 The Dockerfile builds the Vite bundle and serves it as a non-root user on port `8080`. The image reads `VITE_API_URL` and `LOG_LEVEL` from its runtime environment; no API URL is required during the build. The HTTP server writes one-line JSON startup and access logs to stdout for `docker logs`.
 
 ```sh
-docker build -t eftirmal:local .
-docker run --rm -p 8080:8080 -e VITE_API_URL=https://api.example.com -e LOG_LEVEL=DEBUG eftirmal:local
+docker build -t minnumst-web:local .
+docker run --rm -p 8080:8080 -e VITE_API_URL=https://api.example.com -e LOG_LEVEL=DEBUG minnumst-web:local
 ```
 
-Tagged releases publish a multi-platform private image to `ghcr.io/steinnhauser/eftirmal` as both `<version>` and `latest`. The image is environment-neutral; deployment Compose supplies `VITE_API_URL` from the configured API hostname.
+Tagged releases publish a multi-platform private image to `ghcr.io/steinnhauser/minnumst-web` as both `<version>` and `latest`. The image is environment-neutral; deployment Compose supplies `VITE_API_URL` from the configured API hostname.
 
 `LOG_LEVEL` accepts `DEBUG`, `INFO`, `WARNING`, or `ERROR` and defaults to `INFO`. Use `docker logs <container>` to read its JSON startup/access records. Access records include a request ID, method, sanitized route, status, and duration; query strings and person slugs are not logged. API calls carry the same `X-Request-ID` into the API logs.
 

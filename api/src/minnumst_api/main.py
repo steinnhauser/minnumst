@@ -11,11 +11,11 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from eftirmal_api.api import router
-from eftirmal_api.config import settings
-from eftirmal_api.database import make_engine, make_session_factory
-from eftirmal_api.logging_config import configure_logging, request_id_context
-from eftirmal_api.models import Base
+from minnumst_api.api import router
+from minnumst_api.config import settings
+from minnumst_api.database import make_engine, make_session_factory
+from minnumst_api.logging_config import configure_logging, request_id_context
+from minnumst_api.models import Base
 
 logger = logging.getLogger(__name__)
 REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
@@ -65,7 +65,7 @@ def create_app(database_url: str | None = None, create_tables: bool = True) -> F
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        logger.info("Starting Eftirmal API")
+        logger.info("Starting Minnumst API")
         if create_tables:
             try:
                 Base.metadata.create_all(engine)
@@ -78,9 +78,9 @@ def create_app(database_url: str | None = None, create_tables: bool = True) -> F
             yield
         finally:
             engine.dispose()
-            logger.info("Stopped Eftirmal API")
+            logger.info("Stopped Minnumst API")
 
-    app = FastAPI(title="Eftirmal API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Minnumst API", version="0.1.0", lifespan=lifespan)
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.include_router(router)

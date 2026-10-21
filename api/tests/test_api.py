@@ -4,9 +4,9 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from eftirmal_api.config import settings
-from eftirmal_api.logging_config import configure_logging
-from eftirmal_api.main import create_app
+from minnumst_api.config import settings
+from minnumst_api.logging_config import configure_logging
+from minnumst_api.main import create_app
 
 
 @pytest.fixture
@@ -180,7 +180,7 @@ def test_request_logs_route_and_status_without_logging_search_text(
     assert request_log.route == "/api/people"
     assert request_log.status_code == 200
     assert any(
-        record.name == "eftirmal_api.api"
+        record.name == "minnumst_api.api"
         and getattr(record, "request_id", None) == "test-request-123"
         for record in caplog.records
     )

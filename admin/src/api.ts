@@ -79,12 +79,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     });
   } catch {
     throw new Error(
-      "Could not reach the Eftirmal API. Check that it is running.",
+      "Could not reach the Minnumst API. Check that it is running.",
     );
   }
 
   if (!response.ok) {
-    let message = `The Eftirmal API returned ${response.status}.`;
+    let message = `The Minnumst API returned ${response.status}.`;
     try {
       const body = (await response.json()) as { detail?: unknown };
       if (typeof body.detail === "string") message = body.detail;

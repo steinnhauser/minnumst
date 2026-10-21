@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for contributing to the Eftirmal deployment configuration. Please discuss substantial changes in an issue before opening a pull request.
+Thanks for contributing to the Minnumst deployment configuration. Please discuss substantial changes in an issue before opening a pull request.
 
 ## Development
 

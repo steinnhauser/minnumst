@@ -333,7 +333,7 @@ wheels = [
 ]
 
 [[package]]
-name = "eftirmal-deploy"
+name = "minnumst-deploy"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

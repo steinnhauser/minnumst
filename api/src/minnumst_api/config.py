@@ -6,7 +6,7 @@ LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 
 
 class Settings(BaseSettings):
-    database_url: str = "sqlite:///./eftirmal.db"
+    database_url: str = "sqlite:///./minnumst.db"
     cors_origins: str = ""
     log_level: LogLevel = "INFO"
 

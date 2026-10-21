@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      __EFTIRMAL_ENV__: JSON.stringify({
+      __MINNUMST_ENV__: JSON.stringify({
         DEBUG: env.DEBUG ?? "false",
         VITE_API_URL: env.VITE_API_URL ?? "",
       }),

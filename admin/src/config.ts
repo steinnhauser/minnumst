@@ -11,6 +11,6 @@ export function parseAppConfig(env: AppEnvironment) {
 }
 
 export const appConfig = parseAppConfig({
-  ...__EFTIRMAL_ENV__,
-  ...window.__EFTIRMAL_ENV__,
+  ...__MINNUMST_ENV__,
+  ...window.__MINNUMST_ENV__,
 });

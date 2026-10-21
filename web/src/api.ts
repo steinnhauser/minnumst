@@ -35,7 +35,7 @@ type PersonPage = {
 };
 
 const apiBaseUrl = (
-  window.__EFTIRMAL_ENV__?.VITE_API_URL?.trim() ||
+  window.__MINNUMST_ENV__?.VITE_API_URL?.trim() ||
   import.meta.env.VITE_API_URL?.trim() ||
   "http://127.0.0.1:8000"
 ).replace(/\/+$/, "");
@@ -48,12 +48,12 @@ async function request<T>(path: string): Promise<T> {
     });
   } catch {
     throw new Error(
-      "Could not reach the Eftirmal API. Check that it is running.",
+      "Could not reach the Minnumst API. Check that it is running.",
     );
   }
 
   if (!response.ok) {
-    let message = `The Eftirmal API returned ${response.status}.`;
+    let message = `The Minnumst API returned ${response.status}.`;
     try {
       const body = (await response.json()) as { detail?: unknown };
       if (typeof body.detail === "string") message = body.detail;

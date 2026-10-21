@@ -8,5 +8,5 @@ const config = {
 
 await writeFile(
   resolve(cwd(), "dist/runtime-config.js"),
-  `window.__EFTIRMAL_ENV__ = ${JSON.stringify(config)};\n`,
+  `window.__MINNUMST_ENV__ = ${JSON.stringify(config)};\n`,
 );

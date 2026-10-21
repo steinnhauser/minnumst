@@ -6,7 +6,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from eftirmal_api.config import settings
+from minnumst_api.config import settings
 
 
 def make_engine(database_url: str | None = None) -> Engine:

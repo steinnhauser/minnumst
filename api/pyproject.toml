@@ -7,8 +7,8 @@ dependencies = [
   "sqlalchemy>=2.0,<3.0",
   "uvicorn[standard]>=0.32,<1.0",
 ]
-description = "Central CRUD API for the Eftirmal people archive"
-name = "eftirmal-api"
+description = "Central CRUD API for the Minnumst people archive"
+name = "minnumst-api"
 readme = "README.md"
 requires-python = ">=3.11"
 version = "0.1.2"
@@ -26,7 +26,7 @@ build-backend = "hatchling.build"
 requires = ["hatchling>=1.26"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/eftirmal_api"]
+packages = ["src/minnumst_api"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"

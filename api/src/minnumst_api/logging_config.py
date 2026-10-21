@@ -3,7 +3,7 @@ import logging
 from contextvars import ContextVar
 from datetime import UTC, datetime
 
-from eftirmal_api.config import LogLevel
+from minnumst_api.config import LogLevel
 
 request_id_context: ContextVar[str | None] = ContextVar("request_id", default=None)
 
@@ -21,7 +21,7 @@ class JsonFormatter(logging.Formatter):
             .isoformat(timespec="milliseconds")
             .replace("+00:00", "Z"),
             "level": record.levelname,
-            "service": "eftirmal-api",
+            "service": "minnumst-api",
             "logger": record.name,
             "message": record.getMessage(),
         }
@@ -42,12 +42,12 @@ def configure_logging(level: LogLevel) -> None:
     root = logging.getLogger()
     root.setLevel(numeric_level)
     handler = next(
-        (item for item in root.handlers if getattr(item, "_eftirmal_json", False)),
+        (item for item in root.handlers if getattr(item, "_minnumst_json", False)),
         None,
     )
     if handler is None:
         handler = logging.StreamHandler()
-        handler._eftirmal_json = True
+        handler._minnumst_json = True
         root.addHandler(handler)
     handler.setLevel(numeric_level)
     handler.setFormatter(JsonFormatter())

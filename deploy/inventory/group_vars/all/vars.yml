@@ -1,17 +1,17 @@
 ---
-eftirmal_deploy_dir: /opt/eftirmal
+minnumst_deploy_dir: /opt/minnumst
 # TODO: Set the production public hostname; point its DNS record to the server IP.
-eftirmal_domain: eftirmal.example
+minnumst_domain: minnumst.example
 # TODO: Set the production admin hostname; point its DNS record to the server IP.
-eftirmal_admin_domain: admin.eftirmal.example
+minnumst_admin_domain: admin.minnumst.example
 # TODO: Set the production API hostname; point its DNS record to the server IP.
-eftirmal_api_domain: api.eftirmal.example
-eftirmal_admin_debug: "false"
-eftirmal_log_level: INFO
+minnumst_api_domain: api.minnumst.example
+minnumst_admin_debug: "false"
+minnumst_log_level: INFO
 
-eftirmal_public_image: ghcr.io/steinnhauser/eftirmal:0.1.1
-eftirmal_admin_image: ghcr.io/steinnhauser/eftirmal-admin:0.2.1
-eftirmal_api_image: ghcr.io/steinnhauser/eftirmal-api:0.1.2
+minnumst_public_image: ghcr.io/steinnhauser/minnumst-web:0.1.1
+minnumst_admin_image: ghcr.io/steinnhauser/minnumst-admin:0.2.1
+minnumst_api_image: ghcr.io/steinnhauser/minnumst-api:0.1.2
 
 traefik_image: traefik:v3.3
 # TODO: Set a monitored email address for Let's Encrypt certificate notices.
@@ -22,5 +22,5 @@ authentik_forwardauth_address: https://auth.example.com/outpost.goauthentik.io/a
 # TODO: Authenticate the host to private GHCR packages with a read-only token before deploying.
 # Do not put the token in inventory or Compose; use `docker login ghcr.io` on the host.
 
-mariadb_database: eftirmal
-mariadb_user: eftirmal
+mariadb_database: minnumst
+mariadb_user: minnumst

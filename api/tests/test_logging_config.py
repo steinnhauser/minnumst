@@ -4,8 +4,8 @@ import logging
 import pytest
 from pydantic import ValidationError
 
-from eftirmal_api.config import Settings
-from eftirmal_api.logging_config import JsonFormatter, configure_logging
+from minnumst_api.config import Settings
+from minnumst_api.logging_config import JsonFormatter, configure_logging
 
 
 def test_log_level_defaults_to_info(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -34,7 +34,7 @@ def test_configure_logging_sets_application_and_server_levels() -> None:
     configure_logging("DEBUG")
 
     assert logging.getLogger().level == logging.DEBUG
-    assert logging.getLogger("eftirmal_api").getEffectiveLevel() == logging.DEBUG
+    assert logging.getLogger("minnumst_api").getEffectiveLevel() == logging.DEBUG
     assert logging.getLogger("uvicorn.error").level == logging.DEBUG
     assert logging.getLogger("uvicorn.access").level == logging.WARNING
     assert logging.getLogger("httpx").level == logging.WARNING
@@ -44,7 +44,7 @@ def test_configure_logging_sets_application_and_server_levels() -> None:
 
 def test_json_formatter_includes_trace_fields() -> None:
     record = logging.LogRecord(
-        "eftirmal_api.main",
+        "minnumst_api.main",
         logging.INFO,
         __file__,
         1,
@@ -58,7 +58,7 @@ def test_json_formatter_includes_trace_fields() -> None:
 
     payload = json.loads(JsonFormatter().format(record))
 
-    assert payload["service"] == "eftirmal-api"
+    assert payload["service"] == "minnumst-api"
     assert payload["level"] == "INFO"
     assert payload["request_id"] == "request-123"
     assert payload["route"] == "/api/people/{person_id}"

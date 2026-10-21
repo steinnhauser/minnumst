@@ -6,7 +6,7 @@ services:
       - --api.dashboard=false
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
-      - --providers.docker.network=eftirmal_edge
+      - --providers.docker.network=minnumst_edge
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
@@ -23,66 +23,66 @@ services:
       - edge
 
   public:
-    image: {{ eftirmal_public_image | to_json }}
+    image: {{ minnumst_public_image | to_json }}
     restart: unless-stopped
     environment:
-      VITE_API_URL: {{ ("https://" ~ eftirmal_api_domain) | to_json }}
-      LOG_LEVEL: {{ eftirmal_log_level | to_json }}
+      VITE_API_URL: {{ ("https://" ~ minnumst_api_domain) | to_json }}
+      LOG_LEVEL: {{ minnumst_log_level | to_json }}
     labels:
       traefik.enable: "true"
-      traefik.docker.network: eftirmal_edge
-      traefik.http.routers.eftirmal-public.rule: "Host(`{{ eftirmal_domain }}`)"
-      traefik.http.routers.eftirmal-public.entrypoints: websecure
-      traefik.http.routers.eftirmal-public.tls.certresolver: le
-      traefik.http.services.eftirmal-public.loadbalancer.server.port: "8080"
+      traefik.docker.network: minnumst_edge
+      traefik.http.routers.minnumst-public.rule: "Host(`{{ minnumst_domain }}`)"
+      traefik.http.routers.minnumst-public.entrypoints: websecure
+      traefik.http.routers.minnumst-public.tls.certresolver: le
+      traefik.http.services.minnumst-public.loadbalancer.server.port: "8080"
     networks:
       - edge
 
   admin:
-    image: {{ eftirmal_admin_image | to_json }}
+    image: {{ minnumst_admin_image | to_json }}
     restart: unless-stopped
     environment:
-      VITE_API_URL: {{ ("https://" ~ eftirmal_api_domain) | to_json }}
-      DEBUG: {{ eftirmal_admin_debug | to_json }}
-      LOG_LEVEL: {{ eftirmal_log_level | to_json }}
+      VITE_API_URL: {{ ("https://" ~ minnumst_api_domain) | to_json }}
+      DEBUG: {{ minnumst_admin_debug | to_json }}
+      LOG_LEVEL: {{ minnumst_log_level | to_json }}
     labels:
       traefik.enable: "true"
-      traefik.docker.network: eftirmal_edge
-      traefik.http.routers.eftirmal-admin.rule: "Host(`{{ eftirmal_admin_domain }}`)"
-      traefik.http.routers.eftirmal-admin.entrypoints: websecure
-      traefik.http.routers.eftirmal-admin.tls.certresolver: le
-      traefik.http.routers.eftirmal-admin.middlewares: authentik
-      traefik.http.services.eftirmal-admin.loadbalancer.server.port: "8080"
+      traefik.docker.network: minnumst_edge
+      traefik.http.routers.minnumst-admin.rule: "Host(`{{ minnumst_admin_domain }}`)"
+      traefik.http.routers.minnumst-admin.entrypoints: websecure
+      traefik.http.routers.minnumst-admin.tls.certresolver: le
+      traefik.http.routers.minnumst-admin.middlewares: authentik
+      traefik.http.services.minnumst-admin.loadbalancer.server.port: "8080"
       traefik.http.middlewares.authentik.forwardauth.address: {{ authentik_forwardauth_address | to_json }}
       traefik.http.middlewares.authentik.forwardauth.trustForwardHeader: "true"
     networks:
       - edge
 
   api:
-    image: {{ eftirmal_api_image | to_json }}
+    image: {{ minnumst_api_image | to_json }}
     restart: unless-stopped
     environment:
       DATABASE_URL: {{ ("mysql+pymysql://" ~ mariadb_user ~ ":" ~ (mariadb_password | urlencode) ~ "@mariadb:3306/" ~ mariadb_database ~ "?charset=utf8mb4") | to_json }}
-      CORS_ORIGINS: {{ ("https://" ~ eftirmal_domain ~ ",https://" ~ eftirmal_admin_domain) | to_json }}
-      LOG_LEVEL: {{ eftirmal_log_level | to_json }}
+      CORS_ORIGINS: {{ ("https://" ~ minnumst_domain ~ ",https://" ~ minnumst_admin_domain) | to_json }}
+      LOG_LEVEL: {{ minnumst_log_level | to_json }}
     depends_on:
       mariadb:
         condition: service_healthy
     labels:
       traefik.enable: "true"
-      traefik.docker.network: eftirmal_edge
-      traefik.http.routers.eftirmal-api-read.rule: "Host(`{{ eftirmal_api_domain }}`)"
-      traefik.http.routers.eftirmal-api-read.entrypoints: websecure
-      traefik.http.routers.eftirmal-api-read.priority: "1"
-      traefik.http.routers.eftirmal-api-read.tls.certresolver: le
-      traefik.http.routers.eftirmal-api-read.service: eftirmal-api
-      traefik.http.routers.eftirmal-api-write.rule: "Host(`{{ eftirmal_api_domain }}`) && (Method(`POST`) || Method(`PUT`) || Method(`PATCH`) || Method(`DELETE`))"
-      traefik.http.routers.eftirmal-api-write.entrypoints: websecure
-      traefik.http.routers.eftirmal-api-write.priority: "100"
-      traefik.http.routers.eftirmal-api-write.tls.certresolver: le
-      traefik.http.routers.eftirmal-api-write.middlewares: authentik
-      traefik.http.routers.eftirmal-api-write.service: eftirmal-api
-      traefik.http.services.eftirmal-api.loadbalancer.server.port: "8000"
+      traefik.docker.network: minnumst_edge
+      traefik.http.routers.minnumst-api-read.rule: "Host(`{{ minnumst_api_domain }}`)"
+      traefik.http.routers.minnumst-api-read.entrypoints: websecure
+      traefik.http.routers.minnumst-api-read.priority: "1"
+      traefik.http.routers.minnumst-api-read.tls.certresolver: le
+      traefik.http.routers.minnumst-api-read.service: minnumst-api
+      traefik.http.routers.minnumst-api-write.rule: "Host(`{{ minnumst_api_domain }}`) && (Method(`POST`) || Method(`PUT`) || Method(`PATCH`) || Method(`DELETE`))"
+      traefik.http.routers.minnumst-api-write.entrypoints: websecure
+      traefik.http.routers.minnumst-api-write.priority: "100"
+      traefik.http.routers.minnumst-api-write.tls.certresolver: le
+      traefik.http.routers.minnumst-api-write.middlewares: authentik
+      traefik.http.routers.minnumst-api-write.service: minnumst-api
+      traefik.http.services.minnumst-api.loadbalancer.server.port: "8000"
       traefik.http.middlewares.authentik.forwardauth.address: {{ authentik_forwardauth_address | to_json }}
       traefik.http.middlewares.authentik.forwardauth.trustForwardHeader: "true"
     networks:

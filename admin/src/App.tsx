@@ -236,9 +236,9 @@ function App() {
         <a
           className="studio-brand"
           href="#pages"
-          aria-label="Eftirmal story desk"
+          aria-label="Minnumst story desk"
         >
-          EFTIRMAL<span>.</span>
+          MINNUMST<span>.</span>
         </a>
         <p className="sidebar-caption">EDITORIAL DESK</p>
         <nav className="studio-nav">
@@ -270,7 +270,7 @@ function App() {
             <strong>PEOPLE</strong>
           </div>
           <span className="topbar-mark">
-            EFTIRMAL ADMIN
+            MINNUMST ADMIN
             {appConfig.debug && <span className="debug-indicator">DEBUG</span>}
           </span>
         </header>

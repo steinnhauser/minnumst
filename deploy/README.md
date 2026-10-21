@@ -1,8 +1,8 @@
-# Eftirmál | Deployment
+# Minnumst | Deployment
 
-![Eftirmál concept: a family tree of stories, names, and memories](../docs/assets/minnumst-concept.png)
+![Minnumst concept: a family tree of stories, names, and memories](../docs/assets/minnumst-concept.png)
 
-> Eftirmál is a shared written history of our ancestors, preserving people and their stories across generations.
+> Minnumst is a shared written history of our ancestors, preserving people and their stories across generations.
 
 This repository uses Ansible to deploy the public archive, editorial desk, shared API, MariaDB, and Traefik to Debian-based hosts. Application images are built and published by their owning repositories.
 
@@ -33,21 +33,21 @@ Ansible prompts for the vault password. Use `make deploy VAULT_ARGS=--vault-pass
 
 ## Image contract
 
-The frontend images must serve their built Vite assets on port 8080. At startup, each image writes browser configuration from its runtime environment. Compose sets `VITE_API_URL` to `https://{{ eftirmal_api_domain }}` for both frontends and sets admin `DEBUG` from `eftirmal_admin_debug`; configure these values in `inventory/group_vars/all/vars.yml`. The API image must listen on port 8000 and provide the existing `DATABASE_URL`, `CORS_ORIGINS`, and `/readyz` contract. The image references are configurable in `vars.yml`.
+The frontend images must serve their built Vite assets on port 8080. At startup, each image writes browser configuration from its runtime environment. Compose sets `VITE_API_URL` to `https://{{ minnumst_api_domain }}` for both frontends and sets admin `DEBUG` from `minnumst_admin_debug`; configure these values in `inventory/group_vars/all/vars.yml`. The API image must listen on port 8000 and provide the existing `DATABASE_URL`, `CORS_ORIGINS`, and `/readyz` contract. The image references are configurable in `vars.yml`.
 
-The three services publish versioned private images to `ghcr.io/steinnhauser/eftirmal`, `ghcr.io/steinnhauser/eftirmal-admin`, and `ghcr.io/steinnhauser/eftirmal-api`. The inventory pins logging-enabled releases `0.1.1`, `0.2.1`, and `0.1.2`; ensure the host is authenticated to GHCR before deployment.
+The three services publish versioned private images to `ghcr.io/steinnhauser/minnumst-web`, `ghcr.io/steinnhauser/minnumst-admin`, and `ghcr.io/steinnhauser/minnumst-api`. The inventory pins logging-enabled releases `0.1.1`, `0.2.1`, and `0.1.2`; ensure the host is authenticated to GHCR before deployment. Images under the Minnumst names are published once the monorepo release workflow is in place; until then, the pinned tags do not exist yet.
 
 The public and admin repositories build/push environment-neutral multi-platform private GHCR images from SemVer tags; no Actions variable is needed for API configuration. The example `OWNER` references remain placeholders; pin each deployed frontend to a published version tag rather than `latest`.
 
 ## Logging
 
-Set `eftirmal_log_level` in `inventory/group_vars/all/vars.yml` to `DEBUG`, `INFO`, `WARNING`, or `ERROR`; it defaults to `INFO` and is injected into all three services. Logs are newline-delimited JSON on container stdout/stderr and are available with `docker logs <container>` or `docker compose -f /opt/eftirmal/compose.yml logs -f api public admin`. Frontend access records use sanitized routes; API request IDs can be correlated with the `X-Request-ID` response header. Do not log credentials, request bodies, query values, or person slugs.
+Set `minnumst_log_level` in `inventory/group_vars/all/vars.yml` to `DEBUG`, `INFO`, `WARNING`, or `ERROR`; it defaults to `INFO` and is injected into all three services. Logs are newline-delimited JSON on container stdout/stderr and are available with `docker logs <container>` or `docker compose -f /opt/minnumst/compose.yml logs -f api public admin`. Frontend access records use sanitized routes; API request IDs can be correlated with the `X-Request-ID` response header. Do not log credentials, request bodies, query values, or person slugs.
 
 ## Release
 
 The deployment repository release remains version `0.1.0`, matching `pyproject.toml`. Service images are independently versioned and pinned in inventory; changing these pins does not create or deploy a service release.
 
-The playbook installs Docker Engine and the Compose plugin from Docker's signed Debian/Ubuntu apt repository, templates `/opt/eftirmal/compose.yml` with mode `0600`, validates it, then pulls and starts the stack. MariaDB data and Traefik ACME state use persistent named volumes. MariaDB is not published on a host port.
+The playbook installs Docker Engine and the Compose plugin from Docker's signed Debian/Ubuntu apt repository, templates `/opt/minnumst/compose.yml` with mode `0600`, validates it, then pulls and starts the stack. MariaDB data and Traefik ACME state use persistent named volumes. MariaDB is not published on a host port.
 
 Traefik routes HTTPS for all three hostnames and obtains certificates using the HTTP challenge, so ports 80 and 443 must reach the server. The admin host and API write methods are protected by the configured Authentik forward-auth endpoint. Configure Authentik so the admin app, API hostname, and corresponding origins are accepted by its proxy provider; the public API router remains available for unauthenticated reads. Do not expose the deployment until the Authentik endpoint is reachable and tested.
 

@@ -1,1 +1,1 @@
-window.__EFTIRMAL_ENV__ = {};
+window.__MINNUMST_ENV__ = {};

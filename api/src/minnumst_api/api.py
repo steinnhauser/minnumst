@@ -7,13 +7,13 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from eftirmal_api.database import get_session
-from eftirmal_api.models import BlogPost, BlogRevision, Person
-from eftirmal_api.names import (
+from minnumst_api.database import get_session
+from minnumst_api.models import BlogPost, BlogRevision, Person
+from minnumst_api.names import (
     normalized_person_name,
     unique_person_slug,
 )
-from eftirmal_api.schemas import (
+from minnumst_api.schemas import (
     BlogResponse,
     BlogRevisionInput,
     BlogRevisionResponse,

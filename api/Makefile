@@ -59,11 +59,11 @@ dev-start:
 	  pid=$$(cat "$(DEV_PID_FILE)"); \
 	  process=$$(ps -p "$$pid" -o args= 2>/dev/null || true); \
 	  case "$$process" in \
-	    *"uvicorn eftirmal_api.main:app"*) printf 'API dev server is already running (PID %s).\n' "$$pid"; exit 0 ;; \
+	    *"uvicorn minnumst_api.main:app"*) printf 'API dev server is already running (PID %s).\n' "$$pid"; exit 0 ;; \
 	  esac; \
 	  rm -f "$(DEV_PID_FILE)"; \
 	fi; \
-	$(UV) run --no-sync python -m uvicorn eftirmal_api.main:app --app-dir src --reload --host "$(DEV_HOST)" --port "$(DEV_PORT)" >"$(DEV_LOG_FILE)" 2>&1 & \
+	$(UV) run --no-sync python -m uvicorn minnumst_api.main:app --app-dir src --reload --host "$(DEV_HOST)" --port "$(DEV_PORT)" >"$(DEV_LOG_FILE)" 2>&1 & \
 	pid=$$!; \
 	printf '%s\n' "$$pid" > "$(DEV_PID_FILE)"; \
 	printf 'API dev server started at http://%s:%s/ (PID %s).\n' "$(DEV_HOST)" "$(DEV_PORT)" "$$pid"; \
@@ -78,7 +78,7 @@ dev-stop:
 	case "$$pid" in ''|*[!0-9]*) printf 'Invalid PID in %s; refusing to signal a process.\n' "$(DEV_PID_FILE)" >&2; exit 1 ;; esac; \
 	process=$$(ps -p "$$pid" -o args= 2>/dev/null || true); \
 	case "$$process" in \
-	  *"uvicorn eftirmal_api.main:app"*) kill -TERM "$$pid"; rm -f "$(DEV_PID_FILE)"; printf 'Stopped API dev server (PID %s).\n' "$$pid" ;; \
+	  *"uvicorn minnumst_api.main:app"*) kill -TERM "$$pid"; rm -f "$(DEV_PID_FILE)"; printf 'Stopped API dev server (PID %s).\n' "$$pid" ;; \
 	  *) rm -f "$(DEV_PID_FILE)"; printf 'Removed stale dev-server PID file; no matching Uvicorn process was running.\n' ;; \
 	esac
 

@@ -1,1 +1,1 @@
-globalThis.__EFTIRMAL_ENV__ = {};
+globalThis.__MINNUMST_ENV__ = {};

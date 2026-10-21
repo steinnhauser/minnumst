@@ -1,6 +1,6 @@
 ---
-- name: Deploy Eftirmal services
-  hosts: eftirmal
+- name: Deploy Minnumst services
+  hosts: minnumst
   become: true
   gather_facts: true
 
@@ -8,11 +8,11 @@
     - name: Check required deployment settings
       ansible.builtin.assert:
         that:
-          - eftirmal_domain | length > 0
-          - eftirmal_public_image | length > 0
-          - eftirmal_admin_image | length > 0
-          - eftirmal_api_image | length > 0
-          - eftirmal_log_level in ["DEBUG", "INFO", "WARNING", "ERROR"]
+          - minnumst_domain | length > 0
+          - minnumst_public_image | length > 0
+          - minnumst_admin_image | length > 0
+          - minnumst_api_image | length > 0
+          - minnumst_log_level in ["DEBUG", "INFO", "WARNING", "ERROR"]
           - authentik_forwardauth_address | length > 0
           - traefik_acme_email | length > 0
           - mariadb_root_password is match('^[A-Za-z0-9_-]+$')
@@ -98,7 +98,7 @@
 
     - name: Create deployment directory
       ansible.builtin.file:
-        path: "{{ eftirmal_deploy_dir }}"
+        path: "{{ minnumst_deploy_dir }}"
         state: directory
         owner: root
         group: root
@@ -107,7 +107,7 @@
     - name: Render Compose deployment
       ansible.builtin.template:
         src: templates/compose.yml.j2
-        dest: "{{ eftirmal_deploy_dir }}/compose.yml"
+        dest: "{{ minnumst_deploy_dir }}/compose.yml"
         owner: root
         group: root
         mode: "0600"
@@ -118,22 +118,22 @@
           - docker
           - compose
           - --project-name
-          - eftirmal
+          - minnumst
           - --file
-          - "{{ eftirmal_deploy_dir }}/compose.yml"
+          - "{{ minnumst_deploy_dir }}/compose.yml"
           - config
           - --quiet
       changed_when: false
 
-    - name: Pull and start Eftirmal services
+    - name: Pull and start Minnumst services
       ansible.builtin.command:
         argv:
           - docker
           - compose
           - --project-name
-          - eftirmal
+          - minnumst
           - --file
-          - "{{ eftirmal_deploy_dir }}/compose.yml"
+          - "{{ minnumst_deploy_dir }}/compose.yml"
           - up
           - --detach
           - --remove-orphans

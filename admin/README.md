@@ -1,8 +1,8 @@
-# Eftirmál | Editorial Desk
+# Minnumst | Editorial Desk
 
-![Eftirmál concept: a family tree of stories, names, and memories](../docs/assets/minnumst-concept.png)
+![Minnumst concept: a family tree of stories, names, and memories](../docs/assets/minnumst-concept.png)
 
-> Eftirmál is a shared written history of our ancestors, preserving people and their stories across generations.
+> Minnumst is a shared written history of our ancestors, preserving people and their stories across generations.
 
 This React, TypeScript, and Vite application is the editorial workspace for creating people and saving append-only story revisions through the shared API.
 
@@ -19,7 +19,7 @@ cp .env.example .env
 make dev-start
 ```
 
-Start the API separately with `make -C ../eftirmal-api dev-start`. The admin frontend runs at `http://127.0.0.1:5174/`, separate from the public site on port 5173. Use `make dev-stop` to stop it. The process ID and output are stored in ignored `.dev-server.pid` and `.dev-server.log` files; override the defaults with `DEV_HOST` and `DEV_PORT`.
+Start the API separately with `make -C ../api dev-start`. The admin frontend runs at `http://127.0.0.1:5174/`, separate from the public site on port 5173. Use `make dev-stop` to stop it. The process ID and output are stored in ignored `.dev-server.pid` and `.dev-server.log` files; override the defaults with `DEV_HOST` and `DEV_PORT`.
 
 Vite reads `DEBUG` and `VITE_API_URL` from `.env`. Copy `.env.example` to `.env` to start with the documented local settings. `DEBUG=true` shows a local debug indicator; it does not implement or bypass authentication. Authentication is handled upstream by Traefik and Authentik.
 
@@ -47,11 +47,11 @@ The matching npm scripts are available directly in `package.json`.
 The Dockerfile builds the Vite bundle and serves it as a non-root user on port `8080`. The image reads `VITE_API_URL`, `DEBUG`, and `LOG_LEVEL` from its runtime environment; no deployment configuration is needed during the build. The HTTP server writes one-line JSON startup and access logs to stdout for `docker logs`:
 
 ```sh
-docker build -t eftirmal-admin:local .
-docker run --rm -p 8080:8080 -e VITE_API_URL=https://api.example.com -e DEBUG=false -e LOG_LEVEL=DEBUG eftirmal-admin:local
+docker build -t minnumst-admin:local .
+docker run --rm -p 8080:8080 -e VITE_API_URL=https://api.example.com -e DEBUG=false -e LOG_LEVEL=DEBUG minnumst-admin:local
 ```
 
-Tagged releases publish a multi-platform private image to `ghcr.io/steinnhauser/eftirmal-admin` as both `<version>` and `latest`. Deployment Compose supplies `VITE_API_URL` from the configured API hostname, `DEBUG` from `eftirmal_admin_debug`, and the shared `LOG_LEVEL`.
+Tagged releases publish a multi-platform private image to `ghcr.io/steinnhauser/minnumst-admin` as both `<version>` and `latest`. Deployment Compose supplies `VITE_API_URL` from the configured API hostname, `DEBUG` from `minnumst_admin_debug`, and the shared `LOG_LEVEL`.
 
 `LOG_LEVEL` accepts `DEBUG`, `INFO`, `WARNING`, or `ERROR` and defaults to `INFO`. Use `docker logs <container>` to read its JSON startup/access records. Access records include a request ID, method, sanitized route, status, and duration; query strings and person slugs are not logged. API calls carry the same `X-Request-ID` into the API logs.
 

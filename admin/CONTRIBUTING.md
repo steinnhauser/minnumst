@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for contributing to the Eftirmal admin frontend. Please discuss substantial changes in an issue before opening a pull request.
+Thanks for contributing to the Minnumst admin frontend. Please discuss substantial changes in an issue before opening a pull request.
 
 ## Development
 

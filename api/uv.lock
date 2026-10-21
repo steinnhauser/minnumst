@@ -376,7 +376,7 @@ wheels = [
 ]
 
 [[package]]
-name = "eftirmal-api"
+name = "minnumst-api"
 version = "0.1.2"
 source = { editable = "." }
 dependencies = [

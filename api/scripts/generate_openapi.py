@@ -2,7 +2,7 @@ import argparse
 import json
 from pathlib import Path
 
-from eftirmal_api.main import app
+from minnumst_api.main import app
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC_PATH = ROOT / "api" / "openapi.json"

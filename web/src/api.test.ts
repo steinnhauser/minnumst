@@ -4,7 +4,7 @@ import { getPersonBySlug, searchPeople } from "./api";
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.resetModules();
-  Reflect.deleteProperty(window, "__EFTIRMAL_ENV__");
+  Reflect.deleteProperty(window, "__MINNUMST_ENV__");
 });
 
 describe("public API client", () => {
@@ -26,7 +26,7 @@ describe("public API client", () => {
   });
 
   it("uses the API origin injected at container startup", async () => {
-    Object.defineProperty(window, "__EFTIRMAL_ENV__", {
+    Object.defineProperty(window, "__MINNUMST_ENV__", {
       configurable: true,
       value: { VITE_API_URL: "https://runtime.example.test" },
     });

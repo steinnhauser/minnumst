@@ -3,7 +3,7 @@ import { parseAppConfig } from "./config";
 
 afterEach(() => {
   vi.resetModules();
-  Reflect.deleteProperty(window, "__EFTIRMAL_ENV__");
+  Reflect.deleteProperty(window, "__MINNUMST_ENV__");
 });
 
 describe("app configuration", () => {
@@ -28,7 +28,7 @@ describe("app configuration", () => {
   });
 
   it("prefers configuration injected when the container starts", async () => {
-    Object.defineProperty(window, "__EFTIRMAL_ENV__", {
+    Object.defineProperty(window, "__MINNUMST_ENV__", {
       configurable: true,
       value: {
         VITE_API_URL: "https://runtime.example.test",

@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for contributing to the Eftirmal public frontend. Please discuss substantial changes in an issue before opening a pull request.
+Thanks for contributing to the Minnumst public frontend. Please discuss substantial changes in an issue before opening a pull request.
 
 ## Development
 

@@ -4,7 +4,7 @@ import unicodedata
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from eftirmal_api.models import Person
+from minnumst_api.models import Person
 
 
 def normalized_person_name(name: str) -> str:

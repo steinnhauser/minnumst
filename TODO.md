@@ -164,8 +164,8 @@ PostgreSQL replaced MariaDB before the first deployment, for its SCRAM-SHA-256 a
 - [x] AIDE file integrity with a daily check (CIS 6.3), local account policy (CIS 5.3, 5.4), debsums, process accounting and sysstat.
 - [ ] Raise the Lynis index further (malware scanning, compiler restrictions) where it doesn't conflict with running containers.
 - [ ] Ship logs (journal, audit, containers) off the host so the rotated audit logs and container logs survive a compromise (with item 7).
-- [ ] Add a post-deploy smoke test to the `minnumst` role: HTTPS on the three hostnames, HSTS, a refused unauthenticated write. The local edge test already covers this; point it at the real hostnames.
-- [ ] Document secret rotation (vault, PostgreSQL roles) and the rollback procedure: repin the previous image digests and rerun `make deploy ARGS="--tags app"`.
+- [x] Post-deploy smoke test in the `minnumst` role, run from the controller against the real hostnames: HTTPS with HSTS, public reads, authentication on the desk and on writes.
+- [x] Secret rotation (vault, PostgreSQL roles, SSH) and rollback (image pins, `migrate downgrade`) are documented in `deploy/README.md`.
 
 ## 10. Kubernetes as a second deployment target
 

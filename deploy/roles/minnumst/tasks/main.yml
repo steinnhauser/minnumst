@@ -52,6 +52,45 @@
     argv: "{{ minnumst_compose + ['up', '--detach', '--remove-orphans', '--pull', 'always'] }}"
   changed_when: true
 
+- name: Smoke test the live site from outside the host
+  when: minnumst_smoke_test
+  delegate_to: localhost
+  become: false
+  run_once: true
+  block:
+    - name: The public archive answers over HTTPS with HSTS (NIST SC-8)
+      ansible.builtin.uri:
+        url: "https://{{ minnumst_domain }}/"
+        status_code: 200
+      register: minnumst_smoke_public
+      # Certificates can take a moment to be issued on the first deploy.
+      retries: 30
+      delay: 10
+      until: minnumst_smoke_public.status == 200
+
+    - name: Require HSTS on the public archive
+      ansible.builtin.assert:
+        that: "'max-age=' in minnumst_smoke_public.strict_transport_security | default('')"
+        fail_msg: The public archive did not send Strict-Transport-Security.
+
+    - name: The API serves public reads
+      ansible.builtin.uri:
+        url: "https://{{ minnumst_api_domain }}/api/people?limit=1"
+        status_code: 200
+
+    - name: The editorial desk and API writes refuse unauthenticated requests (NIST AC-3)
+      ansible.builtin.uri:
+        url: "{{ item.url }}"
+        method: "{{ item.method }}"
+        follow_redirects: none
+        # Authentik answers with a redirect to its login page, or 401.
+        status_code: [302, 401]
+      loop:
+        - { url: "https://{{ minnumst_admin_domain }}/", method: GET }
+        - { url: "https://{{ minnumst_api_domain }}/api/people", method: POST }
+      loop_control:
+        label: "{{ item.method }} {{ item.url }}"
+
 - name: Install age to encrypt backups
   ansible.builtin.apt:
     name: age

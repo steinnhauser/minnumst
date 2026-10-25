@@ -5,3 +5,7 @@ minnumst_backup_retention_days: 14
 # An age public key (age1...). When set, every dump is encrypted to it, and the
 # host can't read its own backups; keep the private key off the server.
 minnumst_backup_age_recipient: ""
+
+# After deploying, check the live site from the machine running Ansible: HTTPS
+# with HSTS, public reads, and authentication on the editorial desk and on writes.
+minnumst_smoke_test: true

@@ -168,6 +168,27 @@ def test_cors_allows_and_exposes_request_id(monkeypatch: pytest.MonkeyPatch) -> 
     assert response.headers["access-control-allow-origin"] == "https://public.example"
     assert "x-request-id" in preflight.headers["access-control-allow-headers"].lower()
     assert response.headers["access-control-expose-headers"] == "X-Request-ID"
+    assert response.headers["access-control-allow-credentials"] == "true"
+
+
+def test_cors_never_allows_unlisted_origins(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "cors_origins", "https://admin.example")
+    with TestClient(migrated_app()) as test_client:
+        response = test_client.get(
+            "/api/people", headers={"Origin": "https://attacker.example"}
+        )
+        preflight = test_client.options(
+            "/api/people",
+            headers={
+                "Origin": "https://attacker.example",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+
+    # Without an allow-origin header the browser withholds the response, and
+    # with it any credentials, from the attacker's page.
+    assert "access-control-allow-origin" not in response.headers
+    assert preflight.status_code == 400
 
 
 def test_person_without_blog_can_be_deleted(client: TestClient) -> None:

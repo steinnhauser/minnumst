@@ -128,7 +128,10 @@ def create_app(database_url: str | None = None) -> FastAPI:
     if settings.allowed_origins:
         app.add_middleware(
             CORSMiddleware,
+            # Explicit origins only; credentials carry the Authentik session
+            # cookie from the admin desk to the API's hostname.
             allow_origins=settings.allowed_origins,
+            allow_credentials=True,
             allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
             allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
             expose_headers=["X-Request-ID"],

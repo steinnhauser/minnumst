@@ -34,9 +34,16 @@ ENV NODE_ENV=production \
     RUNTIME_CONFIG_KEYS=${RUNTIME_CONFIG_KEYS}
 WORKDIR /app
 
-COPY --from=server-deps --chown=node:node /repo/node_modules ./node_modules
-COPY --chown=node:node packages/static-server/logging.mjs packages/static-server/runtime-config.mjs packages/static-server/server.mjs ./
-COPY --from=build --chown=node:node /repo/${APP}/dist ./dist
+# The runtime only runs node: apply OS security fixes released since the base
+# image was built, and remove the package managers it never uses.
+RUN apk upgrade --no-cache \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+        /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+        /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
+
+COPY --from=server-deps /repo/node_modules ./node_modules
+COPY packages/static-server/config.mjs packages/static-server/logging.mjs packages/static-server/server.mjs ./
+COPY --from=build /repo/${APP}/dist ./dist
 
 USER node
 EXPOSE 8080
@@ -44,5 +51,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD ["wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/runtime-config.js"]
 
-# runtime-config.mjs writes dist/runtime-config.js from the listed variables.
-CMD ["sh", "-c", "node runtime-config.mjs $RUNTIME_CONFIG_KEYS && exec node server.mjs"]
+# Files stay owned by root and read-only to the node user; the server writes
+# nothing, so the container can run with a read-only root filesystem.
+CMD ["node", "server.mjs"]

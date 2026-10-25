@@ -26,10 +26,17 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 WORKDIR /app
 
-RUN groupadd --system app \
-    && useradd --system --gid app --uid 10001 --create-home app
+# Apply OS security fixes released since the base image was built, remove pip
+# (the app runs from its own virtualenv), and add an unprivileged user.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m pip uninstall -y pip \
+    && groupadd --system app \
+    && useradd --system --gid app --uid 10001 --no-create-home app
 
-COPY --from=builder --chown=app:app /app/.venv /app/.venv
+# Owned by root: the app user can run the code but not change it.
+COPY --from=builder /app/.venv /app/.venv
 
 USER app
 

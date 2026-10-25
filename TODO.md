@@ -173,6 +173,17 @@ PostgreSQL replaced MariaDB before the first deployment, for its SCRAM-SHA-256 a
 - [ ] Add an ArgoCD `Application`, demonstrated on kind or k3d. Add CI that runs `helm lint` and `kubeconform` and installs the charts into kind and runs the API e2e test.
 - [ ] Keep Compose with Ansible as the supported production path, and document how the two differ.
 
+## 11. Provision the host as code (`infra/`)
+
+OpenTofu with the `hetznercloud/hcloud` provider, one environment, no Terragrunt (it pays off with many environments; here it would only add a layer). The goal: `tofu apply` creates the server that `make deploy` then hardens.
+
+- [ ] `infra/` with the server (Ubuntu 24.04), SSH key, primary IPv4/IPv6, and a Hetzner Cloud firewall allowing only 22, 80 and 443 (a second layer in front of nftables). Optionally the three DNS records.
+- [ ] Data at rest: Hetzner Cloud images can't be installed with LUKS, so attach a Hetzner Volume, encrypt it with LUKS in the `host` role, and keep PostgreSQL data and backups on it. The role then checks for the encrypted data volume instead of an encrypted root disk.
+- [ ] Minimal cloud-init: the administrator user and SSH key only; everything else stays in Ansible.
+- [ ] Remote state in Hetzner Object Storage (S3 backend) with OpenTofu's built-in state encryption; the API token only in the environment, never in files.
+- [ ] Generate the Ansible inventory from `tofu output`, so `make deploy` needs no hand-edited host file.
+- [ ] CI: `tofu fmt -check`, `tofu validate`, TFLint and Trivy's IaC scan in `make lint`. No `apply` in CI; plans and applies stay manual.
+
 ## Component backlog
 
 Smaller items, by component. Items that need an API change start in `api/` and are coordinated with both frontends.

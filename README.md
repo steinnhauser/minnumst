@@ -149,15 +149,17 @@ For quicker iteration, run the development servers instead, each in its own term
 
 One workflow, [`ci.yml`](.github/workflows/ci.yml), runs on every push, pull request and release tag, using the same `make` targets:
 
-| Job       | Checks                                                                                                                              |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `checks`  | Ruff, Prettier, ESLint, ShellCheck, ansible-lint, playbook syntax, OpenAPI freshness, API wheel and frontend builds                 |
-| `tests`   | pytest on SQLite and on PostgreSQL (Testcontainers), Vitest                                                                         |
-| `e2e`     | Builds the images, runs the stack, then the API, edge, backup-restore and browser tests (CSP, axe), and scans the images with Trivy |
-| `host`    | Applies the host hardening to an Ubuntu 24.04 VM twice (the second run must change nothing) and scores it with Lynis                |
-| `codeql`  | CodeQL security-extended analysis of the Python, TypeScript and workflow code                                                       |
-| `ci-ok`   | Passes only when every other job passed; the single check to require on pull requests                                               |
-| `release` | On a release tag only: publishes the component's multi-arch image to GHCR and its GitHub Release                                    |
+| Job        | Checks                                                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `changes`  | Detects documentation-only changes, which skip the slower jobs below (tags, schedules and manual runs always run everything)        |
+| `checks`   | Ruff, Prettier, ESLint, ShellCheck, ansible-lint, playbook syntax, OpenAPI freshness, API wheel and frontend builds                 |
+| `tests`    | pytest on SQLite and on PostgreSQL (Testcontainers), Vitest                                                                         |
+| `e2e`      | Builds the images, runs the stack, then the API, edge, backup-restore and browser tests (CSP, axe), and scans the images with Trivy |
+| `host`     | Applies the host hardening to an Ubuntu 24.04 VM twice (the second run must change nothing) and scores it with Lynis                |
+| `codeql`   | CodeQL security-extended analysis of the Python, TypeScript and workflow code                                                       |
+| `pr-title` | Pull requests only: the title must be a Conventional Commit, because it becomes the squash commit `make release` reads              |
+| `ci-ok`    | Passes only when every other job passed; the single check to require on pull requests                                               |
+| `release`  | On a release tag only: publishes the component's multi-arch image to GHCR and its GitHub Release                                    |
 
 Dependabot keeps npm, uv, Docker base images and GitHub Actions up to date, in weekly grouped pull requests.
 

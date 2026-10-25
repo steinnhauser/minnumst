@@ -28,12 +28,12 @@ Releasing is not done. Each old repository had its own `CI and Release` workflow
 - [x] `make release COMPONENT=… [INCREMENT=…] [DRY_RUN=1]` (`tools/scripts/release.py`) derives the increment from the Conventional Commits that touched the component since its last tag (ignoring commits scoped to another component), updates the manifest and lockfile (and `api/openapi.json`), writes the changelog section, commits and tags. It never pushes. This replaces Commitizen, which can't scope a release to one component's files.
 - [x] The changelogs share one header, and the API reports its package version in `openapi.json`.
 - [ ] Sign images keylessly with cosign, if a consumer needs signatures beyond the provenance attestation.
-- [ ] Enforce the scope convention: a PR check that the PR title is a Conventional Commit whose scope matches the folders it touches. With squash merging (1.5), the title becomes the commit on `main` that `make release` reads.
+- [x] Pull request titles must be Conventional Commits with an optional component scope (the `pr-title` job).
 
 ### 1.3 Faster CI
 
 - [x] Run everything on pushes to `main`, tags, pull requests, `workflow_dispatch` and a weekly `schedule` (new vulnerabilities in unchanged code and images).
-- [ ] Skip work a change can't affect, with a `changes` job (`dorny/paths-filter`): documentation-only changes skip `tests` and `e2e`, and changes outside `api/`, `web/`, `admin/`, `packages/`, `docker/`, `deploy/templates/`, `tools/` and the lockfiles skip `e2e`. `ci-ok` already treats skipped jobs as passing.
+- [x] A `changes` job lets documentation-only changes skip the tests, e2e, host and CodeQL jobs; `ci-ok` treats skipped jobs as passing, and tags, schedules and manual runs always run everything.
 - [ ] Cache the Docker layers of the `e2e` image builds (Buildx with the GHA cache), so unchanged dependency layers aren't rebuilt on every run.
 
 ### 1.4 Container registry and image references

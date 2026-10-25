@@ -48,3 +48,31 @@
     group: root
     mode: "0440"
     validate: /usr/sbin/visudo -cf %s
+
+- name: Enforce local account defaults (CIS 5.4, NIST IA-5)
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: "^#?\\s*{{ item.key }}\\s"
+    line: "{{ item.key }} {{ item.value }}"
+  loop:
+    - { key: UMASK, value: "027" }
+    - { key: PASS_MAX_DAYS, value: "365" }
+    - { key: PASS_MIN_DAYS, value: "1" }
+    - { key: PASS_WARN_AGE, value: "14" }
+    - { key: ENCRYPT_METHOD, value: YESCRYPT }
+    - { key: SHA_CRYPT_MIN_ROUNDS, value: "65536" }
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Require strong passwords for local accounts (CIS 5.3, NIST IA-5)
+  ansible.builtin.copy:
+    dest: /etc/security/pwquality.conf.d/60-minnumst.conf
+    content: |
+      minlen = 14
+      minclass = 4
+      maxrepeat = 3
+      dictcheck = 1
+      enforce_for_root
+    owner: root
+    group: root
+    mode: "0644"

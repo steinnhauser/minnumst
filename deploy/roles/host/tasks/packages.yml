@@ -9,14 +9,19 @@
 - name: Install the security baseline
   ansible.builtin.apt:
     name:
+      - acct
+      - aide
       - apparmor
       - apparmor-utils
       - auditd
       - chrony
+      - debsums
+      - libpam-pwquality
       - needrestart
       - nftables
       - openssh-server
       - sudo
+      - sysstat
       - unattended-upgrades
     state: present
     update_cache: true

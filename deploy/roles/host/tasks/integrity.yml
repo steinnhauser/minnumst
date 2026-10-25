@@ -1,0 +1,37 @@
+---
+- name: Leave constantly changing data out of file integrity checks
+  ansible.builtin.copy:
+    dest: /etc/aide/aide.conf.d/90_minnumst
+    content: |
+      # Container layers, volumes, backups and logs change all the time.
+      !/var/lib/docker
+      !/var/lib/containerd
+      !/var/backups/minnumst
+      !/var/log
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Record the file integrity baseline (CIS 6.3, NIST SI-7)
+  ansible.builtin.command:
+    argv: [aideinit, --yes, --force]
+    creates: /var/lib/aide/aide.db
+
+- name: Check file integrity daily (CIS 6.3)
+  ansible.builtin.systemd_service:
+    name: dailyaidecheck.timer
+    state: started
+    enabled: true
+
+- name: Let sysstat collect system statistics
+  ansible.builtin.lineinfile:
+    path: /etc/default/sysstat
+    regexp: "^ENABLED="
+    line: 'ENABLED="true"'
+
+- name: Record process accounting and system statistics (NIST AU-12)
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop: [acct, sysstat]

@@ -16,3 +16,6 @@
 
 - name: Enable auditing, logging and time synchronisation
   ansible.builtin.import_tasks: logging.yml
+
+- name: Monitor file and package integrity
+  ansible.builtin.import_tasks: integrity.yml

@@ -48,7 +48,6 @@ The admin supports person-linked blog title, excerpt, and story revisions; profi
 
 Build locally with `docker build -t minnumst-api:local .`. Multi-platform images (`linux/amd64`, `linux/arm64`) will be published as `ghcr.io/steinnhauser/minnumst-api:<version>` by the repository-level release workflow, which is not in place yet. The image listens on port 8000, runs as a non-root user, and exposes `/healthz` as its container healthcheck. Make the GHCR package public in its package settings before pulling it from a host that has not authenticated to GitHub Container Registry.
 
-
 ## Commands
 
 `make install`, `make format`, `make format-check`, `make lint`, `make test`, `make test-mariadb`, `make generate-openapi`, `make check-openapi`, `make validate`, `make build`, `make dev-start`, `make dev-stop`, and `make clean` use UV and Ruff. `make run-dev` and `make stop` remain compatibility aliases. Cleanup removes the local virtual environment and generated build/test output; it does not remove the local SQLite database or checked-in API specification.

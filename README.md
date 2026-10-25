@@ -44,33 +44,44 @@ MariaDB is only reachable on an internal network, and secrets live in ansible-va
 
 ## Running locally
 
-Each component runs on its own:
+The root `Makefile` drives every component. Run `make help` for the full list.
 
 ```sh
-make -C api install && make -C api dev-start        # http://127.0.0.1:8000 (docs at /docs)
-make -C web install && make -C web dev-start        # http://127.0.0.1:5173
-make -C admin install && make -C admin dev-start    # http://127.0.0.1:5174
+make install       # locked dependencies for api/, web/, admin/ and deploy/
+make format        # format everything; format-check, lint, test and build work the same way
+make validate      # every component's full validation, as CI runs it (needs Docker)
 ```
 
-Copy each folder's `.env.example` to `.env` first. To run the whole stack with MariaDB in containers, use the helpers in [`tools/`](tools/):
+To run the whole stack in containers, rendered from the same Compose template that `deploy/` uses (MariaDB, API and both frontends, without Traefik):
 
 ```sh
-make -C deploy install
-make -C tools compose-up db-seed e2e
+make stack-test    # build the images, start the stack, wait until ready, seed sample data, run the e2e tests
+make down          # stop it; the MariaDB volume is kept
 ```
 
-`make -C tools validate` runs every component's format, lint, test and build checks. See [`deploy/README.md`](deploy/README.md) for production deployment.
+The web archive is then on <http://127.0.0.1:5173>, the editorial desk on <http://127.0.0.1:5174> and the API docs on <http://127.0.0.1:8000/docs>. See [`tools/README.md`](tools/README.md) for the details.
+
+Each component also runs on its own with a dev server. Copy its `.env.example` to `.env` first:
+
+```sh
+make -C api dev-start      # http://127.0.0.1:8000
+make -C web dev-start      # http://127.0.0.1:5173
+make -C admin dev-start    # http://127.0.0.1:5174
+```
+
+Python is pinned per component in `.python-version` and Node in the root `.nvmrc`; CI uses the same versions as the container images. See [`deploy/README.md`](deploy/README.md) for production deployment.
 
 ## CI and releases
 
 [`ci.yml`](.github/workflows/ci.yml) runs on every push and pull request:
 
-| Job            | Checks                                                                                                      |
-| -------------- | ----------------------------------------------------------------------------------------------------------- |
-| `api`          | Ruff, OpenAPI freshness, pytest on SQLite and on MariaDB (Testcontainers), package build                    |
-| `web`, `admin` | Prettier, ESLint, Vitest, TypeScript, production build                                                      |
-| `deploy`       | Ruff, ansible-lint, playbook syntax check against the example inventory                                     |
-| `e2e`          | Builds all three images, starts the stack with MariaDB, seeds sample data and runs the end-to-end API tests |
+| Job            | Checks                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------- |
+| `api`          | Ruff, OpenAPI freshness, pytest on SQLite and on MariaDB (Testcontainers), package build                      |
+| `web`, `admin` | Prettier, ESLint, Vitest, TypeScript, production build                                                        |
+| `deploy`       | Ruff, ansible-lint, playbook syntax check against the example inventory                                       |
+| `tools`        | Ruff and ShellCheck on the helpers, Prettier on docs and workflows                                            |
+| `e2e`          | `make stack-test`: builds all three images, starts the stack with MariaDB, seeds data, runs the API e2e tests |
 
 Dependabot keeps npm, uv, Docker base images and GitHub Actions up to date, in weekly grouped pull requests.
 

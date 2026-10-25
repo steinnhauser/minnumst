@@ -2,6 +2,7 @@ import logging
 import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from importlib.metadata import version
 from time import perf_counter
 from uuid import uuid4
 
@@ -80,7 +81,9 @@ def create_app(database_url: str | None = None, create_tables: bool = True) -> F
             engine.dispose()
             logger.info("Stopped Minnumst API")
 
-    app = FastAPI(title="Minnumst API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(
+        title="Minnumst API", version=version("minnumst-api"), lifespan=lifespan
+    )
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.include_router(router)

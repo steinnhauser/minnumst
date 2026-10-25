@@ -26,13 +26,13 @@ def require_local_database() -> None:
     url = make_url(settings.database_url)
     if (
         os.environ.get("MINNUMST_ALLOW_E2E") != "1"
-        or url.get_backend_name() != "mysql"
-        or url.host != "mariadb"
+        or url.get_backend_name() != "postgresql"
+        or url.host != "postgres"
         or url.database != "minnumst_local"
     ):
         raise SystemExit(
             "Refusing to run destructive test cleanup outside the local "
-            "minnumst_local MariaDB database."
+            "minnumst_local PostgreSQL database."
         )
 
 
@@ -98,7 +98,7 @@ def main() -> None:
     require_local_database()
     wait_until_ready()
     expect_status("GET", "/healthz", 200)
-    print("PASS /healthz and MariaDB-backed /readyz")
+    print("PASS /healthz and PostgreSQL-backed /readyz")
 
     run_id = uuid4().hex[:12]
     query = f"E2E-{run_id}"
@@ -192,7 +192,7 @@ def main() -> None:
     params = urlencode({"query": run_id, "offset": 0, "limit": 10})
     remaining = expect_status("GET", f"/api/people?{params}", 200)
     assert remaining["total"] == 0, remaining
-    print("PASS temporary MariaDB fixtures cleaned up")
+    print("PASS temporary PostgreSQL fixtures cleaned up")
 
 
 if __name__ == "__main__":

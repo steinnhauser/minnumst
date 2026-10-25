@@ -1,6 +1,6 @@
 # Minnumst deployment
 
-Ansible deploys the public archive, editorial desk, API, MariaDB and Traefik to a Debian or Ubuntu host with Docker Compose. The application images are built from [`docker/`](../docker/) in this repository. Run the commands below from the repository root.
+Ansible deploys the public archive, editorial desk, API, PostgreSQL and Traefik to a Debian or Ubuntu host with Docker Compose. The application images are built from [`docker/`](../docker/) in this repository. Run the commands below from the repository root.
 
 ## Requirements
 
@@ -41,7 +41,7 @@ Set `minnumst_log_level` in `inventory/group_vars/all/vars.yml` to `DEBUG`, `INF
 
 The deployment tooling is versioned as `deploy-<version>` (currently `0.1.0`, in `pyproject.toml`). Service images are versioned independently and pinned in the inventory; changing a pin doesn't create or deploy a service release.
 
-The playbook installs Docker Engine and the Compose plugin from Docker's signed Debian/Ubuntu apt repository, templates `/opt/minnumst/compose.yml` with mode `0600`, validates it, then pulls and starts the stack. MariaDB data and Traefik ACME state use persistent named volumes. MariaDB is not published on a host port.
+The playbook installs Docker Engine and the Compose plugin from Docker's signed Debian/Ubuntu apt repository, templates `/opt/minnumst/compose.yml` with mode `0600`, validates it, then pulls and starts the stack. PostgreSQL data and Traefik ACME state use persistent named volumes. PostgreSQL is not published on a host port, and on first start it creates a separate, non-superuser login role for the API.
 
 Traefik routes HTTPS for all three hostnames and obtains certificates using the HTTP challenge, so ports 80 and 443 must reach the server. The admin host and API write methods are protected by the configured Authentik forward-auth endpoint. Configure Authentik so the admin app, API hostname, and corresponding origins are accepted by its proxy provider; the public API router remains available for unauthenticated reads. Do not expose the deployment until the Authentik endpoint is reachable and tested.
 

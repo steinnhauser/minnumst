@@ -22,5 +22,6 @@ traefik_acme_ca_server: https://acme-v02.api.letsencrypt.org/directory
 # TODO: Set the reachable Authentik Traefik outpost URL for this deployment.
 authentik_forwardauth_address: https://auth.example.com/outpost.goauthentik.io/auth/traefik
 
-mariadb_database: minnumst
-mariadb_user: minnumst
+postgres_image: postgres:18-alpine
+postgres_database: minnumst
+postgres_user: minnumst

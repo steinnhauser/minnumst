@@ -75,7 +75,7 @@ case "$action" in
       BASE_COMPOSE_FILE="$compose_file" bash "$tools_root/scripts/e2e_edge.sh"
     ;;
   clear|reset)
-    printf 'This will %s the minnumst_local MariaDB data. Type "%s" to continue: ' "$action" "$action" >&2
+    printf 'This will %s the minnumst_local PostgreSQL data. Type "%s" to continue: ' "$action" "$action" >&2
     IFS= read -r confirmation
     [[ "$confirmation" == "$action" ]] || { printf 'Cancelled.\n' >&2; exit 1; }
     "${compose[@]}" exec -T -e MINNUMST_ALLOW_LOCAL_RESET=1 api python /opt/minnumst/seed_local_db.py "$action" --yes

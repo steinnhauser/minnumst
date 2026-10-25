@@ -1,7 +1,7 @@
 # Rendered by deploy/site.yml (production) and tools/compose/render.yml (local stack).
 #
 # Networks: only Traefik publishes ports. `edge` connects Traefik to the three
-# apps, `backend` (internal, no route out) connects the API to MariaDB, and
+# apps, `backend` (internal, no route out) connects the API to PostgreSQL, and
 # `socket` (internal) connects Traefik to the read-only Docker API proxy.
 
 x-defaults: &defaults
@@ -96,12 +96,12 @@ services:
     <<: *locked-down
     image: {{ minnumst_api_image | to_json }}
     environment:
-      DATABASE_URL: {{ ("mysql+pymysql://" ~ mariadb_user ~ ":" ~ (mariadb_password | urlencode) ~ "@mariadb:3306/" ~ mariadb_database ~ "?charset=utf8mb4") | to_json }}
+      DATABASE_URL: {{ ("postgresql+psycopg://" ~ postgres_user ~ ":" ~ (postgres_password | urlencode) ~ "@postgres:5432/" ~ postgres_database) | to_json }}
       CORS_ORIGINS: {{ ("https://" ~ minnumst_domain ~ ",https://" ~ minnumst_admin_domain) | to_json }}
       LOG_LEVEL: {{ minnumst_log_level | to_json }}
     tmpfs: [/tmp]
     depends_on:
-      mariadb:
+      postgres:
         condition: service_healthy
     labels:
       traefik.enable: "true"
@@ -133,28 +133,47 @@ services:
       traefik.http.middlewares.security-headers.headers.referrerPolicy: strict-origin-when-cross-origin
     networks: [edge, backend]
 
-  mariadb:
-    # MariaDB's entrypoint needs its default capabilities to set up the data
-    # directory, so it keeps them, but it is reachable only on `backend`.
-    <<: *defaults
-    image: mariadb:11.4
+  postgres:
+    # Runs as the image's unprivileged postgres user (uid 70), so the entrypoint
+    # needs no root and no capabilities. Every connection uses SCRAM-SHA-256.
+    <<: *locked-down
+    image: {{ postgres_image | to_json }}
+    user: "70:70"
     environment:
-      MARIADB_DATABASE: {{ mariadb_database | to_json }}
-      MARIADB_USER: {{ mariadb_user | to_json }}
-      MARIADB_PASSWORD: {{ mariadb_password | to_json }}
-      MARIADB_ROOT_PASSWORD: {{ mariadb_root_password | to_json }}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: {{ postgres_superuser_password | to_json }}
+      POSTGRES_DB: {{ postgres_database | to_json }}
+      POSTGRES_INITDB_ARGS: --auth-local=scram-sha-256 --auth-host=scram-sha-256
+      MINNUMST_APP_PASSWORD: {{ postgres_password | to_json }}
+    configs:
+      - source: postgres-app-role
+        target: /docker-entrypoint-initdb.d/app-role.sh
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql
+    tmpfs: [/var/run/postgresql, /tmp]
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: ["CMD", "pg_isready", "--username", "postgres", "--dbname", {{ postgres_database | to_json }}]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 30s
     networks: [backend]
 
+# Runs once, when the data directory is created. The API logs in as its own role,
+# which owns the application database but cannot create roles or databases and
+# is not a superuser. Nothing but the API can reach PostgreSQL.
+configs:
+  postgres-app-role:
+    content: |
+      psql --set ON_ERROR_STOP=1 --set app_password="$$MINNUMST_APP_PASSWORD" \
+        --username postgres --dbname {{ postgres_database }} <<'SQL'
+      CREATE ROLE {{ postgres_user }} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD :'app_password';
+      ALTER DATABASE {{ postgres_database }} OWNER TO {{ postgres_user }};
+      REVOKE ALL ON DATABASE {{ postgres_database }} FROM PUBLIC;
+      SQL
+
 volumes:
-  mariadb_data:
+  postgres_data:
   traefik_acme:
 
 networks:

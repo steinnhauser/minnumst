@@ -50,13 +50,13 @@ def require_local_database() -> None:
     url = make_url(settings.database_url)
     if (
         os.environ.get("MINNUMST_ALLOW_LOCAL_RESET") != "1"
-        or url.get_backend_name() != "mysql"
-        or url.host != "mariadb"
+        or url.get_backend_name() != "postgresql"
+        or url.host != "postgres"
         or url.database != "minnumst_local"
     ):
         raise SystemExit(
             "Refusing destructive operation: expected the local Compose "
-            "minnumst_local database on the mariadb service."
+            "minnumst_local database on the postgres service."
         )
 
 
@@ -129,7 +129,7 @@ def main() -> None:
             )
         Base.metadata.drop_all(engine)
         Base.metadata.create_all(engine)
-        print("Cleared and recreated the local MariaDB schema.")
+        print("Cleared and recreated the local PostgreSQL schema.")
         if args.action == "clear":
             return
     else:

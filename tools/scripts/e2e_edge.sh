@@ -37,18 +37,17 @@ config = json.load(sys.stdin)
 services, networks = config["services"], config["networks"]
 published = sorted(name for name, service in services.items() if service.get("ports"))
 assert published == ["traefik"], f"services publishing ports: {published}"
-assert list(services["mariadb"]["networks"]) == ["backend"], "MariaDB must only be on backend"
+assert list(services["postgres"]["networks"]) == ["backend"], "PostgreSQL must only be on backend"
 assert list(services["docker-socket-proxy"]["networks"]) == ["socket"]
 assert networks["backend"].get("internal") and networks["socket"].get("internal")
 assert all(s.get("volumes") is None or "/var/run/docker.sock" not in str(s["volumes"])
            for name, s in services.items() if name != "docker-socket-proxy"), "socket mounted outside the proxy"
 for name, service in services.items():
     assert "no-new-privileges:true" in service.get("security_opt", []), name
-    if name != "mariadb":
-        assert service.get("read_only") and service.get("cap_drop") == ["ALL"], name
+    assert service.get("read_only") and service.get("cap_drop") == ["ALL"], name
 '
-check "only Traefik publishes ports; MariaDB and the Docker API proxy sit on internal networks" "ok" "ok"
-check "every container: no-new-privileges; all but MariaDB: read-only, no capabilities" "ok" "ok"
+check "only Traefik publishes ports; PostgreSQL and the Docker API proxy sit on internal networks" "ok" "ok"
+check "every container: no-new-privileges, read-only, no capabilities" "ok" "ok"
 
 for _ in $(seq 30); do
   [[ $(status "$web/") == 200 ]] && break

@@ -10,7 +10,7 @@ traefik_acme_ca_server: https://127.0.0.1:1/directory
 # The auth-stub service in local.override.yml stands in for Authentik.
 authentik_forwardauth_address: http://auth-stub:9000/
 
-mariadb_database: minnumst_local
-mariadb_user: minnumst_local
-mariadb_root_password: local_only_root_password
-mariadb_password: local_only_application_password
+postgres_database: minnumst_local
+postgres_user: minnumst_local
+postgres_superuser_password: local_only_superuser_password
+postgres_password: local_only_application_password

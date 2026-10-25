@@ -15,11 +15,11 @@
           - minnumst_log_level in ["DEBUG", "INFO", "WARNING", "ERROR"]
           - authentik_forwardauth_address | length > 0
           - traefik_acme_email | length > 0
-          - mariadb_root_password is match('^[A-Za-z0-9_-]+$')
-          - mariadb_password is match('^[A-Za-z0-9_-]+$')
+          - postgres_superuser_password is match('^[A-Za-z0-9_-]+$')
+          - postgres_password is match('^[A-Za-z0-9_-]+$')
         fail_msg: >-
           Set the image, domain, Authentik, and ACME variables, and use
-          URL-safe MariaDB passwords in the inventory and Ansible Vault.
+          URL-safe PostgreSQL passwords in the inventory and Ansible Vault.
       no_log: true
 
     - name: Require a Debian-family target

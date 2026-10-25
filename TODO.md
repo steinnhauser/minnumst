@@ -40,7 +40,7 @@ Releasing is not done. Each old repository had its own `CI and Release` workflow
 
 - [x] The first release pushed without registry permission problems.
 - [x] The `minnumst-*` packages are public and linked to the repository; images pull without credentials.
-- [x] `deploy/inventory/group_vars/all/vars.yml` pins `minnumst-web:0.2.0`, `minnumst-admin:0.3.0` and `minnumst-api:0.2.0` by digest.
+- [x] `deploy/inventory/group_vars/all/vars.yml` pins the latest releases (`minnumst-web:0.3.0`, `minnumst-admin:0.4.0`, `minnumst-api:0.3.0`) by digest.
 - [ ] Optional follow-up: after an image release, open a PR that bumps the matching pin in `vars.yml` (Dependabot can't update GHCR references in Ansible variables).
 - [ ] Decide what happens to the old `eftirmal*` packages: delete them, or keep them private with a description pointing here. Add a pointer to `steinnhauser/minnumst` in the README of each archived repository.
 

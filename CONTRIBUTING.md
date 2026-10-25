@@ -73,4 +73,4 @@ Use `!` or a `BREAKING CHANGE:` footer for incompatible changes. Release notes a
 
 ## Releases
 
-On an up-to-date `main`, run `make release COMPONENT=api DRY_RUN=1` to preview the next version and changelog section, then `make release COMPONENT=api` to commit and tag it. Add `INCREMENT=MINOR` (or `PATCH`, `MAJOR`) to override the computed increment. Push the commit and tag together with the `git push --atomic` command it prints; CI publishes the image and the GitHub Release.
+On an up-to-date `main`, run `make release COMPONENT=api DRY_RUN=1` to preview the next version and changelog section, then `make release COMPONENT=api` to commit and tag it. Add `INCREMENT=MINOR` (or `PATCH`, `MAJOR`) to override the computed increment. Push the commit and tag together with the `git push --atomic` command it prints; CI publishes the image and the GitHub Release. GitHub ignores tags pushed more than three at a time, so push at most three release tags at once. To rerun a release (or start one GitHub skipped), run `gh workflow run ci.yml --ref <tag>`.

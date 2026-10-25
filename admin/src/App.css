@@ -150,7 +150,7 @@
 }
 
 .topbar-mark {
-  color: #929b94;
+  color: #696f6a;
   font-size: 8px;
 }
 
@@ -561,7 +561,7 @@
   border: 1px solid #f0d5d4;
   border-radius: 3px;
   background: var(--coral-pale);
-  color: #b75d5e;
+  color: #a65455;
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.7px;
@@ -578,7 +578,7 @@
 }
 
 .field-label span {
-  color: #9aa29b;
+  color: #6b716c;
   font-size: 9px;
   font-weight: 400;
 }
@@ -964,7 +964,7 @@
   gap: 6px;
   margin: auto 0 0;
   padding-top: 20px;
-  color: #879189;
+  color: #6a726c;
   font-size: 10px;
 }
 
@@ -973,7 +973,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 13px 2px 0;
-  color: #929a93;
+  color: #6a706b;
   font-size: 8px;
 }
 

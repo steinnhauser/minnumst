@@ -1,5 +1,6 @@
 ---
 minnumst_deploy_dir: /opt/minnumst
+minnumst_compose_project: minnumst
 # TODO: Set the production public hostname; point its DNS record to the server IP.
 minnumst_domain: minnumst.example
 # TODO: Set the production admin hostname; point its DNS record to the server IP.
@@ -13,9 +14,11 @@ minnumst_public_image: ghcr.io/steinnhauser/minnumst-web:0.1.1
 minnumst_admin_image: ghcr.io/steinnhauser/minnumst-admin:0.2.1
 minnumst_api_image: ghcr.io/steinnhauser/minnumst-api:0.1.2
 
-traefik_image: traefik:v3.3
+traefik_image: traefik:v3.7.16
+docker_socket_proxy_image: ghcr.io/tecnativa/docker-socket-proxy:v0.5.0
 # TODO: Set a monitored email address for Let's Encrypt certificate notices.
 traefik_acme_email: ops@example.com
+traefik_acme_ca_server: https://acme-v02.api.letsencrypt.org/directory
 # TODO: Set the reachable Authentik Traefik outpost URL for this deployment.
 authentik_forwardauth_address: https://auth.example.com/outpost.goauthentik.io/auth/traefik
 

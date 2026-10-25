@@ -1,97 +1,143 @@
+# Rendered by deploy/site.yml (production) and tools/compose/render.yml (local stack).
+#
+# Networks: only Traefik publishes ports. `edge` connects Traefik to the three
+# apps, `backend` (internal, no route out) connects the API to MariaDB, and
+# `socket` (internal) connects Traefik to the read-only Docker API proxy.
+
+x-defaults: &defaults
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+x-locked-down: &locked-down
+  <<: *defaults
+  read_only: true
+  cap_drop: [ALL]
+
 services:
   traefik:
+    <<: *locked-down
     image: {{ traefik_image | to_json }}
-    restart: unless-stopped
     command:
+      - --global.checknewversion=false
+      - --global.sendanonymoususage=false
+      - --log.format=json
       - --api.dashboard=false
       - --providers.docker=true
+      - --providers.docker.endpoint=tcp://docker-socket-proxy:2375
       - --providers.docker.exposedbydefault=false
-      - --providers.docker.network=minnumst_edge
+      - --providers.docker.network={{ minnumst_compose_project }}_edge
       - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls=true
+      - --entrypoints.websecure.http.middlewares=security-headers@docker
       - --certificatesresolvers.le.acme.email={{ traefik_acme_email }}
+      - --certificatesresolvers.le.acme.caserver={{ traefik_acme_ca_server }}
       - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_acme:/letsencrypt
-    networks:
-      - edge
+    depends_on: [docker-socket-proxy]
+    networks: [edge, socket]
+
+  # Traefik only needs to list containers and their labels. The proxy exposes
+  # that read-only subset of the Docker API, so the edge never holds the socket.
+  docker-socket-proxy:
+    <<: *locked-down
+    image: {{ docker_socket_proxy_image | to_json }}
+    environment:
+      CONTAINERS: 1
+      EVENTS: 1
+      PING: 1
+      VERSION: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    tmpfs: [/run, /tmp]
+    networks: [socket]
 
   public:
+    <<: *locked-down
     image: {{ minnumst_public_image | to_json }}
-    restart: unless-stopped
     environment:
       VITE_API_URL: {{ ("https://" ~ minnumst_api_domain) | to_json }}
       LOG_LEVEL: {{ minnumst_log_level | to_json }}
     labels:
       traefik.enable: "true"
-      traefik.docker.network: minnumst_edge
       traefik.http.routers.minnumst-public.rule: "Host(`{{ minnumst_domain }}`)"
       traefik.http.routers.minnumst-public.entrypoints: websecure
       traefik.http.routers.minnumst-public.tls.certresolver: le
       traefik.http.services.minnumst-public.loadbalancer.server.port: "8080"
-    networks:
-      - edge
+    networks: [edge]
 
   admin:
+    <<: *locked-down
     image: {{ minnumst_admin_image | to_json }}
-    restart: unless-stopped
     environment:
       VITE_API_URL: {{ ("https://" ~ minnumst_api_domain) | to_json }}
       DEBUG: {{ minnumst_admin_debug | to_json }}
       LOG_LEVEL: {{ minnumst_log_level | to_json }}
     labels:
       traefik.enable: "true"
-      traefik.docker.network: minnumst_edge
       traefik.http.routers.minnumst-admin.rule: "Host(`{{ minnumst_admin_domain }}`)"
       traefik.http.routers.minnumst-admin.entrypoints: websecure
       traefik.http.routers.minnumst-admin.tls.certresolver: le
-      traefik.http.routers.minnumst-admin.middlewares: authentik
+      traefik.http.routers.minnumst-admin.middlewares: authentik@docker
       traefik.http.services.minnumst-admin.loadbalancer.server.port: "8080"
-      traefik.http.middlewares.authentik.forwardauth.address: {{ authentik_forwardauth_address | to_json }}
-      traefik.http.middlewares.authentik.forwardauth.trustForwardHeader: "true"
-    networks:
-      - edge
+    networks: [edge]
 
   api:
+    <<: *locked-down
     image: {{ minnumst_api_image | to_json }}
-    restart: unless-stopped
     environment:
       DATABASE_URL: {{ ("mysql+pymysql://" ~ mariadb_user ~ ":" ~ (mariadb_password | urlencode) ~ "@mariadb:3306/" ~ mariadb_database ~ "?charset=utf8mb4") | to_json }}
       CORS_ORIGINS: {{ ("https://" ~ minnumst_domain ~ ",https://" ~ minnumst_admin_domain) | to_json }}
       LOG_LEVEL: {{ minnumst_log_level | to_json }}
+    tmpfs: [/tmp]
     depends_on:
       mariadb:
         condition: service_healthy
     labels:
       traefik.enable: "true"
-      traefik.docker.network: minnumst_edge
+      # Reads are public; every write method goes through Authentik first.
       traefik.http.routers.minnumst-api-read.rule: "Host(`{{ minnumst_api_domain }}`)"
       traefik.http.routers.minnumst-api-read.entrypoints: websecure
       traefik.http.routers.minnumst-api-read.priority: "1"
       traefik.http.routers.minnumst-api-read.tls.certresolver: le
+      traefik.http.routers.minnumst-api-read.middlewares: api-ratelimit@docker
       traefik.http.routers.minnumst-api-read.service: minnumst-api
       traefik.http.routers.minnumst-api-write.rule: "Host(`{{ minnumst_api_domain }}`) && (Method(`POST`) || Method(`PUT`) || Method(`PATCH`) || Method(`DELETE`))"
       traefik.http.routers.minnumst-api-write.entrypoints: websecure
       traefik.http.routers.minnumst-api-write.priority: "100"
       traefik.http.routers.minnumst-api-write.tls.certresolver: le
-      traefik.http.routers.minnumst-api-write.middlewares: authentik
+      traefik.http.routers.minnumst-api-write.middlewares: api-ratelimit@docker,authentik@docker
       traefik.http.routers.minnumst-api-write.service: minnumst-api
       traefik.http.services.minnumst-api.loadbalancer.server.port: "8000"
+      # Shared middlewares, defined once here and referenced by every router.
       traefik.http.middlewares.authentik.forwardauth.address: {{ authentik_forwardauth_address | to_json }}
+      # Traefik is the edge and drops client-sent X-Forwarded-* headers, so only
+      # its own reach Authentik.
       traefik.http.middlewares.authentik.forwardauth.trustForwardHeader: "true"
-    networks:
-      - edge
-      - backend
+      traefik.http.middlewares.api-ratelimit.ratelimit.average: "20"
+      traefik.http.middlewares.api-ratelimit.ratelimit.burst: "50"
+      traefik.http.middlewares.security-headers.headers.stsSeconds: "63072000"
+      traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains: "true"
+      traefik.http.middlewares.security-headers.headers.contentTypeNosniff: "true"
+      traefik.http.middlewares.security-headers.headers.frameDeny: "true"
+      traefik.http.middlewares.security-headers.headers.referrerPolicy: strict-origin-when-cross-origin
+    networks: [edge, backend]
 
   mariadb:
+    # MariaDB's entrypoint needs its default capabilities to set up the data
+    # directory, so it keeps them, but it is reachable only on `backend`.
+    <<: *defaults
     image: mariadb:11.4
-    restart: unless-stopped
     environment:
       MARIADB_DATABASE: {{ mariadb_database | to_json }}
       MARIADB_USER: {{ mariadb_user | to_json }}
@@ -105,8 +151,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-    networks:
-      - backend
+    networks: [backend]
 
 volumes:
   mariadb_data:
@@ -115,4 +160,6 @@ volumes:
 networks:
   edge:
   backend:
+    internal: true
+  socket:
     internal: true

@@ -1,10 +1,14 @@
+minnumst_compose_project: minnumst-local
 minnumst_domain: minnumst.local
 minnumst_admin_domain: admin.minnumst.local
 minnumst_api_domain: api.minnumst.local
 minnumst_log_level: INFO
 
+# No certificate authority locally: Traefik serves its default self-signed certificate.
 traefik_acme_email: developer@example.invalid
-authentik_forwardauth_address: http://127.0.0.1:9000/outpost.goauthentik.io/auth/traefik
+traefik_acme_ca_server: https://127.0.0.1:1/directory
+# The auth-stub service in local.override.yml stands in for Authentik.
+authentik_forwardauth_address: http://auth-stub:9000/
 
 mariadb_database: minnumst_local
 mariadb_user: minnumst_local

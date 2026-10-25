@@ -1,6 +1,38 @@
 # Local builds on top of the deploy/ Compose template. Paths are relative to
 # the rendered file in tools/compose/.local/; build contexts are the repository root.
 services:
+  # The production edge, on loopback ports only (see `make edge`).
+  traefik:
+    ports: !override
+      - "127.0.0.1:8088:80"
+      - "127.0.0.1:8443:443"
+
+  # Stands in for Authentik's forward-auth endpoint: it allows a request only
+  # when it carries the local test token.
+  auth-stub:
+    image: python:3.13-slim-bookworm
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    user: "65534:65534"
+    command:
+      - python
+      - -c
+      - |
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+
+        class ForwardAuth(BaseHTTPRequestHandler):
+            def do_GET(self):
+                allowed = self.headers.get("Authorization") == "Bearer local-edge-test"
+                self.send_response(200 if allowed else 401)
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        HTTPServer(("0.0.0.0", 9000), ForwardAuth).serve_forever()
+    networks: [edge]
+
   public:
     image: minnumst-local/public:dev
     build:

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-[[ $# -ge 1 ]] || { printf 'Usage: %s <render|config|up|wait|seed|update|e2e|clear|reset|down|ps|logs> [services...]\n' "$0" >&2; exit 2; }
+[[ $# -ge 1 ]] || { printf 'Usage: %s <render|config|up|wait|seed|update|e2e|edge|clear|reset|down|ps|logs> [services...]\n' "$0" >&2; exit 2; }
 action=$1
 shift
 repo_root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -24,6 +24,9 @@ if [[ "$vars_file" == "$tools_root/compose/local-vars.yml" ]]; then
   chmod 600 "$vars_file"
 fi
 
+# Reads a top-level value from the local variables file.
+var() { awk -v key="$1:" '$1 == key { print $2 }' "$vars_file"; }
+
 mkdir -p "$local_dir"
 chmod 700 "$local_dir"
 (
@@ -43,7 +46,7 @@ case "$action" in
     ;;
   up)
     "${compose[@]}" build api public admin
-    "${compose[@]}" up -d mariadb api public admin
+    "${compose[@]}" up -d
     ;;
   wait)
     timeout=${WAIT_TIMEOUT:-120}
@@ -66,6 +69,10 @@ case "$action" in
     ;;
   e2e)
     "${compose[@]}" exec -T -e MINNUMST_ALLOW_E2E=1 api python /opt/minnumst/e2e_api.py
+    ;;
+  edge)
+    WEB_HOST=$(var minnumst_domain) ADMIN_HOST=$(var minnumst_admin_domain) API_HOST=$(var minnumst_api_domain) \
+      BASE_COMPOSE_FILE="$compose_file" bash "$tools_root/scripts/e2e_edge.sh"
     ;;
   clear|reset)
     printf 'This will %s the minnumst_local MariaDB data. Type "%s" to continue: ' "$action" "$action" >&2

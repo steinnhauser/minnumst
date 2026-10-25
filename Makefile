@@ -15,7 +15,7 @@ unexport VIRTUAL_ENV
 .PHONY: help install format format-check lint test test-api test-mariadb test-frontends \
 	openapi openapi-check build validate clean ci \
 	dev-api dev-web dev-admin \
-	stack-config up wait seed e2e stack-test ps logs down db-update db-clear db-reset \
+	stack-config up wait seed e2e edge stack-test ps logs down db-update db-clear db-reset \
 	deploy-check deploy release
 
 help:
@@ -24,7 +24,7 @@ help:
 	  '  install         Install the locked Python and Node dependencies' \
 	  '  format          Format all code (Ruff, Prettier)' \
 	  '  format-check    Check formatting without changing files' \
-	  '  lint            Ruff, ESLint, ShellCheck, ansible-lint and the playbook syntax check' \
+	  '  lint            Ruff, ESLint, ShellCheck, zizmor (workflow security), ansible-lint, playbook syntax' \
 	  '  test            API tests on SQLite and the frontend tests' \
 	  '  test-mariadb    API tests against MariaDB in a container (needs Docker)' \
 	  '  openapi         Regenerate api/openapi.json' \
@@ -38,12 +38,13 @@ help:
 	  '  dev-web         Public archive on http://127.0.0.1:5173' \
 	  '  dev-admin       Editorial desk on http://127.0.0.1:5174' \
 	  '' \
-	  'Local stack: the deploy/ Compose template with locally built images, without Traefik' \
-	  '  stack-test      up, wait, seed and e2e in order' \
-	  '  up              Build the images and start MariaDB, API, web and admin' \
+	  'Local stack: the deploy/ Compose template with locally built images' \
+	  '  stack-test      up, wait, seed, e2e and edge in order' \
+	  '  up              Build the images and start the stack, Traefik included' \
 	  '  wait            Wait until the API is ready and both frontends serve' \
 	  '  seed            Add fictional sample people and stories (idempotent)' \
 	  '  e2e             Run the end-to-end API tests against the stack' \
+	  '  edge            Test the edge through Traefik: TLS redirect, headers, auth on writes, rate limit, isolation' \
 	  '  ps, logs, down  Status, logs (SERVICES="api public") and stop (keeps data)' \
 	  '  stack-config    Render and validate the Compose configuration' \
 	  '  db-update       Append revisions when the sample stories change' \
@@ -77,6 +78,7 @@ lint: deploy-check
 	$(UV_RUN) ruff check .
 	npm run lint
 	$(UV_RUN) shellcheck tools/scripts/*.sh
+	$(UV_RUN) zizmor --offline .github
 
 test: test-api test-frontends
 
@@ -133,11 +135,15 @@ seed:
 e2e:
 	$(COMPOSE) e2e
 
+edge:
+	$(COMPOSE) edge
+
 stack-test:
 	$(MAKE) up
 	$(MAKE) wait
 	$(MAKE) seed
 	$(MAKE) e2e
+	$(MAKE) edge
 
 ps:
 	$(COMPOSE) ps

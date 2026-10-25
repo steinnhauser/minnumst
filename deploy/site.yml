@@ -118,7 +118,7 @@
           - docker
           - compose
           - --project-name
-          - minnumst
+          - "{{ minnumst_compose_project }}"
           - --file
           - "{{ minnumst_deploy_dir }}/compose.yml"
           - config
@@ -131,7 +131,7 @@
           - docker
           - compose
           - --project-name
-          - minnumst
+          - "{{ minnumst_compose_project }}"
           - --file
           - "{{ minnumst_deploy_dir }}/compose.yml"
           - up

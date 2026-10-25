@@ -3,30 +3,30 @@ from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
-from testcontainers.community.mysql import MySqlContainer
+from testcontainers.community.postgres import PostgresContainer
 
 from minnumst_api.main import create_app
 from minnumst_api.models import Base
 
 
 @pytest.fixture(scope="module")
-def mariadb_url() -> Iterator[str]:
-    if os.getenv("RUN_MARIADB_TESTS") != "1":
-        pytest.skip("Run with `make test-mariadb` to enable MariaDB integration tests")
+def postgres_url() -> Iterator[str]:
+    if os.getenv("RUN_POSTGRES_TESTS") != "1":
+        pytest.skip("Run with `make test-postgres` to enable PostgreSQL tests")
 
-    with MySqlContainer(
-        image="mariadb:11.4",
-        dialect="pymysql",
+    with PostgresContainer(
+        image="postgres:18-alpine",
         username="minnumst",
         password="minnumst-test",
         dbname="minnumst",
+        driver="psycopg",
     ) as database:
         yield database.get_connection_url()
 
 
 @pytest.fixture
-def mariadb_client(mariadb_url: str) -> Iterator[TestClient]:
-    app = create_app(database_url=mariadb_url, create_tables=True)
+def postgres_client(postgres_url: str) -> Iterator[TestClient]:
+    app = create_app(database_url=postgres_url, create_tables=True)
     with TestClient(app) as test_client:
         engine = app.state.engine
         Base.metadata.drop_all(engine)
@@ -35,13 +35,13 @@ def mariadb_client(mariadb_url: str) -> Iterator[TestClient]:
 
 
 def test_admin_writes_persist_and_public_reads_return_current_data(
-    mariadb_client: TestClient,
+    postgres_client: TestClient,
 ) -> None:
-    created = mariadb_client.post("/api/people", json={"name": "Sigríður Jónsdóttir"})
+    created = postgres_client.post("/api/people", json={"name": "Sigríður Jónsdóttir"})
     assert created.status_code == 201
     person = created.json()
 
-    first_save = mariadb_client.put(
+    first_save = postgres_client.put(
         f"/api/people/{person['id']}/blog",
         json={
             "title": "A life in Reykjavík",
@@ -49,7 +49,7 @@ def test_admin_writes_persist_and_public_reads_return_current_data(
             "content": "The first version of the story.",
         },
     )
-    second_save = mariadb_client.put(
+    second_save = postgres_client.put(
         f"/api/people/{person['id']}/blog",
         json={
             "title": "A life in Reykjavík",
@@ -62,9 +62,9 @@ def test_admin_writes_persist_and_public_reads_return_current_data(
     assert second_save.status_code == 200
     assert second_save.json()["revision_count"] == 2
 
-    search = mariadb_client.get("/api/people", params={"query": "sigridur"})
-    public_page = mariadb_client.get(f"/api/people/by-slug/{person['slug']}")
-    history = mariadb_client.get(f"/api/people/{person['id']}/blog/revisions")
+    search = postgres_client.get("/api/people", params={"query": "sigridur"})
+    public_page = postgres_client.get(f"/api/people/by-slug/{person['slug']}")
+    history = postgres_client.get(f"/api/people/{person['id']}/blog/revisions")
 
     assert search.status_code == 200
     assert search.json()["total"] == 1
@@ -79,11 +79,11 @@ def test_admin_writes_persist_and_public_reads_return_current_data(
     ]
     assert [revision["revision_number"] for revision in history.json()] == [2, 1]
 
-    update = mariadb_client.patch(
+    update = postgres_client.patch(
         f"/api/people/{person['id']}",
         json={"name": "Sigríður Jónsdóttir, 1920-2001"},
     )
-    read_after_update = mariadb_client.get(f"/api/people/{person['id']}")
+    read_after_update = postgres_client.get(f"/api/people/{person['id']}")
 
     assert update.status_code == 200
     assert read_after_update.json()["name"] == "Sigríður Jónsdóttir, 1920-2001"

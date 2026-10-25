@@ -33,7 +33,7 @@ jobs:
       - run: make format-check lint openapi-check build
 
   tests:
-    name: tests (API on SQLite and MariaDB, frontends)
+    name: tests (API on SQLite and PostgreSQL, frontends)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -42,7 +42,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: $/.github/actions/setup
-      - run: make test test-mariadb
+      - run: make test test-postgres
 
   e2e:
     name: e2e (images, full stack, edge, image scan)

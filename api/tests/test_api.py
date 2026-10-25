@@ -189,5 +189,7 @@ def test_request_logs_route_and_status_without_logging_search_text(
         and getattr(record, "request_id", None) == "test-request-123"
         for record in caplog.records
     )
-    assert search_text not in caplog.text
+    # The test client logs its own request URLs; the API must never log them.
+    api_records = [r for r in caplog.records if r.name.startswith("minnumst_api")]
+    assert all(search_text not in record.getMessage() for record in api_records)
     configure_logging("INFO")

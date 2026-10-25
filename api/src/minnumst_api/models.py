@@ -3,7 +3,15 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -16,7 +24,7 @@ class Person(Base):
     __table_args__ = (UniqueConstraint("normalized_name"),)
 
     id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid4())
+        Uuid(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     normalized_name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -38,7 +46,7 @@ class BlogPost(Base):
     __tablename__ = "blog_posts"
 
     id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid4())
+        Uuid(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
     )
     person_id: Mapped[str] = mapped_column(
         ForeignKey("people.id", ondelete="RESTRICT"), nullable=False, unique=True
@@ -48,22 +56,28 @@ class BlogPost(Base):
     )
 
     person: Mapped[Person] = relationship(back_populates="blog")
+    # Revisions are append-only: the ORM never cascades deletes to them, and
+    # the database refuses to delete a story that has revisions.
     revisions: Mapped[list[BlogRevision]] = relationship(
         back_populates="blog",
-        cascade="all, delete-orphan",
+        cascade="save-update, merge",
+        passive_deletes="all",
         order_by="BlogRevision.revision_number",
     )
 
 
 class BlogRevision(Base):
     __tablename__ = "blog_revisions"
-    __table_args__ = (UniqueConstraint("blog_id", "revision_number"),)
+    __table_args__ = (
+        UniqueConstraint("blog_id", "revision_number"),
+        CheckConstraint("revision_number >= 1", name="revision_number_positive"),
+    )
 
     id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid4())
+        Uuid(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
     )
     blog_id: Mapped[str] = mapped_column(
-        ForeignKey("blog_posts.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("blog_posts.id", ondelete="RESTRICT"), nullable=False
     )
     revision_number: Mapped[int] = mapped_column(nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)

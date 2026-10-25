@@ -1,13 +1,13 @@
 # Minnumst API
 
-The FastAPI service that owns people and their append-only story revisions. It is the only component that touches the database: MariaDB in deployment, SQLite for local development. Both frontends read and write through it.
+The FastAPI service that owns people and their append-only story revisions. It is the only component that touches the database: PostgreSQL in deployment, SQLite for local development. Both frontends read and write through it.
 
 Setup, checks and the local stack are documented in the [repository README](../README.md) and [CONTRIBUTING](../CONTRIBUTING.md). From the repository root:
 
 ```sh
 make dev-api          # http://127.0.0.1:8000, interactive docs at /docs
 make test-api         # SQLite-backed tests
-make test-mariadb     # the same writes and reads against MariaDB in a container
+make test-postgres    # the same writes and reads against PostgreSQL in a container
 make openapi          # regenerate api/openapi.json after changing routes or schemas
 ```
 
@@ -34,11 +34,11 @@ The checked-in contract is [`openapi.json`](openapi.json). `make openapi-check` 
 
 ## Configuration
 
-| Variable       | Default                   | Purpose                                                                                |
-| -------------- | ------------------------- | -------------------------------------------------------------------------------------- |
-| `DATABASE_URL` | `sqlite:///./minnumst.db` | SQLAlchemy URL, e.g. `mysql+pymysql://user:pass@mariadb:3306/minnumst?charset=utf8mb4` |
-| `CORS_ORIGINS` | empty                     | Comma-separated origins of the two frontends                                           |
-| `LOG_LEVEL`    | `INFO`                    | `DEBUG`, `INFO`, `WARNING` or `ERROR`                                                  |
+| Variable       | Default                   | Purpose                                                                      |
+| -------------- | ------------------------- | ---------------------------------------------------------------------------- |
+| `DATABASE_URL` | `sqlite:///./minnumst.db` | SQLAlchemy URL, e.g. `postgresql+psycopg://user:pass@postgres:5432/minnumst` |
+| `CORS_ORIGINS` | empty                     | Comma-separated origins of the two frontends                                 |
+| `LOG_LEVEL`    | `INFO`                    | `DEBUG`, `INFO`, `WARNING` or `ERROR`                                        |
 
 Tables are created on startup (`create_all`); add versioned migrations before changing the schema of a database that holds real data.
 

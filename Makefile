@@ -12,7 +12,7 @@ VAULT_ARGS ?= --ask-vault-pass
 # Use the workspace's .venv even when another virtual environment is active.
 unexport VIRTUAL_ENV
 
-.PHONY: help install format format-check lint test test-api test-mariadb test-frontends \
+.PHONY: help install format format-check lint test test-api test-postgres test-frontends \
 	openapi openapi-check build validate clean ci \
 	dev-api dev-web dev-admin \
 	stack-config up wait seed e2e edge stack-test ps logs down db-update db-clear db-reset \
@@ -26,7 +26,7 @@ help:
 	  '  format-check    Check formatting without changing files' \
 	  '  lint            Ruff, ESLint, ShellCheck, zizmor (workflow security), ansible-lint, playbook syntax' \
 	  '  test            API tests on SQLite and the frontend tests' \
-	  '  test-mariadb    API tests against MariaDB in a container (needs Docker)' \
+	  '  test-postgres    API tests against PostgreSQL in a container (needs Docker)' \
 	  '  openapi         Regenerate api/openapi.json' \
 	  '  openapi-check   Fail if api/openapi.json is out of date' \
 	  '  build           Build the API wheel and both frontends' \
@@ -85,8 +85,8 @@ test: test-api test-frontends
 test-api:
 	$(UV_RUN) pytest api/tests
 
-test-mariadb:
-	RUN_MARIADB_TESTS=1 $(UV_RUN) pytest api/tests/test_mariadb.py
+test-postgres:
+	RUN_POSTGRES_TESTS=1 $(UV_RUN) pytest api/tests/test_postgres.py
 
 test-frontends:
 	npm test
@@ -101,7 +101,7 @@ build:
 	uv build --package minnumst-api --out-dir api/dist
 	npm run build
 
-validate: format-check lint openapi-check test test-mariadb build
+validate: format-check lint openapi-check test test-postgres build
 
 clean:
 	rm -rf api/dist web/dist admin/dist coverage .pytest_cache

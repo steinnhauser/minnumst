@@ -92,6 +92,23 @@ services:
       traefik.http.services.minnumst-admin.loadbalancer.server.port: "8080"
     networks: [edge]
 
+  # Applies the database migrations as the schema owner, then exits. The API
+  # starts only after it succeeds, and connects as a role that can't change the
+  # schema or rewrite story revisions.
+  migrate:
+    <<: *locked-down
+    restart: "no"
+    image: {{ minnumst_api_image | to_json }}
+    command: [python, -m, minnumst_api.migrate]
+    environment:
+      DATABASE_URL: {{ ("postgresql+psycopg://" ~ postgres_migration_user ~ ":" ~ (postgres_migration_password | urlencode) ~ "@postgres:5432/" ~ postgres_database) | to_json }}
+      DATABASE_RUNTIME_ROLE: {{ postgres_user | to_json }}
+      LOG_LEVEL: {{ minnumst_log_level | to_json }}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+
   api:
     <<: *locked-down
     image: {{ minnumst_api_image | to_json }}
@@ -101,8 +118,8 @@ services:
       LOG_LEVEL: {{ minnumst_log_level | to_json }}
     tmpfs: [/tmp]
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     labels:
       traefik.enable: "true"
       # Reads are public; every write method goes through Authentik first.
@@ -144,11 +161,13 @@ services:
       POSTGRES_PASSWORD: {{ postgres_superuser_password | to_json }}
       POSTGRES_DB: {{ postgres_database | to_json }}
       POSTGRES_INITDB_ARGS: --auth-local=scram-sha-256 --auth-host=scram-sha-256
+      MINNUMST_MIGRATION_USER: {{ postgres_migration_user | to_json }}
+      MINNUMST_MIGRATION_PASSWORD: {{ postgres_migration_password | to_json }}
       MINNUMST_APP_USER: {{ postgres_user | to_json }}
       MINNUMST_APP_PASSWORD: {{ postgres_password | to_json }}
     configs:
-      - source: postgres-app-role
-        target: /docker-entrypoint-initdb.d/app-role.sh
+      - source: postgres-roles
+        target: /docker-entrypoint-initdb.d/roles.sh
     volumes:
       - postgres_data:/var/lib/postgresql
     tmpfs: [/var/run/postgresql, /tmp]
@@ -160,11 +179,11 @@ services:
       start_period: 30s
     networks: [backend]
 
-# deploy/files/postgres-app-role.sh, installed next to this file, creates the
-# API's own login role when the data directory is first created.
+# roles/minnumst/files/postgres-roles.sh, installed next to this file, creates
+# the migration and runtime roles when the data directory is first created.
 configs:
-  postgres-app-role:
-    file: ./postgres-app-role.sh
+  postgres-roles:
+    file: ./postgres-roles.sh
 
 volumes:
   postgres_data:

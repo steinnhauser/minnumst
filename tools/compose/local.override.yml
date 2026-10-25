@@ -69,6 +69,11 @@ services:
       - "127.0.0.1:8000:8000"
     environment:
       CORS_ORIGINS: http://127.0.0.1:5173,http://127.0.0.1:5174
+
+  # The seed and end-to-end scripts run here (`docker compose run migrate …`):
+  # it holds the schema owner's credentials and reaches the API on `backend`.
+  migrate:
+    image: minnumst-local/api:dev
     volumes:
       - ../../../tools/scripts/seed_local_db.py:/opt/minnumst/seed_local_db.py:ro
       - ../../../tools/scripts/e2e_api.py:/opt/minnumst/e2e_api.py:ro

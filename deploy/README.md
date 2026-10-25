@@ -71,7 +71,7 @@ Traefik terminates TLS for all three hostnames with Let's Encrypt (HTTP challeng
 
 The application images serve on port 8080 (frontends) and 8000 (API), and take their configuration from Compose at runtime: `VITE_API_URL` for both frontends, `DEBUG` for admin (`minnumst_admin_debug`), and `DATABASE_URL`, `CORS_ORIGINS` and `LOG_LEVEL` for the API. Release tags publish them as `ghcr.io/steinnhauser/minnumst-web`, `minnumst-admin` and `minnumst-api` (see [CONTRIBUTING](../CONTRIBUTING.md#releases)); pin exact versions in `vars.yml`, never `latest`.
 
-PostgreSQL data and Traefik's ACME state live in named volumes. PostgreSQL has no host port; on first start it creates a separate, non-superuser login role for the API.
+PostgreSQL data and Traefik's ACME state live in named volumes. PostgreSQL has no host port. On first start it creates two login roles, neither a superuser: a migration role that owns the database, and the API's runtime role, which can only connect. On every deploy a one-shot `migrate` service applies the migrations as the owner and grants the runtime role only what it needs (revisions are insert-only); the API starts after it succeeds. The vault holds three database passwords: the superuser's, the runtime role's and the migration role's.
 
 ## Operations
 

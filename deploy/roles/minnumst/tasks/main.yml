@@ -11,7 +11,8 @@
       - traefik_acme_email | length > 0
       - postgres_superuser_password is match('^[A-Za-z0-9_-]{32,}$')
       - postgres_password is match('^[A-Za-z0-9_-]{32,}$')
-      - "'REPLACE' not in postgres_superuser_password + postgres_password"
+      - postgres_migration_password is match('^[A-Za-z0-9_-]{32,}$')
+      - "'REPLACE' not in postgres_superuser_password + postgres_password + postgres_migration_password"
     fail_msg: >-
       Set the image, domain, Authentik and ACME variables, and use random
       URL-safe PostgreSQL passwords of at least 32 characters in the vault.
@@ -27,8 +28,8 @@
 
 - name: Install the PostgreSQL role setup script
   ansible.builtin.copy:
-    src: postgres-app-role.sh
-    dest: "{{ minnumst_deploy_dir }}/postgres-app-role.sh"
+    src: postgres-roles.sh
+    dest: "{{ minnumst_deploy_dir }}/postgres-roles.sh"
     owner: root
     group: root
     mode: "0644"
@@ -46,7 +47,7 @@
     argv: "{{ minnumst_compose + ['config', '--quiet'] }}"
   changed_when: false
 
-- name: Pull and start the stack, waiting until every service is healthy
+- name: Pull and start the stack (migrations run first)
   ansible.builtin.command:
-    argv: "{{ minnumst_compose + ['up', '--detach', '--remove-orphans', '--pull', 'always', '--wait'] }}"
+    argv: "{{ minnumst_compose + ['up', '--detach', '--remove-orphans', '--pull', 'always'] }}"
   changed_when: true

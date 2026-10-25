@@ -12,5 +12,7 @@ authentik_forwardauth_address: http://auth-stub:9000/
 
 postgres_database: minnumst_local
 postgres_user: minnumst_local
+postgres_migration_user: minnumst_local_migrator
+postgres_migration_password: local_only_migration_password
 postgres_superuser_password: local_only_superuser_password
 postgres_password: local_only_application_password

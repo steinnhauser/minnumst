@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 
 from minnumst_api.config import settings
 from minnumst_api.database import make_engine
-from minnumst_api.models import Base, BlogPost, BlogRevision, Person
+from minnumst_api.migrate import downgrade, upgrade
+from minnumst_api.models import BlogPost, BlogRevision, Person
 from minnumst_api.names import normalized_person_name, unique_person_slug
 
 SAMPLE_RECORDS = (
@@ -127,13 +128,11 @@ def main() -> None:
             raise SystemExit(
                 "Pass --yes after confirming this is disposable local data."
             )
-        Base.metadata.drop_all(engine)
-        Base.metadata.create_all(engine)
-        print("Cleared and recreated the local PostgreSQL schema.")
+        downgrade(engine)
+        upgrade(engine)
+        print("Cleared and re-migrated the local PostgreSQL schema.")
         if args.action == "clear":
             return
-    else:
-        Base.metadata.create_all(engine)
 
     with Session(engine) as session:
         people_created, blogs_created, revisions_added = populate(session)

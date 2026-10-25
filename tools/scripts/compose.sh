@@ -65,10 +65,11 @@ case "$action" in
     printf 'The API is ready and both frontends are serving.\n'
     ;;
   seed|update)
-    "${compose[@]}" exec -T api python /opt/minnumst/seed_local_db.py seed
+    "${compose[@]}" run --rm --no-deps migrate python /opt/minnumst/seed_local_db.py seed
     ;;
   e2e)
-    "${compose[@]}" exec -T -e MINNUMST_ALLOW_E2E=1 api python /opt/minnumst/e2e_api.py
+    "${compose[@]}" run --rm --no-deps -e MINNUMST_ALLOW_E2E=1 -e MINNUMST_E2E_API_URL=http://api:8000 \
+      migrate python /opt/minnumst/e2e_api.py
     ;;
   edge)
     WEB_HOST=$(var minnumst_domain) ADMIN_HOST=$(var minnumst_admin_domain) API_HOST=$(var minnumst_api_domain) \
@@ -78,7 +79,7 @@ case "$action" in
     printf 'This will %s the minnumst_local PostgreSQL data. Type "%s" to continue: ' "$action" "$action" >&2
     IFS= read -r confirmation
     [[ "$confirmation" == "$action" ]] || { printf 'Cancelled.\n' >&2; exit 1; }
-    "${compose[@]}" exec -T -e MINNUMST_ALLOW_LOCAL_RESET=1 api python /opt/minnumst/seed_local_db.py "$action" --yes
+    "${compose[@]}" run --rm --no-deps -e MINNUMST_ALLOW_LOCAL_RESET=1 migrate python /opt/minnumst/seed_local_db.py "$action" --yes
     ;;
   down)
     "${compose[@]}" down

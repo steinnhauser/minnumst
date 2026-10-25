@@ -45,9 +45,13 @@ assert all(s.get("volumes") is None or "/var/run/docker.sock" not in str(s["volu
 for name, service in services.items():
     assert "no-new-privileges:true" in service.get("security_opt", []), name
     assert service.get("read_only") and service.get("cap_drop") == ["ALL"], name
+def database_role(name):
+    return services[name]["environment"]["DATABASE_URL"].split("//")[1].split(":")[0]
+assert database_role("api") != database_role("migrate"), "the API must not be the schema owner"
 '
 check "only Traefik publishes ports; PostgreSQL and the Docker API proxy sit on internal networks" "ok" "ok"
 check "every container: no-new-privileges, read-only, no capabilities" "ok" "ok"
+check "the API connects as a runtime role, not as the schema owner" "ok" "ok"
 
 for _ in $(seq 30); do
   [[ $(status "$web/") == 200 ]] && break

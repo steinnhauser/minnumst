@@ -85,6 +85,7 @@ Every host setting in [`deploy/`](deploy/) cites the CIS section and NIST contro
 
 - **Strict browser policy.** The frontends send a same-origin Content Security Policy that only lets them connect to the API, `frame-ancestors 'none'`, `nosniff`, a strict referrer policy, a restrictive `Permissions-Policy` and cross-origin isolation headers. The CORS allow-list on the API names the two frontends only.
 - **Small, immutable surface.** The static server answers only `GET` and `HEAD`. Runtime configuration is served from memory and only exposes explicitly listed public values. Malformed IDs are rejected before any query runs.
+- **Accessible.** Text meets WCAG 2.2 AA contrast, and every browser test runs an axe audit that fails on serious problems.
 - **A hardened database.** PostgreSQL authenticates every connection with SCRAM-SHA-256. Migrations run as a separate role that owns the schema; the API connects as a runtime role that can't change the schema and can only read and insert story revisions, so history is append-only in the database itself, verified by a test that tries to rewrite it. The schema enforces the rules too: native UUID keys, unique normalised names, positive revision numbers, and foreign keys that refuse to delete a person with a story or a story with revisions.
 - **Privacy-preserving logs.** Every service logs JSON with a request ID that follows a request from the browser through the API. Query strings, request bodies, credentials and person slugs are never logged.
 - **Append-only data.** Story revisions are immutable; no route edits or deletes them, and a person with a story can't be deleted.
@@ -119,6 +120,8 @@ Every host setting in [`deploy/`](deploy/) cites the CIS section and NIST contro
 - the rate limit;
 - from the rendered production file, the network isolation and container hardening above.
 
+The same job then restores a backup into a fresh database and runs Playwright browser tests of both frontends, which fail on any CSP violation in the console.
+
 Report vulnerabilities privately as described in [`SECURITY.md`](.github/SECURITY.md).
 
 ## Development
@@ -146,15 +149,15 @@ For quicker iteration, run the development servers instead, each in its own term
 
 One workflow, [`ci.yml`](.github/workflows/ci.yml), runs on every push, pull request and release tag, using the same `make` targets:
 
-| Job       | Checks                                                                                                               |
-| --------- | -------------------------------------------------------------------------------------------------------------------- |
-| `checks`  | Ruff, Prettier, ESLint, ShellCheck, ansible-lint, playbook syntax, OpenAPI freshness, API wheel and frontend builds  |
-| `tests`   | pytest on SQLite and on PostgreSQL (Testcontainers), Vitest                                                          |
-| `e2e`     | Builds the three images, starts the stack, runs the API and edge tests, and scans the images with Trivy              |
-| `host`    | Applies the host hardening to an Ubuntu 24.04 VM twice (the second run must change nothing) and scores it with Lynis |
-| `codeql`  | CodeQL security-extended analysis of the Python, TypeScript and workflow code                                        |
-| `ci-ok`   | Passes only when every other job passed; the single check to require on pull requests                                |
-| `release` | On a release tag only: publishes the component's multi-arch image to GHCR and its GitHub Release                     |
+| Job       | Checks                                                                                                                              |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `checks`  | Ruff, Prettier, ESLint, ShellCheck, ansible-lint, playbook syntax, OpenAPI freshness, API wheel and frontend builds                 |
+| `tests`   | pytest on SQLite and on PostgreSQL (Testcontainers), Vitest                                                                         |
+| `e2e`     | Builds the images, runs the stack, then the API, edge, backup-restore and browser tests (CSP, axe), and scans the images with Trivy |
+| `host`    | Applies the host hardening to an Ubuntu 24.04 VM twice (the second run must change nothing) and scores it with Lynis                |
+| `codeql`  | CodeQL security-extended analysis of the Python, TypeScript and workflow code                                                       |
+| `ci-ok`   | Passes only when every other job passed; the single check to require on pull requests                                               |
+| `release` | On a release tag only: publishes the component's multi-arch image to GHCR and its GitHub Release                                    |
 
 Dependabot keeps npm, uv, Docker base images and GitHub Actions up to date, in weekly grouped pull requests.
 

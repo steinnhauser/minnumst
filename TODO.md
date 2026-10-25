@@ -124,11 +124,10 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 
 ## 4. Browser end-to-end tests and test quality gates
 
-The `e2e` job tests the API only. No test loads either frontend in a browser against the real stack.
-
-- [ ] Add Playwright tests against the local Compose stack: search and profile in `web`; create a person, rename, write two revisions and view the history in `admin`. Run them in the `e2e` job.
-- [ ] Add automated accessibility checks (axe) to those flows, at desktop and phone widths.
+- [x] Playwright tests against the running stack (`make browser`, in the CI `e2e` job), at desktop and phone widths: a reader searching and reading a story, an editor writing two revisions and seeing both in the history. Any browser console error, including a CSP violation, fails the test.
+- [x] axe audits in those flows; the first run found WCAG contrast failures in both frontends, now fixed to AA.
 - [ ] Set coverage thresholds for pytest and Vitest at the current level, so coverage can only go up.
+- [ ] Extend the browser tests to renaming, validation messages and keyboard navigation of the search suggestions.
 
 ## 5. Database migrations and roles
 
@@ -162,7 +161,8 @@ PostgreSQL replaced MariaDB before the first deployment, for its SCRAM-SHA-256 a
 ## 9. First production deployment
 
 - [x] Host hardening: `deploy/` is three roles (`host`, `docker`, `minnumst`). The host role enforces the CIS Ubuntu 24.04 benchmark and NIST SP 800-53 controls on Ubuntu Server 24.04 LTS, and refuses to run without full-disk encryption. CI applies it to an Ubuntu 24.04 VM, checks idempotence and reports the Lynis index (57 → 70).
-- [ ] Raise the Lynis index further: AIDE file integrity (CIS 6.3), a stricter umask and password policy for local accounts (CIS 5.4), process accounting, and restricting compilers.
+- [x] AIDE file integrity with a daily check (CIS 6.3), local account policy (CIS 5.3, 5.4), debsums, process accounting and sysstat.
+- [ ] Raise the Lynis index further (malware scanning, compiler restrictions) where it doesn't conflict with running containers.
 - [ ] Ship logs (journal, audit, containers) off the host so the rotated audit logs and container logs survive a compromise (with item 7).
 - [ ] Add a post-deploy smoke test to the `minnumst` role: HTTPS on the three hostnames, HSTS, a refused unauthenticated write. The local edge test already covers this; point it at the real hostnames.
 - [ ] Document secret rotation (vault, PostgreSQL roles) and the rollback procedure: repin the previous image digests and rerun `make deploy ARGS="--tags app"`.

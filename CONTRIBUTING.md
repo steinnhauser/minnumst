@@ -23,16 +23,16 @@ Dependencies are managed at the root as well. Add a Python dependency with `uv a
 
 ## Checks
 
-| Command              | What it runs                                                                   |
-| -------------------- | ------------------------------------------------------------------------------ |
-| `make format`        | Ruff (Python) and Prettier (TypeScript, JavaScript, CSS, Markdown, YAML, JSON) |
-| `make lint`          | Ruff, ESLint, ShellCheck, ansible-lint and the playbook syntax check           |
-| `make test`          | pytest on SQLite and Vitest for both frontends and the shared server           |
-| `make test-postgres` | The API tests against PostgreSQL in a disposable container (Testcontainers)    |
-| `make openapi-check` | Fails if `api/openapi.json` is stale; regenerate it with `make openapi`        |
-| `make build`         | The API wheel and both frontend production builds                              |
-| `make validate`      | All of the above, as CI runs them                                              |
-| `make stack-test`    | The full stack in containers with the end-to-end tests (see below)             |
+| Command              | What it runs                                                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `make format`        | Ruff (Python) and Prettier (TypeScript, JavaScript, CSS, Markdown, YAML, JSON)                                                                              |
+| `make lint`          | Ruff, ESLint, ShellCheck, ansible-lint and the playbook syntax check                                                                                        |
+| `make test`          | pytest on SQLite and Vitest for both frontends and the shared packages, failing if coverage drops below the current level (API 85%, frontends 70% of lines) |
+| `make test-postgres` | The API tests against PostgreSQL in a disposable container (Testcontainers)                                                                                 |
+| `make openapi-check` | Fails if `api/openapi.json` is stale; regenerate it with `make openapi`                                                                                     |
+| `make build`         | The API wheel and both frontend production builds                                                                                                           |
+| `make validate`      | All of the above, as CI runs them                                                                                                                           |
+| `make stack-test`    | The full stack in containers with the end-to-end tests (see below)                                                                                          |
 
 Run `make validate` before opening a pull request, and `make stack-test` as well for changes that cross components, such as the API contract, images, ports or the Compose template.
 

@@ -126,7 +126,7 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 
 - [x] Playwright tests against the running stack (`make browser`, in the CI `e2e` job), at desktop and phone widths: a reader searching and reading a story, an editor writing two revisions and seeing both in the history. Any browser console error, including a CSP violation, fails the test.
 - [x] axe audits in those flows; the first run found WCAG contrast failures in both frontends, now fixed to AA.
-- [ ] Set coverage thresholds for pytest and Vitest at the current level, so coverage can only go up.
+- [x] Coverage thresholds at the current level: 85% for the API (88% today), and lines 70% / statements 70% / branches 60% / functions 75% for the frontends and shared packages. `make test` fails below them.
 - [ ] Extend the browser tests to renaming, validation messages and keyboard navigation of the search suggestions.
 
 ## 5. Database migrations and roles

@@ -89,13 +89,13 @@ lint: deploy-check
 test: test-api test-frontends
 
 test-api:
-	$(UV_RUN) pytest api/tests
+	$(UV_RUN) pytest api/tests --cov
 
 test-postgres:
 	RUN_POSTGRES_TESTS=1 $(UV_RUN) pytest api/tests/test_postgres.py
 
 test-frontends:
-	npm test
+	npm test -- --coverage
 
 openapi:
 	$(UV_RUN) python api/scripts/generate_openapi.py

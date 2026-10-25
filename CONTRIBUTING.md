@@ -40,7 +40,7 @@ When an API route or schema changes, regenerate `api/openapi.json` with `make op
 
 ## Development servers
 
-Copy each component's `.env.example` to `.env`, then run each server in its own terminal:
+Run each server in its own terminal. The defaults connect them to each other; override a setting with an environment variable or a `.env` file in the component's folder.
 
 ```sh
 make dev-api      # http://127.0.0.1:8000, docs at /docs (SQLite in api/minnumst.db)

@@ -5,7 +5,6 @@ The React frontend editors use to create and rename people and to write stories.
 Setup, checks and the local stack are documented in the [repository README](../README.md) and [CONTRIBUTING](../CONTRIBUTING.md). From the repository root, with the API running (`make dev-api`):
 
 ```sh
-cp admin/.env.example admin/.env
 make dev-admin        # http://127.0.0.1:5174
 ```
 

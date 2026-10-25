@@ -5,7 +5,6 @@ The FastAPI service that owns people and their append-only story revisions. It i
 Setup, checks and the local stack are documented in the [repository README](../README.md) and [CONTRIBUTING](../CONTRIBUTING.md). From the repository root:
 
 ```sh
-cp api/.env.example api/.env
 make dev-api          # http://127.0.0.1:8000, interactive docs at /docs
 make test-api         # SQLite-backed tests
 make test-mariadb     # the same writes and reads against MariaDB in a container

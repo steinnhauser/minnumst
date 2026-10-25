@@ -63,7 +63,7 @@ make down          # stop it; the MariaDB volume is kept
 
 The archive is then on <http://127.0.0.1:5173>, the editorial desk on <http://127.0.0.1:5174> and the API docs on <http://127.0.0.1:8000/docs>.
 
-For quicker iteration, run the development servers instead, each in its own terminal, after copying each component's `.env.example` to `.env`: `make dev-api`, `make dev-web` and `make dev-admin`. [CONTRIBUTING](CONTRIBUTING.md) has the details, and [`deploy/README.md`](deploy/README.md) covers production.
+For quicker iteration, run the development servers instead, each in its own terminal: `make dev-api`, `make dev-web` and `make dev-admin`. They work without configuration. [CONTRIBUTING](CONTRIBUTING.md) has the details, and [`deploy/README.md`](deploy/README.md) covers production.
 
 ## CI and releases
 

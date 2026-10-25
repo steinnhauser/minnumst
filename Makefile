@@ -33,7 +33,7 @@ help:
 	  '  validate        All of the above, as CI runs it (needs Docker)' \
 	  '  clean           Remove build and test output' \
 	  '' \
-	  'Development servers (run each in its own terminal)' \
+	  'Development servers (run each in its own terminal; settings via environment variables or a .env file)' \
 	  '  dev-api         API with reload on http://127.0.0.1:8000 (docs at /docs)' \
 	  '  dev-web         Public archive on http://127.0.0.1:5173' \
 	  '  dev-admin       Editorial desk on http://127.0.0.1:5174' \
@@ -106,7 +106,7 @@ ci:
 	$(MAKE) stack-test
 
 dev-api:
-	cd api && $(UV_RUN) uvicorn minnumst_api.main:app --app-dir src --reload --host 127.0.0.1 --port 8000
+	cd api && CORS_ORIGINS=http://127.0.0.1:5173,http://127.0.0.1:5174 $(UV_RUN) uvicorn minnumst_api.main:app --app-dir src --reload --host 127.0.0.1 --port 8000
 
 dev-web:
 	npm run dev --workspace web -- --host 127.0.0.1 --port 5173 --strictPort

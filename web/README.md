@@ -5,7 +5,6 @@ The public, read-only React frontend: search the archive and read each person's 
 Setup, checks and the local stack are documented in the [repository README](../README.md) and [CONTRIBUTING](../CONTRIBUTING.md). From the repository root, with the API running (`make dev-api`):
 
 ```sh
-cp web/.env.example web/.env
 make dev-web          # http://127.0.0.1:5173
 ```
 
@@ -15,7 +14,7 @@ Search calls `GET /api/people?query=…&limit=…` (8 suggestions while typing, 
 
 ## Configuration
 
-`VITE_API_URL` is the API origin (not an `/api` path) and defaults to `http://127.0.0.1:8000`. In development Vite reads it from `.env`. In the container, [`runtime-config.mjs`](../packages/static-server/runtime-config.mjs) writes it to `/runtime-config.js` at start-up, so one image serves every environment.
+`VITE_API_URL` is the API origin (not an `/api` path) and defaults to `http://127.0.0.1:8000`. In development, set it in the environment or in `web/.env`. In the container, [`runtime-config.mjs`](../packages/static-server/runtime-config.mjs) writes it to `/runtime-config.js` at start-up, so one image serves every environment.
 
 ## Container image
 

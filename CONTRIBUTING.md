@@ -36,7 +36,7 @@ Dependencies are managed at the root as well. Add a Python dependency with `uv a
 
 Run `make validate` before opening a pull request, and `make stack-test` as well for changes that cross components, such as the API contract, images, ports or the Compose template.
 
-When an API route or schema changes, regenerate `api/openapi.json` with `make openapi` and update both frontends in the same pull request.
+When an API route or schema changes, run `make openapi`. It regenerates `api/openapi.json` and the TypeScript types in `packages/api-types/`, which both frontends compile against, so a contract change that breaks a frontend fails its type check. Update the frontends in the same pull request; `make openapi-check` (in CI) fails if either generated file is stale.
 
 ## Development servers
 

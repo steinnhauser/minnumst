@@ -61,7 +61,7 @@ Releasing is not done. Each old repository had its own `CI and Release` workflow
 
 ### 1.6 Cut over
 
-- [ ] Land 1.4 and 1.5. Then release each component from `main` with `make release`. The commits since the old tags are refactors and build changes, so the first releases need `INCREMENT=MINOR`: `api-0.2.0`, `web-0.2.0`, `admin-0.3.0` and `deploy-0.2.0`. Confirm that each image pulls anonymously and runs non-root on amd64 and arm64.
+- [x] First monorepo releases: `api-0.2.0`, `web-0.2.0`, `admin-0.3.0` and `deploy-0.2.0`, published by the release job as public multi-arch images with provenance and SBOMs, plus GitHub Releases.
 - [ ] Repin `deploy/inventory/group_vars/all/vars.yml` to the published versions.
 
 **Done when:**
@@ -90,9 +90,9 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 
 ### 2.1 One source of truth for the contract
 
-- [ ] Generate TypeScript types from `api/openapi.json` (for example with `openapi-typescript`), starting with `web/src/api.ts` and then `admin/src/api.ts`. Add a `check` step that fails when the generated file is stale, mirroring `make openapi-check`, and run it in `make validate`.
+- [x] Generate TypeScript types from `api/openapi.json` into `packages/api-types` (openapi-typescript, readonly). Both frontends compile against them, and `make openapi-check` fails when the spec or the types are stale.
 - [ ] Type the mocked responses in `web/src/api.test.ts` (and admin's) against the generated types, so a fixture can't describe a response shape the API doesn't return.
-- [ ] Declare the error responses in the OpenAPI spec. Every route currently documents only `200`/`201` and `422`, but the API also returns `404` (person or blog not found) and `409` (duplicate normalised name, or deleting a person with a story). Add `responses=` with a shared error model, so the generated types and the docs include them.
+- [x] Declare the error responses in the OpenAPI spec: every route documents its `404` and `409` with a shared `ErrorResponse` model.
 - [ ] Make a change to `api/openapi.json` count as a frontend change once path filters exist (item 1.3).
 
 ### 2.2 Contract tests against the running API

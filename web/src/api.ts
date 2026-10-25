@@ -1,38 +1,12 @@
-export type BlogSummary = {
-  title: string;
-  excerpt: string;
-  saved_at: string;
-  revision_count: number;
-};
+import type { components } from "@minnumst/api-types";
 
-export type BlogRevision = {
-  id: string;
-  revision_number: number;
-  saved_at: string;
-  title: string;
-  excerpt: string;
-  content: string;
-};
-
-export type Person = {
-  id: string;
-  name: string;
-  slug: string;
-  created_at: string;
-  updated_at: string;
-  blog: BlogSummary | null;
-};
-
-export type PersonDetail = Person & {
-  current_blog: BlogRevision | null;
-};
-
-type PersonPage = {
-  items: Person[];
-  total: number;
-  offset: number;
-  limit: number;
-};
+// Generated from api/openapi.json (`make openapi`); never edit these by hand.
+type Schemas = components["schemas"];
+export type BlogSummary = Schemas["BlogSummary"];
+export type BlogRevision = Schemas["BlogRevisionResponse"];
+export type Person = Schemas["PersonResponse"];
+export type PersonDetail = Schemas["PersonDetail"];
+type PersonPage = Schemas["PersonPage"];
 
 const apiBaseUrl = (
   window.__MINNUMST_ENV__?.VITE_API_URL?.trim() ||

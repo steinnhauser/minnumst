@@ -1,3 +1,4 @@
+import type { components } from "@minnumst/api-types";
 import { appConfig } from "./config";
 
 export type PostRevision = {
@@ -28,38 +29,12 @@ export type PostInput = {
   content: string;
 };
 
-type ApiPerson = {
-  id: string;
-  name: string;
-  slug: string;
-  blog: {
-    title: string;
-    excerpt: string;
-    saved_at: string;
-    revision_count: number;
-  } | null;
-};
-
-type ApiRevision = {
-  id: string;
-  revision_number: number;
-  saved_at: string;
-  title: string;
-  excerpt: string;
-  content: string;
-};
-
-type ApiPersonPage = {
-  items: ApiPerson[];
-  total: number;
-  offset: number;
-  limit: number;
-};
-
-type ApiBlogResponse = {
-  revision_count: number;
-  current_revision: ApiRevision;
-};
+// Generated from api/openapi.json (`make openapi`); never edit these by hand.
+type Schemas = components["schemas"];
+type ApiPerson = Schemas["PersonResponse"];
+type ApiRevision = Schemas["BlogRevisionResponse"];
+type ApiPersonPage = Schemas["PersonPage"];
+type ApiBlogResponse = Schemas["BlogResponse"];
 
 const apiBaseUrl = (appConfig.apiUrl || "http://127.0.0.1:8000").replace(
   /\/+$/,

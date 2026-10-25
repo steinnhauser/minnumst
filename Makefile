@@ -27,8 +27,8 @@ help:
 	  '  lint            Ruff, ESLint, ShellCheck, zizmor (workflow security), ansible-lint, playbook syntax' \
 	  '  test            API tests on SQLite and the frontend tests' \
 	  '  test-postgres    API tests against PostgreSQL in a container (needs Docker)' \
-	  '  openapi         Regenerate api/openapi.json' \
-	  '  openapi-check   Fail if api/openapi.json is out of date' \
+	  '  openapi         Regenerate api/openapi.json and the TypeScript types generated from it' \
+	  '  openapi-check   Fail if the spec or the generated types are out of date' \
 	  '  build           Build the API wheel and both frontends' \
 	  '  validate        All of the above, as CI runs it (needs Docker)' \
 	  '  clean           Remove build and test output' \
@@ -93,9 +93,11 @@ test-frontends:
 
 openapi:
 	$(UV_RUN) python api/scripts/generate_openapi.py
+	npm run --silent openapi:types
 
 openapi-check:
 	$(UV_RUN) python api/scripts/generate_openapi.py --check
+	npm run --silent openapi:types -- --check
 
 build:
 	uv build --package minnumst-api --out-dir api/dist

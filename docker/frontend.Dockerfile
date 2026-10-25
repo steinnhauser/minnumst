@@ -12,12 +12,14 @@ COPY package.json package-lock.json ./
 COPY web/package.json web/
 COPY admin/package.json admin/
 COPY packages/static-server/package.json packages/static-server/
+COPY packages/api-types/package.json packages/api-types/
 
 FROM manifests AS build
 ARG APP
 RUN test "$APP" = web || test "$APP" = admin
 RUN npm ci
 COPY tsconfig.base.json ./
+COPY packages/api-types/ packages/api-types/
 COPY ${APP}/ ${APP}/
 RUN npm run build --workspace "$APP"
 

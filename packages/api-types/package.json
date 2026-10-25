@@ -1,0 +1,12 @@
+{
+  "name": "@minnumst/api-types",
+  "description": "TypeScript types generated from api/openapi.json by `make openapi`",
+  "private": true,
+  "type": "module",
+  "types": "./openapi.d.ts",
+  "exports": {
+    ".": {
+      "types": "./openapi.d.ts"
+    }
+  }
+}

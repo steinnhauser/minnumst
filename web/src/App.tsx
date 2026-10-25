@@ -11,10 +11,10 @@ import "./App.css";
 function App() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchMessage, setSearchMessage] = useState("");
-  const [suggestions, setSuggestions] = useState<Person[]>([]);
+  const [suggestions, setSuggestions] = useState<readonly Person[]>([]);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-  const [people, setPeople] = useState<Person[]>([]);
+  const [people, setPeople] = useState<readonly Person[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<PersonDetail | null>(
     null,
   );

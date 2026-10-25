@@ -13,6 +13,7 @@
 !web/
 !admin/
 !packages/static-server/
+!packages/api-types/
 **/node_modules/
 **/dist/
 **/coverage/

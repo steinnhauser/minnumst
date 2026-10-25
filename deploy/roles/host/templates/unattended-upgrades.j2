@@ -1,0 +1,13 @@
+// Managed by Ansible (deploy/roles/host). NIST SP 800-53 SI-2.
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Ubuntu,archive=${distro_codename}-security";
+        "origin=UbuntuESMApps,archive=${distro_codename}-apps-security";
+        "origin=UbuntuESM,archive=${distro_codename}-infra-security";
+        "origin=Ubuntu,archive=${distro_codename}-updates";
+        "origin=Docker,codename=${distro_codename}";
+};
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::Automatic-Reboot "{{ host_automatic_reboot | ternary('true', 'false') }}";
+Unattended-Upgrade::Automatic-Reboot-Time "{{ host_automatic_reboot_time }}";
+Unattended-Upgrade::SyslogEnable "true";

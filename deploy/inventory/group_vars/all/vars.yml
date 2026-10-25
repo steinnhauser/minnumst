@@ -25,3 +25,8 @@ authentik_forwardauth_address: https://auth.example.com/outpost.goauthentik.io/a
 postgres_image: postgres:18-alpine
 postgres_database: minnumst
 postgres_user: minnumst
+
+# Host hardening overrides (defaults and references in roles/host/defaults/main.yml).
+# Restrict SSH to known networks, for example a VPN or your office address:
+# host_ssh_allowed_ipv4: ["203.0.113.0/24"]
+# host_ssh_allowed_ipv6: ["2001:db8::/32"]

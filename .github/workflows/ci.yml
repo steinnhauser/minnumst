@@ -107,10 +107,46 @@ jobs:
         with:
           fail-on-severity: high
 
+  host:
+    name: host (hardening on Ubuntu 24.04, idempotence, Lynis)
+    # Applies the host role to this runner: a real Ubuntu 24.04 VM.
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/setup
+      - name: Install Lynis and score the stock image
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lynis
+          sudo lynis audit system --quick --no-colors > "$RUNNER_TEMP/lynis-before.txt"
+      - name: Apply the host role twice; the second run must change nothing
+        run: |
+          printf '[minnumst]\nlocalhost ansible_connection=local\n' > "$RUNNER_TEMP/inventory"
+          # The runner's disk is not LUKS-encrypted, and upgrading every package
+          # or removing snapd would only slow CI down.
+          for run in first second; do
+            make deploy INVENTORY="$RUNNER_TEMP/inventory" VAULT_ARGS= \
+              ARGS="--tags host -e host_require_disk_encryption=false -e host_upgrade_packages=false -e host_remove_snapd=false" \
+              | tee "$RUNNER_TEMP/$run.log"
+          done
+          grep -E 'localhost +: ok=[0-9]+ +changed=0 +unreachable=0 +failed=0' "$RUNNER_TEMP/second.log"
+      - name: Score the hardened host
+        run: |
+          sudo lynis audit system --quick --no-colors > "$RUNNER_TEMP/lynis-after.txt"
+          before=$(grep -oP 'Hardening index : \K[0-9]+' "$RUNNER_TEMP/lynis-before.txt")
+          after=$(grep -oP 'Hardening index : \K[0-9]+' "$RUNNER_TEMP/lynis-after.txt")
+          printf '### Lynis hardening index\n\nStock Ubuntu 24.04 runner: **%s**. After the host role: **%s**.\n' \
+            "$before" "$after" | tee -a "$GITHUB_STEP_SUMMARY"
+          test "$after" -gt "$before"
+
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [checks, tests, e2e, codeql, dependency-review]
+    needs: [checks, tests, e2e, host, codeql, dependency-review]
     runs-on: ubuntu-latest
     permissions: {}
     steps:

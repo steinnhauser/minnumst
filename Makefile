@@ -57,7 +57,7 @@ help:
 	  '' \
 	  'Deployment' \
 	  '  deploy-check    ansible-lint and playbook syntax check' \
-	  '  deploy          Run the playbook against INVENTORY (production; asks for the vault password)' \
+	  '  deploy          Harden the host and deploy to INVENTORY (asks for the vault password; ARGS="--tags host" for one part)' \
 	  '' \
 	  '  ci              validate, then stack-test'
 
@@ -77,7 +77,7 @@ format-check:
 lint: deploy-check
 	$(UV_RUN) ruff check .
 	npm run lint
-	$(UV_RUN) shellcheck tools/scripts/*.sh deploy/files/*.sh
+	$(UV_RUN) shellcheck tools/scripts/*.sh deploy/roles/*/files/*.sh
 	$(UV_RUN) zizmor --offline .github
 
 test: test-api test-frontends
@@ -168,7 +168,7 @@ deploy-check:
 	cd deploy && $(UV_RUN) ansible-playbook -i inventory/hosts.ini.example site.yml --syntax-check
 
 deploy:
-	cd deploy && $(UV_RUN) ansible-playbook -i $(abspath $(INVENTORY)) $(VAULT_ARGS) site.yml
+	cd deploy && $(UV_RUN) ansible-playbook -i $(abspath $(INVENTORY)) $(VAULT_ARGS) site.yml $(ARGS)
 
 release:
 	@test -n "$(COMPONENT)" || { echo 'Usage: make release COMPONENT=api|web|admin|deploy [INCREMENT=…] [DRY_RUN=1]'; exit 2; }

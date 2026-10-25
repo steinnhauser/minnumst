@@ -1,0 +1,50 @@
+---
+- name: Create the group allowed to log in over SSH
+  ansible.builtin.group:
+    name: "{{ host_ssh_group }}"
+    system: true
+
+- name: Allow the Ansible user to log in over SSH
+  ansible.builtin.user:
+    name: "{{ ansible_user | default(ansible_env.SUDO_USER) }}"
+    groups: ["{{ host_ssh_group }}"]
+    append: true
+
+- name: Show a legal notice before login (CIS 1.6)
+  ansible.builtin.copy:
+    src: issue.net
+    dest: "{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [/etc/issue, /etc/issue.net]
+
+- name: Create sshd's privilege separation directory, needed to validate its config
+  ansible.builtin.file:
+    path: /run/sshd
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Harden the SSH server (CIS 5.1, NIST AC-17, IA-2, SC-8)
+  ansible.builtin.template:
+    src: sshd.conf.j2
+    # Loaded before cloud-init's 50-cloud-init.conf; sshd uses the first value set.
+    dest: /etc/ssh/sshd_config.d/10-minnumst.conf
+    owner: root
+    group: root
+    mode: "0600"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Restart SSH
+
+- name: Make sudo use a pseudo-terminal and keep its own log (CIS 5.2)
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/60-minnumst
+    content: |
+      Defaults use_pty
+      Defaults logfile="/var/log/sudo.log"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s

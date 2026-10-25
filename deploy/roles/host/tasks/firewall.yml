@@ -1,0 +1,16 @@
+---
+- name: Configure the host firewall (CIS 4.2, NIST SC-7)
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: /etc/nftables.conf
+    owner: root
+    group: root
+    mode: "0600"
+    validate: /usr/sbin/nft --check --file %s
+  notify: Reload the firewall
+
+- name: Load the firewall at boot
+  ansible.builtin.service:
+    name: nftables
+    state: started
+    enabled: true

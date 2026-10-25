@@ -1,0 +1,18 @@
+---
+- name: Check the host before changing it
+  ansible.builtin.import_tasks: preflight.yml
+
+- name: Keep packages minimal and up to date
+  ansible.builtin.import_tasks: packages.yml
+
+- name: Harden the kernel, filesystems and process limits
+  ansible.builtin.import_tasks: kernel.yml
+
+- name: Harden SSH and sudo
+  ansible.builtin.import_tasks: access.yml
+
+- name: Enable the host firewall
+  ansible.builtin.import_tasks: firewall.yml
+
+- name: Enable auditing, logging and time synchronisation
+  ansible.builtin.import_tasks: logging.yml

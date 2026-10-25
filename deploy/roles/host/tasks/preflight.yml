@@ -1,0 +1,55 @@
+---
+- name: Require the supported Ubuntu LTS release
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == host_supported_distribution
+      - ansible_distribution_version == host_supported_version
+    fail_msg: >-
+      This playbook hardens {{ host_supported_distribution }} {{ host_supported_version }}
+      LTS only (CIS benchmark and DISA STIG available). Found
+      {{ ansible_distribution }} {{ ansible_distribution_version }}.
+
+- name: Find the device behind the root filesystem
+  ansible.builtin.command:
+    argv: [findmnt, --noheadings, --output, SOURCE, /]
+  register: host_root_source
+  changed_when: false
+  when: host_require_disk_encryption
+
+- name: List the block devices the root filesystem sits on
+  ansible.builtin.command:
+    argv:
+      [
+        lsblk,
+        --inverse,
+        --noheadings,
+        --output,
+        TYPE,
+        "{{ host_root_source.stdout }}",
+      ]
+  register: host_root_stack
+  changed_when: false
+  when: host_require_disk_encryption
+
+- name: Require full-disk encryption (NIST SC-28)
+  ansible.builtin.assert:
+    that: "'crypt' in host_root_stack.stdout_lines | map('trim')"
+    fail_msg: >-
+      The root filesystem is not on a LUKS volume. Reinstall with "Encrypt the
+      LVM group" (see deploy/README.md), or set host_require_disk_encryption:
+      false for a host where the provider encrypts the disks.
+  when: host_require_disk_encryption
+
+- name: Check that the Ansible user can log in with a key before passwords are disabled
+  ansible.builtin.stat:
+    path: "~{{ ansible_user }}/.ssh/authorized_keys"
+  register: host_authorized_keys
+  when: ansible_connection != "local"
+
+- name: Refuse to lock the Ansible user out
+  ansible.builtin.assert:
+    that: host_authorized_keys.stat.exists and host_authorized_keys.stat.size > 0
+    fail_msg: >-
+      {{ ansible_user }} has no ~/.ssh/authorized_keys. Add a key first: this
+      playbook disables password logins.
+  when: ansible_connection != "local"

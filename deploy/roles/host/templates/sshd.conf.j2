@@ -1,0 +1,42 @@
+# Managed by Ansible (deploy/roles/host). CIS Ubuntu 24.04 §5.1, NIST SP 800-53
+# AC-17/IA-2/SC-8, Mozilla OpenSSH guidelines (modern).
+Port {{ host_ssh_port }}
+AllowGroups {{ host_ssh_group }}
+PermitRootLogin no
+AuthenticationMethods publickey
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+HostbasedAuthentication no
+IgnoreRhosts yes
+PermitUserEnvironment no
+UsePAM yes
+
+MaxAuthTries 3
+MaxSessions 4
+MaxStartups 10:30:60
+LoginGraceTime 30
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+DisableForwarding yes
+X11Forwarding no
+AllowTcpForwarding no
+AllowAgentForwarding no
+AllowStreamLocalForwarding no
+PermitTunnel no
+GatewayPorts no
+
+LogLevel VERBOSE
+Banner /etc/issue.net
+
+# Modern algorithms only: post-quantum hybrid and Curve25519 key exchange,
+# AEAD ciphers, encrypt-then-MAC, Ed25519 and RSA-SHA2 host keys.
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKey /etc/ssh/ssh_host_rsa_key
+KexAlgorithms sntrup761x25519-sha512@openssh.com,curve25519-sha256,curve25519-sha256@libssh.org
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com
+HostKeyAlgorithms ssh-ed25519,rsa-sha2-512,rsa-sha2-256
+PubkeyAcceptedAlgorithms ssh-ed25519,sk-ssh-ed25519@openssh.com,rsa-sha2-512,rsa-sha2-256

@@ -1,0 +1,41 @@
+## Managed by Ansible (deploy/roles/host). CIS Ubuntu 24.04 §6.2.3, NIST SP 800-53 AU-2/AU-12.
+
+# Time changes
+-a always,exit -F arch=b64 -S adjtimex,settimeofday,clock_settime -k time-change
+-w /etc/localtime -p wa -k time-change
+
+# Users, groups and authentication
+-w /etc/group -p wa -k identity
+-w /etc/passwd -p wa -k identity
+-w /etc/gshadow -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/security/opasswd -p wa -k identity
+-w /etc/sudoers -p wa -k scope
+-w /etc/sudoers.d -p wa -k scope
+-w /var/log/sudo.log -p wa -k sudo-log
+-w /etc/ssh/sshd_config -p wa -k sshd
+-w /etc/ssh/sshd_config.d -p wa -k sshd
+
+# Network configuration
+-a always,exit -F arch=b64 -S sethostname,setdomainname -k system-locale
+-w /etc/issue -p wa -k system-locale
+-w /etc/issue.net -p wa -k system-locale
+-w /etc/hosts -p wa -k system-locale
+-w /etc/netplan -p wa -k system-locale
+-w /etc/nftables.conf -p wa -k firewall
+
+# Logins and sessions
+-w /var/log/lastlog -p wa -k logins
+-w /var/run/faillock -p wa -k logins
+-w /var/run/utmp -p wa -k session
+-w /var/log/wtmp -p wa -k session
+-w /var/log/btmp -p wa -k session
+
+# Mandatory access control, kernel modules and mounts
+-w /etc/apparmor -p wa -k mac-policy
+-w /etc/apparmor.d -p wa -k mac-policy
+-a always,exit -F arch=b64 -S init_module,finit_module,delete_module -k kernel-modules
+-a always,exit -F arch=b64 -S mount -F auid>=1000 -F auid!=unset -k mounts
+
+# Privilege use
+-a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve -k user-emulation

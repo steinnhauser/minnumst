@@ -1,0 +1,48 @@
+---
+- name: Apply kernel parameters
+  ansible.builtin.command:
+    argv: [sysctl, --system]
+  changed_when: true
+
+- name: Remount /dev/shm
+  ansible.builtin.command:
+    argv: [mount, -o, "remount,nodev,nosuid,noexec", /dev/shm]
+  changed_when: true
+
+# Ubuntu 24.04 starts sshd on demand; a restart applies the config whether or
+# not it is running, and keeps existing sessions.
+- name: Restart SSH
+  ansible.builtin.service:
+    name: ssh
+    state: restarted
+
+- name: Reload the firewall
+  ansible.builtin.service:
+    name: nftables
+    state: reloaded
+
+- name: Restart journald
+  ansible.builtin.service:
+    name: systemd-journald
+    state: restarted
+
+- name: Restart auditd
+  ansible.builtin.command:
+    # auditd refuses systemctl restart; its init script handles it.
+    argv: [service, auditd, restart]
+  changed_when: true
+
+# Immutable rules (-e 2) can only change at boot: mark the host for the reboot
+# unattended-upgrades performs in the maintenance window.
+- name: Load audit rules
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if auditctl -s | grep -q '^enabled 2'; then
+      touch /var/run/reboot-required
+      echo "Audit rules are immutable; they apply after the next reboot."
+    else
+      augenrules --load
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: true

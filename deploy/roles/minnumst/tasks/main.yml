@@ -1,0 +1,52 @@
+---
+- name: Check the deployment settings
+  ansible.builtin.assert:
+    that:
+      - minnumst_domain | length > 0
+      - minnumst_public_image | length > 0
+      - minnumst_admin_image | length > 0
+      - minnumst_api_image | length > 0
+      - minnumst_log_level in ["DEBUG", "INFO", "WARNING", "ERROR"]
+      - authentik_forwardauth_address | length > 0
+      - traefik_acme_email | length > 0
+      - postgres_superuser_password is match('^[A-Za-z0-9_-]{32,}$')
+      - postgres_password is match('^[A-Za-z0-9_-]{32,}$')
+      - "'REPLACE' not in postgres_superuser_password + postgres_password"
+    fail_msg: >-
+      Set the image, domain, Authentik and ACME variables, and use random
+      URL-safe PostgreSQL passwords of at least 32 characters in the vault.
+  no_log: true
+
+- name: Create the deployment directory
+  ansible.builtin.file:
+    path: "{{ minnumst_deploy_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Install the PostgreSQL role setup script
+  ansible.builtin.copy:
+    src: postgres-app-role.sh
+    dest: "{{ minnumst_deploy_dir }}/postgres-app-role.sh"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Render the Compose file, readable by root only (it holds secrets)
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: "{{ minnumst_deploy_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Validate the rendered Compose file
+  ansible.builtin.command:
+    argv: "{{ minnumst_compose + ['config', '--quiet'] }}"
+  changed_when: false
+
+- name: Pull and start the stack, waiting until every service is healthy
+  ansible.builtin.command:
+    argv: "{{ minnumst_compose + ['up', '--detach', '--remove-orphans', '--pull', 'always', '--wait'] }}"
+  changed_when: true

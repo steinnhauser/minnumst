@@ -1,0 +1,58 @@
+---
+- name: Keep the journal on disk, compressed and bounded (CIS 6.1, NIST AU-4, AU-9)
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/60-minnumst.conf
+    content: |
+      [Journal]
+      Storage=persistent
+      Compress=yes
+      SystemMaxUse=1G
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart journald
+
+- name: Rotate audit logs instead of filling the disk (CIS 6.2.2)
+  ansible.builtin.lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: "^{{ item.key }}\\s*="
+    line: "{{ item.key }} = {{ item.value }}"
+  loop:
+    - { key: max_log_file, value: "50" }
+    - { key: num_logs, value: "10" }
+    - { key: max_log_file_action, value: rotate }
+    - { key: space_left_action, value: syslog }
+    - { key: admin_space_left_action, value: syslog }
+  loop_control:
+    label: "{{ item.key }}"
+  notify: Restart auditd
+
+- name: Audit security-relevant events (CIS 6.2.3, NIST AU-2, AU-12)
+  ansible.builtin.copy:
+    src: audit.rules
+    dest: /etc/audit/rules.d/60-minnumst.rules
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Load audit rules
+
+- name: Make the audit configuration immutable until reboot (CIS 6.2.3.20)
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/99-finalize.rules
+    content: "{{ '-e 2' if host_audit_rules_immutable else '-e 1' }}\n"
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Load audit rules
+
+- name: Run auditd
+  ansible.builtin.service:
+    name: auditd
+    state: started
+    enabled: true
+
+- name: Synchronise time with chrony (CIS 2.3, NIST AU-8)
+  ansible.builtin.service:
+    name: chrony
+    state: started
+    enabled: true

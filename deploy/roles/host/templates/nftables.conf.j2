@@ -1,0 +1,42 @@
+#!/usr/sbin/nft -f
+# Managed by Ansible (deploy/roles/host). CIS Ubuntu 24.04 §4.2, NIST SP 800-53 SC-7.
+#
+# Default-deny for traffic to the host. Only this table is managed here: Docker
+# keeps its own tables for container traffic, so the ruleset is never flushed.
+# Published container ports (Traefik's 80 and 443) arrive through Docker's
+# forwarding rules; they are listed below for clarity.
+
+table inet minnumst_host
+delete table inet minnumst_host
+
+table inet minnumst_host {
+  chain input {
+    type filter hook input priority filter; policy drop;
+
+    iif "lo" accept
+    ip saddr 127.0.0.0/8 iif != "lo" drop
+    ip6 saddr ::1 iif != "lo" drop
+    ct state invalid drop
+    ct state established,related accept
+
+    # ICMP for path MTU discovery and diagnostics; ICMPv6 for neighbour discovery.
+    ip protocol icmp icmp type { echo-request, destination-unreachable, time-exceeded } limit rate 10/second accept
+    ip6 nexthdr ipv6-icmp accept
+
+    # DHCP and DHCPv6 replies, for providers that address the host dynamically.
+    udp sport 67 udp dport 68 accept
+    udp sport 547 udp dport 546 accept
+
+    # SSH, from the allowed networks only, with new connections rate limited.
+    ip saddr { {{ host_ssh_allowed_ipv4 | join(', ') }} } tcp dport {{ host_ssh_port }} ct state new limit rate 15/minute accept
+    ip6 saddr { {{ host_ssh_allowed_ipv6 | join(', ') }} } tcp dport {{ host_ssh_port }} ct state new limit rate 15/minute accept
+
+    tcp dport { {{ host_public_tcp_ports | join(', ') }} } accept
+
+    limit rate 5/minute log prefix "nft-host-drop: " level info
+  }
+
+  chain output {
+    type filter hook output priority filter; policy accept;
+  }
+}

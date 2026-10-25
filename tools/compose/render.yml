@@ -15,12 +15,12 @@
 
     - name: Install the PostgreSQL role setup script
       ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../../deploy/files/postgres-app-role.sh"
+        src: "{{ playbook_dir }}/../../deploy/roles/minnumst/files/postgres-app-role.sh"
         dest: "{{ playbook_dir }}/.local/postgres-app-role.sh"
         mode: "0644"
 
     - name: Render deployment Compose template
       ansible.builtin.template:
-        src: "{{ playbook_dir }}/../../deploy/templates/compose.yml.j2"
+        src: "{{ playbook_dir }}/../../deploy/roles/minnumst/templates/compose.yml.j2"
         dest: "{{ playbook_dir }}/.local/compose.yml"
         mode: "0600"

@@ -1,0 +1,11 @@
+## Managed by Ansible (deploy/roles/docker). CIS Docker Benchmark §1.1.
+-w /usr/bin/dockerd -p rwxa -k docker
+-w /usr/bin/containerd -p rwxa -k docker
+-w /usr/bin/runc -p rwxa -k docker
+-w /var/lib/docker -p rwxa -k docker
+-w /etc/docker -p rwxa -k docker
+-w /etc/containerd -p rwxa -k docker
+-w /usr/lib/systemd/system/docker.service -p rwxa -k docker
+-w /usr/lib/systemd/system/docker.socket -p rwxa -k docker
+-w /usr/lib/systemd/system/containerd.service -p rwxa -k docker
+-w /run/containerd -p rwxa -k docker

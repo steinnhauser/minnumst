@@ -1,0 +1,42 @@
+---
+# Host hardening for Ubuntu Server 24.04 LTS. References: CIS Ubuntu Linux 24.04
+# LTS Benchmark (CIS), NIST SP 800-53 Rev. 5 controls (NIST), Mozilla OpenSSH
+# guidelines. See deploy/README.md for the full mapping.
+
+# Supported release (CIS benchmark and DISA STIG exist for it).
+host_supported_distribution: Ubuntu
+host_supported_version: "24.04"
+
+# NIST SC-28: data at rest. Refuse to deploy unless / is on a LUKS (dm-crypt)
+# volume, set up when the OS is installed.
+host_require_disk_encryption: true
+
+# NIST SI-2: flaw remediation. Upgrade everything now, then install security
+# and Docker updates automatically, rebooting in a maintenance window if needed.
+host_upgrade_packages: true
+host_automatic_reboot: true
+host_automatic_reboot_time: "04:30"
+
+# NIST CM-7: least functionality. Remove snapd and these legacy clients (CIS 2.2).
+host_remove_snapd: true
+host_removed_packages: [ftp, ldap-utils, nis, rsh-client, talk, telnet, tnftp]
+
+# SSH (CIS 5.1, NIST AC-17, IA-2). Only members of host_ssh_group may log in, with a
+# key, never as root. The Ansible user is added to the group.
+host_ssh_port: 22
+host_ssh_group: sshusers
+host_ssh_allowed_ipv4: ["0.0.0.0/0"]
+host_ssh_allowed_ipv6: ["::/0"]
+
+# Firewall (CIS 4.2, NIST SC-7). Ports open to the internet besides SSH.
+host_public_tcp_ports: [80, 443]
+
+# Router advertisements configure IPv6 on some providers; CIS 3.3 disables them.
+# Keep true unless the host gets its IPv6 address by SLAAC.
+host_disable_ipv6_router_advertisements: true
+
+# Auditing (CIS 6.2, NIST AU-2, AU-9). Immutable rules can only change with a reboot.
+host_audit_rules_immutable: true
+
+# Optional Ubuntu Pro token (vault): enables Livepatch kernel fixes and ESM.
+host_ubuntu_pro_token: ""

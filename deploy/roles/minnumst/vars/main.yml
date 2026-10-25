@@ -1,0 +1,8 @@
+---
+minnumst_compose:
+  - docker
+  - compose
+  - --project-name
+  - "{{ minnumst_compose_project }}"
+  - --file
+  - "{{ minnumst_deploy_dir }}/compose.yml"

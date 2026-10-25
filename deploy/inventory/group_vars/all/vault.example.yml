@@ -3,3 +3,5 @@
 postgres_superuser_password: REPLACE_WITH_RANDOM_URL_SAFE_SECRET
 # TODO: Replace with a different random URL-safe password for the API's database role.
 postgres_password: REPLACE_WITH_DIFFERENT_RANDOM_URL_SAFE_SECRET
+# Optional: an Ubuntu Pro token (free for personal use) enables Livepatch and ESM.
+host_ubuntu_pro_token: ""

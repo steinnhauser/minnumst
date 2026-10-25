@@ -6,10 +6,13 @@ on:
     # Component releases, created by `make release`.
     tags: ["api-*", "web-*", "admin-*", "deploy-*"]
   pull_request:
+  schedule:
+    # Weekly, to catch new vulnerabilities in unchanged code and images.
+    - cron: "17 4 * * 1"
   workflow_dispatch:
 
-permissions:
-  contents: read
+# Jobs request only what they need; actions are pinned to commit SHAs.
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,72 +23,131 @@ jobs:
   checks:
     name: checks (format, lint, OpenAPI, build)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/setup
       - run: make format-check lint openapi-check build
 
   tests:
     name: tests (API on SQLite and MariaDB, frontends)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/setup
       - run: make test test-mariadb
 
   e2e:
-    name: e2e (images and full stack with MariaDB)
+    name: e2e (images, full stack, edge, image scan)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - name: Build, start, seed and test the stack
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/setup
+      - name: Build, start, seed and test the stack, Traefik included
         run: make stack-test
-      - name: Check that both frontends serve on their host ports
+      - name: Show service logs
+        if: failure()
+        run: docker compose --project-name minnumst-local logs --tail 100
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.1
+          cache: true
+      - name: Scan the images for fixable high and critical vulnerabilities
         run: |
-          curl -fsS http://127.0.0.1:5173/runtime-config.js
-          curl -fsS http://127.0.0.1:5174/runtime-config.js
+          for image in minnumst-local/api:dev minnumst-local/public:dev minnumst-local/admin:dev; do
+            trivy image --scanners vuln --ignore-unfixed --severity HIGH,CRITICAL \
+              --exit-code 1 --no-progress "$image"
+          done
       - name: Stop the stack
         if: always()
         run: make down
 
+  codeql:
+    name: codeql (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions, javascript-typescript, python]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:${{ matrix.language }}
+
+  dependency-review:
+    name: dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [checks, tests, e2e]
+    needs: [checks, tests, e2e, codeql, dependency-review]
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
-      - name: Require every job to succeed
-        run: test "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = false
+      - name: Require every job to succeed (skipped jobs are fine)
+        env:
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: test "$FAILED" = false
 
   release:
     name: release
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [checks, tests, e2e]
+    needs: [checks, tests, e2e, codeql]
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Verify the tag and read the release metadata
         id: meta
         run: python3 tools/scripts/release.py verify "$GITHUB_REF_NAME" --notes "$RUNNER_TEMP/notes.md" >> "$GITHUB_OUTPUT"
       - if: steps.meta.outputs.image
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - if: steps.meta.outputs.image
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - if: steps.meta.outputs.image
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Build and push the multi-arch image
         if: steps.meta.outputs.image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: ${{ steps.meta.outputs.dockerfile }}

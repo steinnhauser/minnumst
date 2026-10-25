@@ -4,6 +4,8 @@ updates:
   - package-ecosystem: npm
     directory: "/"
     schedule: { interval: weekly }
+    # Let new releases settle for a week before adopting them.
+    cooldown: { default-days: 7 }
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
@@ -14,6 +16,8 @@ updates:
   - package-ecosystem: uv
     directory: "/"
     schedule: { interval: weekly }
+    # Let new releases settle for a week before adopting them.
+    cooldown: { default-days: 7 }
     groups:
       uv-minor-and-patch:
         update-types: [minor, patch]
@@ -24,15 +28,23 @@ updates:
   - package-ecosystem: docker
     directory: "/docker"
     schedule: { interval: weekly }
+    # Let new releases settle for a week before adopting them.
+    cooldown: { default-days: 7 }
     ignore:
-      # Stay on Node LTS; move to the next LTS line deliberately.
+      # Runtimes move deliberately, with CI, .nvmrc and .python-version:
+      # Node stays on its LTS line and Python on 3.13.
       - dependency-name: node
         update-types: ["version-update:semver-major"]
+      - dependency-name: python
+        update-types:
+          ["version-update:semver-major", "version-update:semver-minor"]
     commit-message: { prefix: "chore(deps)" }
 
   - package-ecosystem: github-actions
     directories: ["/", "/.github/actions/*"]
     schedule: { interval: weekly }
+    # Let new releases settle for a week before adopting them.
+    cooldown: { default-days: 7 }
     groups:
       actions:
         patterns: ["*"]

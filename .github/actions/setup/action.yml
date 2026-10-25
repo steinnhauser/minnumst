@@ -3,7 +3,7 @@ description: Install uv, Python, Node.js and the locked dependencies of the uv a
 runs:
   using: composite
   steps:
-    - uses: astral-sh/setup-uv@v10.3.0
+    - uses: astral-sh/setup-uv@v10.3.2
       with:
         enable-cache: true
     - uses: actions/setup-node@v7

@@ -250,7 +250,6 @@ function App() {
           )}
 
           {selectedPerson && (
-            {/* Focusable, so keyboard users can scroll a long story. */}
             <article
               className="person-detail"
               aria-label="Person details"

@@ -783,7 +783,7 @@ requires-dist = [
 
 [[package]]
 name = "minnumst-deploy"
-version = "0.1.0"
+version = "0.2.0"
 source = { virtual = "deploy" }
 dependencies = [
     { name = "ansible-core" },

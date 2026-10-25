@@ -15,7 +15,8 @@ export function createRequest({
   baseUrl,
   credentials = "same-origin",
 }: ClientOptions) {
-  const root = baseUrl.replace(/\/+$/, "");
+  let root = baseUrl;
+  while (root.endsWith("/")) root = root.slice(0, -1);
 
   return async function request<T>(
     path: string,

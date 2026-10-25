@@ -1,5 +1,5 @@
 # Build from the repository root: docker build -f docker/api.Dockerfile .
-FROM python:3.13-slim-bookworm AS builder
+FROM python:3.15-slim-bookworm AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.22 /uv /uvx /bin/
 
@@ -18,7 +18,7 @@ RUN uv sync --locked --no-dev --package minnumst-api --no-install-workspace
 COPY api/src/ api/src/
 RUN uv sync --locked --no-dev --package minnumst-api --no-editable
 
-FROM python:3.13-slim-bookworm
+FROM python:3.15-slim-bookworm
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \

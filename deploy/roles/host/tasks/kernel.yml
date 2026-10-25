@@ -16,6 +16,15 @@
     group: root
     mode: "0644"
 
+- name: Create the systemd drop-in directories this role writes to
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: [/etc/systemd/coredump.conf.d, /etc/systemd/journald.conf.d]
+
 - name: Disable core dumps (CIS 1.5)
   ansible.builtin.copy:
     dest: "{{ item.dest }}"

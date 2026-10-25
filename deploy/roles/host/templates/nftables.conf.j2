@@ -21,7 +21,7 @@ table inet minnumst_host {
 
     # ICMP for path MTU discovery and diagnostics; ICMPv6 for neighbour discovery.
     ip protocol icmp icmp type { echo-request, destination-unreachable, time-exceeded } limit rate 10/second accept
-    ip6 nexthdr ipv6-icmp accept
+    meta l4proto ipv6-icmp accept
 
     # DHCP and DHCPv6 replies, for providers that address the host dynamically.
     udp sport 67 udp dport 68 accept

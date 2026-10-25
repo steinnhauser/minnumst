@@ -250,7 +250,12 @@ function App() {
           )}
 
           {selectedPerson && (
-            <article className="person-detail" aria-label="Person details">
+            {/* Focusable, so keyboard users can scroll a long story. */}
+            <article
+              className="person-detail"
+              aria-label="Person details"
+              tabIndex={0}
+            >
               <div className="person-detail-heading">
                 <p className="eyebrow">PERSON PROFILE</p>
                 <h2>{selectedPerson.name}</h2>

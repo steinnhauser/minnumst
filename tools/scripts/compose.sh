@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-[[ $# -ge 1 ]] || { printf 'Usage: %s <render|config|up|wait|seed|update|e2e|edge|clear|reset|down|ps|logs> [services...]\n' "$0" >&2; exit 2; }
+[[ $# -ge 1 ]] || { printf 'Usage: %s <render|config|up|wait|seed|update|e2e|edge|backup-test|clear|reset|down|ps|logs> [services...]\n' "$0" >&2; exit 2; }
 action=$1
 shift
 repo_root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -23,6 +23,13 @@ compose=(docker compose)
 if [[ "$vars_file" == "$tools_root/compose/local-vars.yml" ]]; then
   chmod 600 "$vars_file"
 fi
+
+# Runs a PostgreSQL client command in the postgres container, as the superuser.
+# It runs there, where the superuser password is set.
+in_postgres() {
+  # shellcheck disable=SC2016
+  "${compose[@]}" exec -T -e PGUSER=postgres postgres sh -c 'PGPASSWORD="$POSTGRES_PASSWORD"; export PGPASSWORD; '"$1"
+}
 
 # Reads a top-level value from the local variables file.
 var() { awk -v key="$1:" '$1 == key { print $2 }' "$vars_file"; }
@@ -74,6 +81,20 @@ case "$action" in
   edge)
     WEB_HOST=$(var minnumst_domain) ADMIN_HOST=$(var minnumst_admin_domain) API_HOST=$(var minnumst_api_domain) \
       BASE_COMPOSE_FILE="$compose_file" bash "$tools_root/scripts/e2e_edge.sh"
+    ;;
+  backup-test)
+    # The production backup (pg_dump, custom format) restored into a scratch
+    # database must hold the same data as the original.
+    dump="$local_dir/backup-test.dump"
+    counts='SELECT (SELECT count(*) FROM people), (SELECT count(*) FROM blog_revisions)'
+    in_postgres "pg_dump --format custom $(var postgres_database)" > "$dump"
+    in_postgres 'dropdb --if-exists restore_check && createdb restore_check'
+    in_postgres 'pg_restore --dbname restore_check --exit-on-error' < "$dump"
+    original=$(in_postgres "psql --dbname $(var postgres_database) --tuples-only --no-align --command '$counts'")
+    restored=$(in_postgres "psql --dbname restore_check --tuples-only --no-align --command '$counts'")
+    rm -f "$dump"
+    [[ -n $original && $original == "$restored" ]] || { printf 'FAIL backup restore: %s before, %s after\n' "$original" "$restored" >&2; exit 1; }
+    printf 'PASS a pg_dump backup restores into a fresh database with the same data (people|revisions %s)\n' "$original"
     ;;
   clear|reset)
     printf 'This will %s the minnumst_local PostgreSQL data. Type "%s" to continue: ' "$action" "$action" >&2

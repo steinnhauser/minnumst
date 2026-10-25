@@ -96,6 +96,7 @@ Every host setting in [`deploy/`](deploy/) cites the CIS section and NIST contro
 - **Locked-down access.** SSH by key only, never as root, for one allow-listed group, with modern algorithms only; an nftables default-deny firewall with rate-limited SSH; `sudo` with its own log.
 - **A hardened kernel and minimal surface.** Kernel and network sysctls, unused filesystems and protocols disabled, no core dumps, AppArmor enforced, snapd and legacy clients removed.
 - **A tamper-evident trail.** auditd rules for identity, privilege, SSH, network, kernel module and Docker changes, immutable until reboot; a persistent journal and synchronised time.
+- **Encrypted backups.** A nightly `pg_dump`, encrypted with age to a key that never touches the server, and a restore script. CI restores a backup into a fresh database on every change.
 
 **Containers**
 

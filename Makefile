@@ -15,7 +15,7 @@ unexport VIRTUAL_ENV
 .PHONY: help install format format-check lint test test-api test-postgres test-frontends \
 	openapi openapi-check migration build validate clean ci \
 	dev-api dev-web dev-admin \
-	stack-config up wait seed e2e edge stack-test ps logs down db-update db-clear db-reset \
+	stack-config up wait seed e2e edge backup-test stack-test ps logs down db-update db-clear db-reset \
 	deploy-check deploy release
 
 help:
@@ -40,12 +40,13 @@ help:
 	  '  dev-admin       Editorial desk on http://127.0.0.1:5174' \
 	  '' \
 	  'Local stack: the deploy/ Compose template with locally built images' \
-	  '  stack-test      up, wait, seed, e2e and edge in order' \
+	  '  stack-test      up, wait, seed, e2e, edge and backup-test in order' \
 	  '  up              Build the images and start the stack, Traefik included' \
 	  '  wait            Wait until the API is ready and both frontends serve' \
 	  '  seed            Add fictional sample people and stories (idempotent)' \
 	  '  e2e             Run the end-to-end API tests against the stack' \
 	  '  edge            Test the edge through Traefik: TLS redirect, headers, auth on writes, rate limit, isolation' \
+	  '  backup-test     Back up the database and restore it into a scratch database' \
 	  '  ps, logs, down  Status, logs (SERVICES="api public") and stop (keeps data)' \
 	  '  stack-config    Render and validate the Compose configuration' \
 	  '  db-update       Append revisions when the sample stories change' \
@@ -149,12 +150,16 @@ e2e:
 edge:
 	$(COMPOSE) edge
 
+backup-test:
+	$(COMPOSE) backup-test
+
 stack-test:
 	$(MAKE) up
 	$(MAKE) wait
 	$(MAKE) seed
 	$(MAKE) e2e
 	$(MAKE) edge
+	$(MAKE) backup-test
 
 ps:
 	$(COMPOSE) ps

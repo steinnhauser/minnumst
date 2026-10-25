@@ -31,6 +31,10 @@ postgres_database: minnumst
 postgres_user: minnumst
 postgres_migration_user: minnumst_migrator
 
+# Backups: set an age public key (age-keygen, private key kept off the server)
+# so the nightly dumps are encrypted. See roles/minnumst/defaults/main.yml.
+# minnumst_backup_age_recipient: age1...
+
 # Host hardening overrides (defaults and references in roles/host/defaults/main.yml).
 # Restrict SSH to known networks, for example a VPN or your office address:
 # host_ssh_allowed_ipv4: ["203.0.113.0/24"]

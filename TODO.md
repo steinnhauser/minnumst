@@ -140,9 +140,9 @@ PostgreSQL replaced MariaDB before the first deployment, for its SCRAM-SHA-256 a
 
 ## 6. Backups with a tested restore
 
-- [ ] Add a scheduled `pg_dump` (custom format, run as the read-only-capable `postgres` user) to `deploy/`, with retention and an off-host copy. Named volumes are not backups.
-- [ ] Add a restore playbook or `make` target, plus a CI job that restores a dump into a disposable PostgreSQL and runs `tools/scripts/e2e_api.py` reads against it.
-- [ ] Write the restore runbook in `deploy/README.md`, including the RPO/RTO the setup actually achieves.
+- [x] Nightly `pg_dump` from a hardened systemd timer, encrypted with age to an off-host public key, 14 days kept on the encrypted disk; `minnumst-restore` for restores; `make backup-test` (in the CI `e2e` job) restores a dump into a fresh database and compares the data.
+- [ ] Copy the encrypted dumps off the host (restic, rclone or the provider's object storage); see the manual TODOs.
+- [ ] Measure and document RPO (24 hours today) and RTO once the first real restore has been timed.
 
 ## 7. Monitoring, alerting and request tracing
 
@@ -213,6 +213,7 @@ Steps that need the repository owner, because they depend on account access or d
 
 - [ ] **Branch protection level:** `main` blocks force pushes and deletion. Requiring pull requests and the `ci-ok` check as well would stop direct pushes to `main`; decide whether to turn that on.
 - [ ] **Install the host:** Ubuntu Server 24.04 LTS (minimal) with _Encrypt the LVM group with LUKS_, an administrator with an SSH key, and `dropbear-initramfs` to unlock the disk after a remote reboot. See [`deploy/README.md`](deploy/README.md#setting-up-the-host).
+- [ ] **Backup key and off-host storage:** run `age-keygen` on your own machine, keep the private key safe (a password manager or hardware key), and set the public key as `minnumst_backup_age_recipient`. Choose where encrypted dumps should be copied (object storage or another machine).
 - [ ] **Optional Ubuntu Pro:** attach a (free personal) token as `host_ubuntu_pro_token` in the vault for Livepatch and ESM.
 - [ ] **Production prerequisites (item 9):** the Authentik instance with TOTP MFA and its outpost URL, DNS records for the three hostnames, a monitored ACME e-mail address, and the encrypted `vault.yml`.
 - [ ] **This workstation:** remove the placeholder Docker proxy (`sudo rm /etc/systemd/system/docker.service.d/http-proxy.conf && sudo systemctl daemon-reload && sudo systemctl restart docker`) so `make stack-test` and `make test-postgres` can pull images locally.

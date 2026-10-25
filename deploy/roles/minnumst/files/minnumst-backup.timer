@@ -1,0 +1,11 @@
+# Managed by Ansible (deploy/roles/minnumst).
+[Unit]
+Description=Back up the Minnumst database nightly, before the update reboot window
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

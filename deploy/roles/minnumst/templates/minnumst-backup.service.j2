@@ -1,0 +1,15 @@
+# Managed by Ansible (deploy/roles/minnumst).
+[Unit]
+Description=Back up the Minnumst database
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/minnumst-backup
+# Hardening: the job only needs Docker's socket and its backup directory.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths={{ minnumst_backup_dir }} /run/docker.sock

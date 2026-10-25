@@ -1,0 +1,66 @@
+# Repository-wide safety net. Each component keeps its own .gitignore for its
+# build output; these rules apply everywhere in the tree.
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+.vault_pass*
+*.vault-pass*
+vault-password*
+# Encrypted or not, real vault files and inventories stay off the repository;
+# only the *.example files are tracked.
+vault.yml
+hosts.ini
+host_vars/
+
+# Local databases and dumps
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sql
+*.sql.gz
+*.dump
+
+# Dependencies, virtual environments and caches
+node_modules/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ansible/
+.eslintcache
+.vite/
+
+# Build, test and coverage output
+dist/
+build/
+coverage/
+htmlcov/
+.coverage
+.coverage.*
+*.tsbuildinfo
+
+# Dev servers and logs
+.dev-server.pid
+.dev-server.log
+*.log
+
+# Editors and operating systems
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.sw?
+*~
+.DS_Store
+Thumbs.db

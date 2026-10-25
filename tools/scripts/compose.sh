@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-[[ $# -ge 1 ]] || { printf 'Usage: %s <render|config|up|down|ps|logs> [services...]\n' "$0" >&2; exit 2; }
+[[ $# -ge 1 ]] || { printf 'Usage: %s <render|config|up|wait|seed|update|e2e|clear|reset|down|ps|logs> [services...]\n' "$0" >&2; exit 2; }
 action=$1
 shift
-workspace_root=$(cd "$(dirname "$0")/../.." && pwd)
-tools_root="$workspace_root/tools"
-deploy_repo="$workspace_root/deploy"
+repo_root=$(cd "$(dirname "$0")/../.." && pwd)
+tools_root="$repo_root/tools"
+deploy_dir="$repo_root/deploy"
 playbook="$tools_root/compose/render.yml"
 local_dir="$tools_root/compose/.local"
 compose_file="$local_dir/compose.yml"
@@ -25,7 +25,7 @@ else
   printf 'Docker Compose is required (install the Compose plugin or docker-compose).\n' >&2
   exit 1
 fi
-[[ -d "$deploy_repo/.venv" ]] || { printf 'Install deployment dependencies first: make -C deploy install\n' >&2; exit 1; }
+[[ -d "$deploy_dir/.venv" ]] || { printf 'Install deployment dependencies first: make -C deploy install\n' >&2; exit 1; }
 [[ -f "$vars_file" ]] || vars_file="$tools_root/compose/local-vars.example.yml"
 if [[ "$vars_file" == "$tools_root/compose/local-vars.yml" ]]; then
   chmod 600 "$vars_file"
@@ -34,7 +34,7 @@ fi
 mkdir -p "$local_dir"
 chmod 700 "$local_dir"
 (
-  cd "$deploy_repo"
+  cd "$deploy_dir"
   uv run ansible-playbook -i 'localhost,' -c local "$playbook" --extra-vars "@$vars_file"
 )
 
@@ -51,6 +51,22 @@ case "$action" in
   up)
     "${compose[@]}" build api public admin
     "${compose[@]}" up -d mariadb api public admin
+    ;;
+  wait)
+    timeout=${WAIT_TIMEOUT:-120}
+    deadline=$((SECONDS + timeout))
+    until "${compose[@]}" exec -T api python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=2)" >/dev/null 2>&1 \
+      && "${compose[@]}" exec -T public wget -q -O /dev/null http://127.0.0.1:8080/runtime-config.js >/dev/null 2>&1 \
+      && "${compose[@]}" exec -T admin wget -q -O /dev/null http://127.0.0.1:8080/runtime-config.js >/dev/null 2>&1; do
+      if ((SECONDS >= deadline)); then
+        printf 'The stack was not ready after %s seconds.\n' "$timeout" >&2
+        "${compose[@]}" ps >&2
+        "${compose[@]}" logs --tail 50 api public admin >&2
+        exit 1
+      fi
+      sleep 2
+    done
+    printf 'The API is ready and both frontends are serving.\n'
     ;;
   seed|update)
     "${compose[@]}" exec -T api python /opt/minnumst/seed_local_db.py seed

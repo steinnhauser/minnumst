@@ -1,0 +1,12 @@
+line-length = 88
+
+[lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[lint.isort]
+# The scripts run inside the API container, where minnumst_api is installed.
+known-first-party = ["minnumst_api"]
+
+[format]
+indent-style = "space"
+quote-style = "double"

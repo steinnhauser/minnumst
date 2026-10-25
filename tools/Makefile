@@ -6,14 +6,23 @@ ADMIN_DIR := $(ROOT)/admin
 API_DIR := $(ROOT)/api
 DEPLOY_DIR := $(ROOT)/deploy
 
-.PHONY: help status validate validate-public validate-admin validate-api validate-deploy \
-	compose-render compose-config compose-up compose-down compose-ps compose-logs \
+UV ?= uv
+RUFF := $(UV) run --project "$(API_DIR)" ruff
+SHELLCHECK := $(UV) tool run --from shellcheck-py==0.11.0.1 shellcheck
+
+.PHONY: help status format format-check lint check \
+	validate validate-public validate-admin validate-api validate-deploy \
+	compose-render compose-config compose-up compose-wait compose-down compose-ps compose-logs \
 	db-seed db-update db-clear db-reset e2e
 
 help:
 	@printf '%s\n' \
 	  'status           Show Git status for the repository' \
-	  'validate         Run validation in all four components' \
+	  'format           Format the Python scripts in tools/' \
+	  'format-check     Check formatting of the Python scripts in tools/' \
+	  'lint             Lint the tools/ Python scripts (Ruff) and shell scripts (ShellCheck)' \
+	  'check            Run format-check and lint for tools/' \
+	  'validate         Run validation in all four components (see the root Makefile)' \
 	  'validate-public  Validate the public frontend' \
 	  'validate-admin   Validate the admin frontend' \
 	  'validate-api     Validate the API' \
@@ -21,6 +30,7 @@ help:
 	  'compose-render   Render the deployment Compose template locally' \
 	  'compose-config   Validate the rendered local Compose configuration' \
 	  'compose-up       Start app and database containers on loopback ports' \
+	  'compose-wait     Wait until the API is ready and both frontends serve' \
 	  'compose-down     Stop local app and database containers' \
 	  'compose-ps       Show local Compose service status' \
 	  'compose-logs     Follow local Compose logs (SERVICES=api for one service)' \
@@ -32,6 +42,18 @@ help:
 
 status:
 	@git -C "$(ROOT)" status --short --branch
+
+format:
+	$(RUFF) format scripts
+
+format-check:
+	$(RUFF) format --check scripts
+
+lint:
+	$(RUFF) check scripts
+	$(SHELLCHECK) scripts/*.sh
+
+check: format-check lint
 
 validate: validate-public validate-admin validate-api validate-deploy
 
@@ -56,6 +78,9 @@ compose-config:
 
 compose-up:
 	bash "$(TOOLS)/scripts/compose.sh" up
+
+compose-wait:
+	bash "$(TOOLS)/scripts/compose.sh" wait
 
 compose-down:
 	bash "$(TOOLS)/scripts/compose.sh" down

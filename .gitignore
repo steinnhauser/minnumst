@@ -41,6 +41,8 @@ __pycache__/
 .vite/
 
 # Build, test and coverage output
+test-results/
+playwright-report/
 dist/
 build/
 coverage/

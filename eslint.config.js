@@ -7,14 +7,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [
-      ".*/**",
-      "**/dist/**",
-      "**/coverage/**",
-      "api/**",
-      "deploy/**",
-      "tools/**",
-    ],
+    ignores: [".*/**", "**/dist/**", "**/coverage/**", "api/**", "deploy/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -34,7 +27,12 @@ export default tseslint.config(
     },
   },
   {
-    files: ["**/*.mjs", "*.{js,ts}", "{web,admin}/vite.config.ts"],
+    files: [
+      "**/*.mjs",
+      "*.{js,ts}",
+      "{web,admin}/vite.config.ts",
+      "tools/**/*.ts",
+    ],
     languageOptions: { globals: globals.node },
   },
   eslintConfigPrettier,

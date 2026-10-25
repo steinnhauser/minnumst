@@ -1,38 +1,49 @@
+# Weekly updates on Monday. Minor and patch updates arrive as one pull request
+# per ecosystem; each major update arrives on its own, so one breaking upgrade
+# never holds back the others. Security updates are grouped separately.
+# Cooldowns let new releases settle before they are proposed (supply-chain
+# hygiene); security updates are never delayed.
 version: 2
 
 updates:
   - package-ecosystem: npm
     directory: "/"
-    schedule: { interval: weekly }
-    # Let new releases settle for a week before adopting them.
-    cooldown: { default-days: 7 }
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7, semver-major-days: 14 }
+    # Update package.json only when the lockfile can't stay within its range.
+    versioning-strategy: increase-if-necessary
     groups:
-      npm-minor-and-patch:
+      npm:
         update-types: [minor, patch]
-      npm-major:
-        update-types: [major]
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+    ignore:
+      # Types follow the Node.js line the images run (.nvmrc), not the newest.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     commit-message: { prefix: "chore(deps)" }
 
   - package-ecosystem: uv
     directory: "/"
-    schedule: { interval: weekly }
-    # Let new releases settle for a week before adopting them.
-    cooldown: { default-days: 7 }
+    schedule: { interval: weekly, day: monday }
+    cooldown: { default-days: 7, semver-major-days: 14 }
+    versioning-strategy: increase-if-necessary
     groups:
-      uv-minor-and-patch:
+      uv:
         update-types: [minor, patch]
-      uv-major:
-        update-types: [major]
+      uv-security:
+        applies-to: security-updates
+        patterns: ["*"]
     commit-message: { prefix: "chore(deps)" }
 
   - package-ecosystem: docker
     directory: "/docker"
-    schedule: { interval: weekly }
-    # Let new releases settle for a week before adopting them.
+    schedule: { interval: weekly, day: monday }
     cooldown: { default-days: 7 }
     ignore:
-      # Runtimes move deliberately, with CI, .nvmrc and .python-version:
-      # Node stays on its LTS line and Python on 3.13.
+      # Runtimes move deliberately, together with CI, .nvmrc and .python-version:
+      # Node.js stays on its LTS line and Python on 3.13.
       - dependency-name: node
         update-types: ["version-update:semver-major"]
       - dependency-name: python
@@ -42,8 +53,7 @@ updates:
 
   - package-ecosystem: github-actions
     directories: ["/", "/.github/actions/*"]
-    schedule: { interval: weekly }
-    # Let new releases settle for a week before adopting them.
+    schedule: { interval: weekly, day: monday }
     cooldown: { default-days: 7 }
     groups:
       actions:

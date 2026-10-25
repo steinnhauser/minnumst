@@ -6,7 +6,7 @@
 #     --build-arg RUNTIME_CONFIG_KEYS="VITE_API_URL DEBUG" .
 
 # Workspace manifests, shared by the install stages below.
-FROM node:22-alpine AS manifests
+FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS manifests
 WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY web/package.json web/
@@ -27,7 +27,7 @@ RUN npm run build --workspace "$APP"
 FROM manifests AS server-deps
 RUN npm ci --omit=dev --workspace @minnumst/static-server
 
-FROM node:22-alpine
+FROM node:22-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914
 ARG APP
 ARG SERVICE_NAME
 ARG RUNTIME_CONFIG_KEYS=VITE_API_URL

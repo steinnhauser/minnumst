@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { ArrowUpRight, Search } from "lucide-react";
 import {
   getPersonBySlug,
@@ -7,6 +13,16 @@ import {
   type PersonDetail,
 } from "./api";
 import "./App.css";
+
+const DEFAULT_TITLE = document.title;
+const PROFILE_PATH = /^\/people\/([^/]+)\/?$/;
+
+// Profiles live at /people/<slug>. Slugs are permanent: a rename keeps the
+// slug, so links and bookmarks keep working.
+function profileSlug(pathname: string): string | null {
+  const match = PROFILE_PATH.exec(pathname);
+  return match ? decodeURIComponent(match[1]) : null;
+}
 
 function App() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -49,12 +65,50 @@ function App() {
     return () => window.clearTimeout(timeoutId);
   }, [searchTerm]);
 
-  function dismissSuggestions() {
+  const dismissSuggestions = useCallback(() => {
     suggestionRequest.current += 1;
     setSuggestions([]);
     setActiveSuggestionIndex(-1);
     setIsLoadingSuggestions(false);
-  }
+  }, []);
+
+  const showProfile = useCallback(
+    async (slug: string) => {
+      dismissSuggestions();
+      setIsLoadingPerson(true);
+      setSelectedPerson(null);
+      try {
+        const person = await getPersonBySlug(slug);
+        setSelectedPerson(person);
+        document.title = `${person.name} | Minnumst`;
+      } catch (error) {
+        setSearchMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not load this person.",
+        );
+      } finally {
+        setIsLoadingPerson(false);
+      }
+    },
+    [dismissSuggestions],
+  );
+
+  // Follow the address bar: on first load and on the back and forward buttons.
+  useEffect(() => {
+    function followLocation() {
+      const slug = profileSlug(window.location.pathname);
+      if (slug) {
+        void showProfile(slug);
+      } else {
+        setSelectedPerson(null);
+        document.title = DEFAULT_TITLE;
+      }
+    }
+    followLocation();
+    window.addEventListener("popstate", followLocation);
+    return () => window.removeEventListener("popstate", followLocation);
+  }, [showProfile]);
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,6 +124,10 @@ function App() {
     setIsSearching(true);
     setPeople([]);
     setSelectedPerson(null);
+    if (window.location.pathname !== "/") {
+      window.history.pushState(null, "", "/");
+      document.title = DEFAULT_TITLE;
+    }
     setSearchMessage("Searching the directory...");
     try {
       const page = await searchPeople(searchTerm.trim());
@@ -89,18 +147,12 @@ function App() {
   }
 
   async function handleSelectPerson(person: Person) {
-    dismissSuggestions();
-    setIsLoadingPerson(true);
-    setSelectedPerson(null);
-    try {
-      setSelectedPerson(await getPersonBySlug(person.slug));
-    } catch (error) {
-      setSearchMessage(
-        error instanceof Error ? error.message : "Could not load this person.",
-      );
-    } finally {
-      setIsLoadingPerson(false);
-    }
+    window.history.pushState(
+      null,
+      "",
+      `/people/${encodeURIComponent(person.slug)}`,
+    );
+    await showProfile(person.slug);
   }
 
   return (

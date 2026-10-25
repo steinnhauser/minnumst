@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -6,6 +6,64 @@ import App from "./App";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  window.history.replaceState(null, "", "/");
+});
+
+const adaProfile = {
+  id: "person-1",
+  name: "Ada Lovelace",
+  slug: "ada-lovelace",
+  created_at: "2026-09-28T10:00:00Z",
+  updated_at: "2026-09-28T10:00:00Z",
+  blog: null,
+  current_blog: {
+    id: "revision-1",
+    revision_number: 1,
+    saved_at: "2026-09-28T10:00:00Z",
+    title: "A life in letters",
+    excerpt: "",
+    content: "A story about Ada.",
+  },
+};
+
+describe("profile URLs", () => {
+  it("opens the profile named in the address bar", async () => {
+    window.history.replaceState(null, "", "/people/ada-lovelace");
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(adaProfile));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Ada Lovelace" }),
+    ).toBeInTheDocument();
+    expect(fetchMock.mock.calls[0][0]).toMatch(
+      /\/api\/people\/by-slug\/ada-lovelace$/,
+    );
+    expect(document.title).toBe("Ada Lovelace | Minnumst");
+  });
+
+  it("closes the profile when the reader goes back", async () => {
+    window.history.replaceState(null, "", "/");
+    window.history.pushState(null, "", "/people/ada-lovelace");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(Response.json(adaProfile)),
+    );
+    render(<App />);
+    await screen.findByRole("heading", { name: "Ada Lovelace" });
+
+    await act(async () => {
+      window.history.back();
+      await new Promise((resolve) =>
+        window.addEventListener("popstate", resolve, { once: true }),
+      );
+    });
+
+    expect(
+      screen.queryByRole("heading", { name: "Ada Lovelace" }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("public people search", () => {
@@ -78,6 +136,7 @@ describe("public people search", () => {
     );
 
     expect(await screen.findByText("A story about Ada.")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/people/ada-lovelace");
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining(
         "/api/people?query=Ada+Lovelace&offset=0&limit=50",

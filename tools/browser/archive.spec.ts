@@ -17,4 +17,12 @@ test("a reader finds a person and reads their story", async ({
   );
   await expect(profile.locator(".story-content")).not.toBeEmpty();
   await audit();
+
+  // The profile has its own address, which opens it directly.
+  await expect(page).toHaveURL(/\/people\/[a-z0-9-]+$/);
+  const name = await profile.getByRole("heading", { level: 2 }).textContent();
+  await page.goto(page.url());
+  await expect(
+    page.getByLabel("Person details").getByRole("heading", { level: 2 }),
+  ).toHaveText(name ?? "");
 });

@@ -32,7 +32,8 @@ Releasing is not done. Each old repository had its own `CI and Release` workflow
 
 ### 1.3 Faster CI
 
-- [ ] Skip work a change can't affect, with a `changes` job (`dorny/paths-filter`): documentation-only changes skip `tests` and `e2e`, and changes outside `api/`, `web/`, `admin/`, `packages/`, `docker/`, `deploy/templates/`, `tools/` and the lockfiles skip `e2e`. `ci-ok` already treats skipped jobs as passing. Run everything on pushes to `main`, on `workflow_dispatch`, and on a weekly `schedule` to catch drift in base images.
+- [x] Run everything on pushes to `main`, tags, pull requests, `workflow_dispatch` and a weekly `schedule` (new vulnerabilities in unchanged code and images).
+- [ ] Skip work a change can't affect, with a `changes` job (`dorny/paths-filter`): documentation-only changes skip `tests` and `e2e`, and changes outside `api/`, `web/`, `admin/`, `packages/`, `docker/`, `deploy/templates/`, `tools/` and the lockfiles skip `e2e`. `ci-ok` already treats skipped jobs as passing.
 - [ ] Cache the Docker layers of the `e2e` image builds (Buildx with the GHA cache), so unchanged dependency layers aren't rebuilt on every run.
 
 ### 1.4 Container registry and image references
@@ -157,10 +158,12 @@ The `e2e` job tests the API only. No test loads either frontend in a browser aga
 
 ## 8. Harden the write boundary and the supply chain
 
-- [ ] Add tests (in the `e2e` job, with Traefik and a stub forward-auth) proving that every mutating method on the API host goes through Authentik, that reads stay public, and that the API container is not reachable around Traefik. Production relies on Traefik and Authentik for this, so it has to be verified rather than assumed.
-- [ ] Review `forwardauth.trustForwardHeader: "true"`, the CORS origins and the security headers (HSTS, CSP, frame-ancestors) set through Traefik middleware.
-- [ ] Scan every image built in PRs and releases with Trivy (or Grype). Fail on fixable critical findings and upload SARIF to code scanning.
-- [ ] Pin base images by digest (`node:22-alpine@sha256:…`, `python:3.13-slim-bookworm@sha256:…`, `mariadb:11.4@…`, `traefik:v3.3@…`). Let Dependabot keep the digests current.
+- [x] Edge tests: the `e2e` job runs the production Compose template with Traefik and a stand-in forward-auth, and `tools/scripts/e2e_edge.sh` proves that the editorial desk and every write method need authentication, reads stay public, HTTP redirects to HTTPS, HSTS and the CSP are sent, and the API rate limit holds. It also asserts from the rendered production file that only Traefik publishes ports, MariaDB and the Docker API proxy sit on internal networks, and every container is hardened.
+- [x] Security headers: a same-origin CSP, `frame-ancestors 'none'`, `nosniff`, referrer, permissions and cross-origin policies from the static server; HSTS and the same basics for every route from Traefik. `trustForwardHeader` stays `true` because Traefik is the edge: it already discards client-sent `X-Forwarded-*` headers, so it only passes its own to Authentik.
+- [x] Container hardening: read-only root filesystems, no capabilities, `no-new-privileges`, log rotation, root-owned code, no package managers in runtime images, OS fixes applied at build, and a Docker API proxy instead of the socket for Traefik.
+- [x] Supply chain: actions pinned to commit SHAs, job-scoped permissions, `persist-credentials: false`, zizmor in `make lint`, CodeQL (security-extended) for Python, TypeScript and the workflow, dependency review on pull requests, Dependabot with a seven-day cooldown, and a Trivy gate on fixable high and critical image vulnerabilities before any release.
+- [ ] Pin base images by digest (`node:22-alpine@sha256:…`, `python:3.13-slim-bookworm@sha256:…`, `mariadb:11.4@…`, `traefik:v3.7.16@…`). Dependabot keeps Dockerfile digests current; the Compose template's images need a manual or scripted bump.
+- [ ] Upload the Trivy results as SARIF to code scanning, so findings below the gate are visible in the Security tab.
 
 ## 9. First production deployment
 
@@ -209,3 +212,11 @@ Covered by items 6, 7 and 9 above: backups, monitoring, Authentik with TOTP MFA,
 - [ ] Move the images, `.nvmrc` and `engines` to the next Node.js LTS line deliberately; Dependabot ignores Node major versions.
 
 Once these priorities are agreed, they can move to GitHub Issues with component labels and a milestone.
+
+## Manual TODOs
+
+Steps that need the repository owner, because they depend on account access or decisions outside the code.
+
+- [ ] **GHCR, after the first release tag:** if the push fails with 403, an archived repository created the package first; grant `steinnhauser/minnumst` Write under _Package settings → Manage Actions access_, then re-run the release job. Then set each `minnumst-*` package to **Public**.
+- [ ] **Branch protection level:** `main` blocks force pushes and deletion. Requiring pull requests and the `ci-ok` check as well would stop direct pushes to `main`; decide whether to turn that on.
+- [ ] **Production prerequisites (item 9):** the Authentik instance with TOTP MFA and its outpost URL, DNS records for the three hostnames, a monitored ACME e-mail address, and the encrypted `vault.yml`.

@@ -42,7 +42,64 @@ It is self-hosted with Ansible and Docker Compose behind Traefik, with Authentik
 | [`tools/`](tools/)                                   | Local stack from the deploy Compose template, sample data, end-to-end tests        | Bash, Docker Compose                                                    |
 
 Each service ships as a non-root container image that logs structured JSON. The frontends read their API URL at runtime, so one image works in every environment.
-MariaDB is only reachable on an internal network, and secrets live in ansible-vault rather than in the repository.
+
+## Security and networking
+
+Minnumst is built so that the only thing reachable from the internet is a TLS-terminating reverse proxy, every write is authenticated before it reaches the application, and each container can do as little as possible. The controls below are enforced in code and verified in CI on every change.
+
+```text
+                     internet
+                        │ 80 → redirect, 443 TLS (Let's Encrypt)
+                ┌───────▼────────┐  security headers · HSTS · rate limit (API)
+                │    Traefik     │──── forward-auth ────▶ Authentik (TOTP MFA)
+                └──┬─────┬─────┬─┘
+     edge network  │     │     │            socket network (internal)
+            ┌──────▼┐ ┌──▼────┐ ┌▼─────┐    Traefik ──▶ Docker API proxy
+            │  web  │ │ admin │ │ api  │                (list containers only)
+            └───────┘ └───────┘ └──┬───┘
+                    backend network│(internal, no route out)
+                               ┌───▼─────┐
+                               │ MariaDB │
+                               └─────────┘
+```
+
+**Network**
+
+- **One public entry point.** Only Traefik publishes ports. The apps share the `edge` network with Traefik, and MariaDB sits alone with the API on `backend`, an internal network with no route in or out and no host port.
+- **TLS everywhere.** HTTP redirects to HTTPS, certificates come from Let's Encrypt, and HSTS (two years, including subdomains) tells browsers never to use plain HTTP again.
+- **Authenticated writes.** Authentik forward-auth guards the whole editorial desk and every `POST`, `PUT`, `PATCH` and `DELETE` on the API; reads stay public. Authentik, with TOTP MFA, runs outside this stack, and there is no in-app login to attack.
+- **Rate limiting.** The API allows 20 requests per second per client (bursts of 50) and answers floods with `429`.
+- **No Docker socket on the edge.** Traefik discovers services through a socket proxy that exposes only the read-only container listing, on its own internal network. The proxy is the only container that mounts the socket.
+
+**Applications**
+
+- **Strict browser policy.** The frontends send a same-origin Content Security Policy that only lets them connect to the API, `frame-ancestors 'none'`, `nosniff`, a strict referrer policy, a restrictive `Permissions-Policy` and cross-origin isolation headers. The CORS allow-list on the API names the two frontends only.
+- **Small, immutable surface.** The static server answers only `GET` and `HEAD`. Runtime configuration is served from memory and only exposes explicitly listed public values.
+- **Privacy-preserving logs.** Every service logs JSON with a request ID that follows a request from the browser through the API. Query strings, request bodies, credentials and person slugs are never logged.
+- **Append-only data.** Story revisions are immutable; no route edits or deletes them, and a person with a story can't be deleted.
+
+**Containers**
+
+- **Least privilege.** Every image runs as a non-root user with its code owned by root, so a compromised process can't change it. At runtime every container has `no-new-privileges`, and all but MariaDB run with a read-only root filesystem and no Linux capabilities.
+- **Minimal images.** Runtime images drop the package managers they never use (npm, Yarn, Corepack, pip), apply the latest OS security fixes, and carry health checks.
+- **Secrets stay out of Git.** Production secrets live only in an encrypted ansible-vault file; the rendered Compose file is written with mode `0600`.
+
+**Supply chain**
+
+- **Pinned and reviewed dependencies.** Python and Node.js dependencies are locked (`uv.lock`, `package-lock.json`) and installed with `--locked`/`npm ci`. Every GitHub Action is pinned to a commit SHA. Dependabot proposes updates weekly after a seven-day cooldown, and pull requests run a dependency review that blocks known high-severity vulnerabilities.
+- **Scanned code and images.** CodeQL (security-extended queries) scans the Python, TypeScript and workflow code, Trivy blocks images with fixable high or critical vulnerabilities, and zizmor audits the workflow for injection and permission issues. All of this runs on every change and weekly.
+- **Hardened CI.** Jobs start with no token permissions and request only what they need; checkouts don't keep credentials. Only the release job can write packages and releases, and only for a tag on `main` that passed every check.
+- **Verifiable releases.** Release images are multi-arch and published with build provenance and an SBOM.
+
+**Verified, not just configured.** `make stack-test` (also the CI `e2e` job) runs the production Compose template with Traefik and a stand-in for Authentik, then [`tools/scripts/e2e_edge.sh`](tools/scripts/e2e_edge.sh) checks the edge from the outside:
+
+- the HTTP redirect, HSTS and CSP;
+- that reads are public, while the editorial desk and every write method are refused without authentication;
+- that authenticated writes go through;
+- the rate limit;
+- from the rendered production file, the network isolation and container hardening above.
+
+Report vulnerabilities privately as described in [`SECURITY.md`](.github/SECURITY.md).
 
 ## Development
 

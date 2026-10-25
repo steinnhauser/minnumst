@@ -50,12 +50,13 @@ make dev-admin    # http://127.0.0.1:5174
 
 ## Local stack
 
-`make stack-test` renders the production Compose template from `deploy/templates/compose.yml.j2` with the local variables in `tools/compose/local-vars.example.yml`, adds `tools/compose/local.override.yml` (local image builds, loopback ports, no Traefik), and then:
+`make stack-test` renders the production Compose template from `deploy/templates/compose.yml.j2` with the local variables in `tools/compose/local-vars.example.yml`, adds `tools/compose/local.override.yml` (local image builds, loopback ports, and a stand-in for Authentik), and then:
 
-1. `make up` builds the three images from `docker/` and starts MariaDB, the API and both frontends on `127.0.0.1` ports `8000`, `5173` and `5174`;
+1. `make up` builds the three images from `docker/` and starts the whole stack. Traefik listens on `127.0.0.1:8088` (HTTP) and `127.0.0.1:8443` (HTTPS, with its self-signed default certificate), and for direct testing the API and frontends also listen on `127.0.0.1` ports `8000`, `5173` and `5174`;
 2. `make wait` waits until the API reports ready and both frontends serve (`WAIT_TIMEOUT`, default 120 seconds), printing the status and recent logs if they don't;
 3. `make seed` adds fictional sample people and stories, and is safe to repeat;
-4. `make e2e` runs `tools/scripts/e2e_api.py` inside the API container. It covers health and readiness, search, create, rename and delete, duplicate-name rejection, story revisions and public profile reads, and removes only the rows it created.
+4. `make e2e` runs `tools/scripts/e2e_api.py` inside the API container. It covers health and readiness, search, create, rename and delete, duplicate-name rejection, story revisions and public profile reads, and removes only the rows it created;
+5. `make edge` runs `tools/scripts/e2e_edge.sh`, which goes through Traefik like a browser: the HTTPS redirect, HSTS and CSP, public reads, authentication on the editorial desk and on every write method (the stand-in accepts `Authorization: Bearer local-edge-test`), and the API rate limit. It also checks the rendered production Compose file for network isolation and container hardening.
 
 Use `make ps`, `make logs SERVICES="api public admin"` and `make down` to inspect and stop the stack; `down` keeps the MariaDB volume. `make db-update` appends revisions when the sample stories change, and `make db-clear` and `make db-reset` wipe the local database after asking for confirmation.
 

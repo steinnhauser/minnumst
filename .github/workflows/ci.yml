@@ -20,6 +20,40 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
+  # Documentation-only changes skip the slower jobs. Tags, the weekly schedule
+  # and manual runs always run everything.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          range=""
+          if [[ $EVENT == pull_request ]]; then
+            range="$BASE...HEAD"
+          elif [[ $EVENT == push && $REF == refs/heads/* ]] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            range="$BEFORE..HEAD"
+          fi
+          # No pipe into grep -q: with pipefail, its early exit would fail git diff.
+          if [[ -z $range ]] || grep -vE '(\.md$|^docs/|^LICENSE$)' <<<"$(git diff --name-only "$range")" > /dev/null; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   checks:
     name: checks (format, lint, OpenAPI, build)
     runs-on: ubuntu-latest
@@ -34,6 +68,8 @@ jobs:
 
   tests:
     name: tests (API on SQLite and PostgreSQL, frontends)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -46,6 +82,8 @@ jobs:
 
   e2e:
     name: e2e (images, stack, edge, backups, browsers, image scan)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -101,6 +139,8 @@ jobs:
 
   codeql:
     name: codeql (${{ matrix.language }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -135,6 +175,8 @@ jobs:
 
   host:
     name: host (hardening on Ubuntu 24.04, idempotence, Lynis)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     # Applies the host role to this runner: a real Ubuntu 24.04 VM.
     runs-on: ubuntu-24.04
     permissions:
@@ -171,10 +213,26 @@ jobs:
             "$before" "$after" | tee -a "$GITHUB_STEP_SUMMARY"
           test "$after" -gt "$before"
 
+  # With squash merging the title becomes the commit on main that
+  # `make release` reads, so it must be a Conventional Commit.
+  pr-title:
+    name: pull request title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require a Conventional Commit title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\((api|web|admin|deploy|deps)\))?!?: .+'
+          [[ $TITLE =~ $pattern ]] || { echo "Use a Conventional Commit title, for example 'fix(api): ...'."; exit 1; }
+
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [checks, tests, e2e, host, codeql, dependency-review]
+    needs:
+      [changes, checks, tests, e2e, host, codeql, dependency-review, pr-title]
     runs-on: ubuntu-latest
     permissions: {}
     steps:

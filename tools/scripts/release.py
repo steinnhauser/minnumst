@@ -40,7 +40,11 @@ class Component:
     description: str = ""
 
 
-FRONTEND = ("packages/static-server", "docker/frontend.Dockerfile")
+FRONTEND = (
+    "packages/api-client",
+    "packages/static-server",
+    "docker/frontend.Dockerfile",
+)
 FRONTEND += ("package.json", "package-lock.json", "tsconfig.base.json")
 COMPONENTS = {
     "api": Component(
@@ -76,7 +80,14 @@ COMPONENTS = {
 COMMIT = re.compile(
     r"^(?P<type>\w+)(?:\((?P<scope>[^)]*)\))?(?P<bang>!)?: (?P<desc>.+)$"
 )
-SECTIONS = {"feat": "Feat", "fix": "Fix", "perf": "Perf", "refactor": "Refactor"}
+# Listed in release notes; only feat, fix and perf (and breaking changes) bump.
+SECTIONS = {
+    "feat": "Feat",
+    "fix": "Fix",
+    "perf": "Perf",
+    "refactor": "Refactor",
+    "build": "Build",
+}
 INCREMENTS = ("PATCH", "MINOR", "MAJOR")
 
 

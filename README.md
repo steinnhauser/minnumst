@@ -45,7 +45,16 @@ Each service ships as a non-root container image that logs structured JSON. The 
 
 ## Security and networking
 
-Minnumst is built so that the only thing reachable from the internet is a TLS-terminating reverse proxy, every write is authenticated before it reaches the application, and each container can do as little as possible. The controls below are enforced in code and verified in CI on every change.
+Minnumst is built so that the only thing reachable from the internet is a TLS-terminating reverse proxy, every write is authenticated before it reaches the application, and each host process and container can do as little as possible. The controls below are enforced in code and verified in CI on every change.
+
+| Layer               | Standard                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Host (Ubuntu 24.04) | CIS Ubuntu Linux 24.04 LTS Benchmark (Level 1 – Server, selected Level 2), NIST SP 800-53 Rev. 5; scored with Lynis in CI |
+| Containers          | CIS Docker Benchmark, NIST SP 800-190                                                                                     |
+| Web and API         | OWASP ASVS (security headers, authentication at the edge, input validation), OWASP Secure Headers                         |
+| Supply chain and CI | OpenSSF Scorecard practices (pinned actions, least-privilege tokens, dependency review, SAST), SLSA build provenance      |
+
+Every host setting in [`deploy/`](deploy/) cites the CIS section and NIST control it implements, and the [deployment guide](deploy/README.md#what-the-playbook-enforces) maps them in one table, with the few deliberate deviations explained.
 
 ```text
                      internet
@@ -79,6 +88,14 @@ Minnumst is built so that the only thing reachable from the internet is a TLS-te
 - **Privacy-preserving logs.** Every service logs JSON with a request ID that follows a request from the browser through the API. Query strings, request bodies, credentials and person slugs are never logged.
 - **Append-only data.** Story revisions are immutable; no route edits or deletes them, and a person with a story can't be deleted.
 
+**Host**
+
+- **One supported OS, encrypted.** Ubuntu Server 24.04 LTS on a LUKS-encrypted disk; the playbook refuses to deploy anywhere else.
+- **Always patched.** Security, Ubuntu and Docker updates install unattended, with an automatic reboot window and service restarts after library updates; Ubuntu Pro Livepatch is optional.
+- **Locked-down access.** SSH by key only, never as root, for one allow-listed group, with modern algorithms only; an nftables default-deny firewall with rate-limited SSH; `sudo` with its own log.
+- **A hardened kernel and minimal surface.** Kernel and network sysctls, unused filesystems and protocols disabled, no core dumps, AppArmor enforced, snapd and legacy clients removed.
+- **A tamper-evident trail.** auditd rules for identity, privilege, SSH, network, kernel module and Docker changes, immutable until reboot; a persistent journal and synchronised time.
+
 **Containers**
 
 - **Least privilege.** Every image runs as a non-root user with its code owned by root, so a compromised process can't change it. At runtime every container, the database included, runs with `no-new-privileges`, a read-only root filesystem and no Linux capabilities.
@@ -92,7 +109,7 @@ Minnumst is built so that the only thing reachable from the internet is a TLS-te
 - **Hardened CI.** Jobs start with no token permissions and request only what they need; checkouts don't keep credentials. Only the release job can write packages and releases, and only for a tag on `main` that passed every check.
 - **Verifiable releases.** Release images are multi-arch and published with build provenance and an SBOM.
 
-**Verified, not just configured.** `make stack-test` (also the CI `e2e` job) runs the production Compose template with Traefik and a stand-in for Authentik, then [`tools/scripts/e2e_edge.sh`](tools/scripts/e2e_edge.sh) checks the edge from the outside:
+**Verified, not just configured.** The CI `host` job applies the host hardening to a real Ubuntu 24.04 VM, requires a second run to change nothing, and reports the Lynis hardening index before and after (57 → 70 for the stock runner image). `make stack-test` (also the CI `e2e` job) runs the production Compose template with Traefik and a stand-in for Authentik, then [`tools/scripts/e2e_edge.sh`](tools/scripts/e2e_edge.sh) checks the edge from the outside:
 
 - the HTTP redirect, HSTS and CSP;
 - that reads are public, while the editorial desk and every write method are refused without authentication;
@@ -127,13 +144,15 @@ For quicker iteration, run the development servers instead, each in its own term
 
 One workflow, [`ci.yml`](.github/workflows/ci.yml), runs on every push, pull request and release tag, using the same `make` targets:
 
-| Job       | Checks                                                                                                              |
-| --------- | ------------------------------------------------------------------------------------------------------------------- |
-| `checks`  | Ruff, Prettier, ESLint, ShellCheck, ansible-lint, playbook syntax, OpenAPI freshness, API wheel and frontend builds |
-| `tests`   | pytest on SQLite and on PostgreSQL (Testcontainers), Vitest                                                         |
-| `e2e`     | Builds the three images, starts the stack, runs the API and edge tests, and scans the images with Trivy             |
-| `ci-ok`   | Passes only when every other job passed; the single check to require on pull requests                               |
-| `release` | On a release tag only: publishes the component's multi-arch image to GHCR and its GitHub Release                    |
+| Job       | Checks                                                                                                               |
+| --------- | -------------------------------------------------------------------------------------------------------------------- |
+| `checks`  | Ruff, Prettier, ESLint, ShellCheck, ansible-lint, playbook syntax, OpenAPI freshness, API wheel and frontend builds  |
+| `tests`   | pytest on SQLite and on PostgreSQL (Testcontainers), Vitest                                                          |
+| `e2e`     | Builds the three images, starts the stack, runs the API and edge tests, and scans the images with Trivy              |
+| `host`    | Applies the host hardening to an Ubuntu 24.04 VM twice (the second run must change nothing) and scores it with Lynis |
+| `codeql`  | CodeQL security-extended analysis of the Python, TypeScript and workflow code                                        |
+| `ci-ok`   | Passes only when every other job passed; the single check to require on pull requests                                |
+| `release` | On a release tag only: publishes the component's multi-arch image to GHCR and its GitHub Release                     |
 
 Dependabot keeps npm, uv, Docker base images and GitHub Actions up to date, in weekly grouped pull requests.
 

@@ -171,12 +171,11 @@ PostgreSQL replaced MariaDB before the first deployment, for its SCRAM-SHA-256 a
 
 ## 9. First production deployment
 
-These are the deployment readiness blockers, once items 1, 5 and 6 are done:
-
-- [ ] Configure Authentik with TOTP MFA and validate the real outpost URL.
-- [ ] Run authenticated and unauthenticated smoke tests against the final DNS names and TLS certificates.
-- [ ] Document secret rotation and vault access, set up the host firewall, and write the rollback procedure: repin the previous digest and rerun `site.yml`.
-- [ ] Add a post-deploy check to `site.yml` that waits for every service to report healthy.
+- [x] Host hardening: `deploy/` is three roles (`host`, `docker`, `minnumst`). The host role enforces the CIS Ubuntu 24.04 benchmark and NIST SP 800-53 controls on Ubuntu Server 24.04 LTS, and refuses to run without full-disk encryption. CI applies it to an Ubuntu 24.04 VM, checks idempotence and reports the Lynis index (57 → 70).
+- [ ] Raise the Lynis index further: AIDE file integrity (CIS 6.3), a stricter umask and password policy for local accounts (CIS 5.4), process accounting, and restricting compilers.
+- [ ] Ship logs (journal, audit, containers) off the host so the rotated audit logs and container logs survive a compromise (with item 7).
+- [ ] Add a post-deploy smoke test to the `minnumst` role: HTTPS on the three hostnames, HSTS, a refused unauthenticated write. The local edge test already covers this; point it at the real hostnames.
+- [ ] Document secret rotation (vault, PostgreSQL roles) and the rollback procedure: repin the previous image digests and rerun `make deploy ARGS="--tags app"`.
 
 ## 10. Kubernetes as a second deployment target
 
@@ -212,7 +211,8 @@ Covered by items 6, 7 and 9 above: backups, monitoring, Authentik with TOTP MFA,
 
 ### Dependencies
 
-- [ ] Upgrade Vite together with `@vitejs/plugin-react` 6, and jsdom to 30. The Dependabot pull requests for both failed and were closed, so these need code or configuration changes.
+- [x] Upgrade to Vite 8 with `@vitejs/plugin-react` 6, jsdom 30 and `@eslint/js` 10.
+- [ ] TypeScript 7 (the native compiler) once `typescript-eslint` supports it.
 - [ ] Move the images, `.nvmrc` and `engines` to the next Node.js LTS line deliberately; Dependabot ignores Node major versions.
 
 Once these priorities are agreed, they can move to GitHub Issues with component labels and a milestone.
@@ -223,4 +223,7 @@ Steps that need the repository owner, because they depend on account access or d
 
 - [ ] **GHCR, after the first release tag:** if the push fails with 403, an archived repository created the package first; grant `steinnhauser/minnumst` Write under _Package settings → Manage Actions access_, then re-run the release job. Then set each `minnumst-*` package to **Public**.
 - [ ] **Branch protection level:** `main` blocks force pushes and deletion. Requiring pull requests and the `ci-ok` check as well would stop direct pushes to `main`; decide whether to turn that on.
+- [ ] **Install the host:** Ubuntu Server 24.04 LTS (minimal) with _Encrypt the LVM group with LUKS_, an administrator with an SSH key, and `dropbear-initramfs` to unlock the disk after a remote reboot. See [`deploy/README.md`](deploy/README.md#setting-up-the-host).
+- [ ] **Optional Ubuntu Pro:** attach a (free personal) token as `host_ubuntu_pro_token` in the vault for Livepatch and ESM.
 - [ ] **Production prerequisites (item 9):** the Authentik instance with TOTP MFA and its outpost URL, DNS records for the three hostnames, a monitored ACME e-mail address, and the encrypted `vault.yml`.
+- [ ] **This workstation:** remove the placeholder Docker proxy (`sudo rm /etc/systemd/system/docker.service.d/http-proxy.conf && sudo systemctl daemon-reload && sudo systemctl restart docker`) so `make stack-test` and `make test-postgres` can pull images locally.

@@ -6,6 +6,10 @@ Please report vulnerabilities privately through [GitHub's private vulnerability 
 
 You can expect an acknowledgement within a week. Fixes are released as a new version of the affected component, and the advisory is published once a fixed version is available.
 
+## Standards
+
+The project follows the CIS Ubuntu Linux 24.04 LTS Benchmark and NIST SP 800-53 Rev. 5 for the host, the CIS Docker Benchmark and NIST SP 800-190 for containers, OWASP ASVS for the web application, and OpenSSF Scorecard practices for the supply chain. The [security and networking section of the README](../README.md#security-and-networking) and the [deployment guide](../deploy/README.md#what-the-playbook-enforces) describe the controls and how CI verifies them.
+
 ## Supported versions
 
 Only the latest release of each component (`api-*`, `web-*`, `admin-*`, `deploy-*` tags) receives security fixes.

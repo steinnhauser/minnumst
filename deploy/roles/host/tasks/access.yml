@@ -64,6 +64,14 @@
   loop_control:
     label: "{{ item.key }}"
 
+- name: Create the pwquality drop-in directory
+  ansible.builtin.file:
+    path: /etc/security/pwquality.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Require strong passwords for local accounts (CIS 5.3, NIST IA-5)
   ansible.builtin.copy:
     dest: /etc/security/pwquality.conf.d/60-minnumst.conf

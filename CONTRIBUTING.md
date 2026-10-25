@@ -11,7 +11,7 @@ Thanks for contributing to Minnumst. Please discuss substantial changes in an is
 
 ## Setup
 
-Requirements: [uv](https://docs.astral.sh/uv/) (it installs the Python version in `.python-version`), Node.js 22 (`.nvmrc`) with npm, GNU Make, and Docker with Compose v2 for the MariaDB tests and the local stack.
+Requirements: [uv](https://docs.astral.sh/uv/) (it installs the Python version in `.python-version`), Node.js 22 (`.nvmrc`) with npm, GNU Make, and Docker with Compose v2 for the PostgreSQL tests and the local stack.
 
 ```sh
 make install
@@ -28,7 +28,7 @@ Dependencies are managed at the root as well. Add a Python dependency with `uv a
 | `make format`        | Ruff (Python) and Prettier (TypeScript, JavaScript, CSS, Markdown, YAML, JSON) |
 | `make lint`          | Ruff, ESLint, ShellCheck, ansible-lint and the playbook syntax check           |
 | `make test`          | pytest on SQLite and Vitest for both frontends and the shared server           |
-| `make test-mariadb`  | The API tests against MariaDB in a disposable container (Testcontainers)       |
+| `make test-postgres` | The API tests against PostgreSQL in a disposable container (Testcontainers)    |
 | `make openapi-check` | Fails if `api/openapi.json` is stale; regenerate it with `make openapi`        |
 | `make build`         | The API wheel and both frontend production builds                              |
 | `make validate`      | All of the above, as CI runs them                                              |
@@ -58,7 +58,7 @@ make dev-admin    # http://127.0.0.1:5174
 4. `make e2e` runs `tools/scripts/e2e_api.py` inside the API container. It covers health and readiness, search, create, rename and delete, duplicate-name rejection, story revisions and public profile reads, and removes only the rows it created;
 5. `make edge` runs `tools/scripts/e2e_edge.sh`, which goes through Traefik like a browser: the HTTPS redirect, HSTS and CSP, public reads, authentication on the editorial desk and on every write method (the stand-in accepts `Authorization: Bearer local-edge-test`), and the API rate limit. It also checks the rendered production Compose file for network isolation and container hardening.
 
-Use `make ps`, `make logs SERVICES="api public admin"` and `make down` to inspect and stop the stack; `down` keeps the MariaDB volume. `make db-update` appends revisions when the sample stories change, and `make db-clear` and `make db-reset` wipe the local database after asking for confirmation.
+Use `make ps`, `make logs SERVICES="api public admin"` and `make down` to inspect and stop the stack; `down` keeps the database volume. `make db-update` appends revisions when the sample stories change, and `make db-clear` and `make db-reset` wipe the local database after asking for confirmation.
 
 To change the local settings, for example `minnumst_log_level: DEBUG`, copy `tools/compose/local-vars.example.yml` to `tools/compose/local-vars.yml` (ignored by Git). The rendered Compose file is written to the ignored `tools/compose/.local/` with owner-only permissions, because it contains the local database passwords. Never reuse those passwords on a real host.
 

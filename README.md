@@ -26,14 +26,14 @@ It is self-hosted with Ansible and Docker Compose behind Traefik, with Authentik
                  ┌──────────────── Traefik (HTTPS, ACME) ────────────────┐
   readers ──────▶│ web/    public archive (React, read-only)             │
   editors ──────▶│ admin/  editorial desk (React)   ◀── Authentik auth   │
-                 │ api/    FastAPI ── MariaDB        ◀── auth on writes  │
+                 │ api/    FastAPI ── PostgreSQL     ◀── auth on writes  │
                  └───────────────────────────────────────────────────────┘
                    deployed by deploy/ (Ansible, Docker Compose, ansible-vault)
 ```
 
 | Path                                                 | What it is                                                                         | Stack                                                                   |
 | ---------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| [`api/`](api/)                                       | Data API: people and append-only story revisions                                   | Python 3.13, FastAPI, SQLAlchemy, MariaDB (SQLite locally)              |
+| [`api/`](api/)                                       | Data API: people and append-only story revisions                                   | Python 3.13, FastAPI, SQLAlchemy, PostgreSQL (SQLite locally)           |
 | [`web/`](web/)                                       | Public, read-only archive with search                                              | React, TypeScript, Vite, Vitest                                         |
 | [`admin/`](admin/)                                   | Editorial desk for creating people and writing story revisions                     | React, TypeScript, Vite, Vitest                                         |
 | [`packages/static-server/`](packages/static-server/) | Static server, JSON request logs and runtime config shared by both frontend images | Node.js, Pino                                                           |
@@ -59,13 +59,13 @@ Minnumst is built so that the only thing reachable from the internet is a TLS-te
             └───────┘ └───────┘ └──┬───┘
                     backend network│(internal, no route out)
                                ┌───▼─────┐
-                               │ MariaDB │
+                              │PostgreSQL│
                                └─────────┘
 ```
 
 **Network**
 
-- **One public entry point.** Only Traefik publishes ports. The apps share the `edge` network with Traefik, and MariaDB sits alone with the API on `backend`, an internal network with no route in or out and no host port.
+- **One public entry point.** Only Traefik publishes ports. The apps share the `edge` network with Traefik, and PostgreSQL sits alone with the API on `backend`, an internal network with no route in or out and no host port.
 - **TLS everywhere.** HTTP redirects to HTTPS, certificates come from Let's Encrypt, and HSTS (two years, including subdomains) tells browsers never to use plain HTTP again.
 - **Authenticated writes.** Authentik forward-auth guards the whole editorial desk and every `POST`, `PUT`, `PATCH` and `DELETE` on the API; reads stay public. Authentik, with TOTP MFA, runs outside this stack, and there is no in-app login to attack.
 - **Rate limiting.** The API allows 20 requests per second per client (bursts of 50) and answers floods with `429`.
@@ -74,13 +74,14 @@ Minnumst is built so that the only thing reachable from the internet is a TLS-te
 **Applications**
 
 - **Strict browser policy.** The frontends send a same-origin Content Security Policy that only lets them connect to the API, `frame-ancestors 'none'`, `nosniff`, a strict referrer policy, a restrictive `Permissions-Policy` and cross-origin isolation headers. The CORS allow-list on the API names the two frontends only.
-- **Small, immutable surface.** The static server answers only `GET` and `HEAD`. Runtime configuration is served from memory and only exposes explicitly listed public values.
+- **Small, immutable surface.** The static server answers only `GET` and `HEAD`. Runtime configuration is served from memory and only exposes explicitly listed public values. Malformed IDs are rejected before any query runs.
+- **A hardened database.** PostgreSQL authenticates every connection with SCRAM-SHA-256. The API logs in as its own role, which owns the application database but is not a superuser and cannot create roles or databases. The schema enforces the rules too: native UUID keys, unique normalised names, positive revision numbers, and foreign keys that refuse to delete a person with a story or a story with revisions.
 - **Privacy-preserving logs.** Every service logs JSON with a request ID that follows a request from the browser through the API. Query strings, request bodies, credentials and person slugs are never logged.
 - **Append-only data.** Story revisions are immutable; no route edits or deletes them, and a person with a story can't be deleted.
 
 **Containers**
 
-- **Least privilege.** Every image runs as a non-root user with its code owned by root, so a compromised process can't change it. At runtime every container has `no-new-privileges`, and all but MariaDB run with a read-only root filesystem and no Linux capabilities.
+- **Least privilege.** Every image runs as a non-root user with its code owned by root, so a compromised process can't change it. At runtime every container, the database included, runs with `no-new-privileges`, a read-only root filesystem and no Linux capabilities.
 - **Minimal images.** Runtime images drop the package managers they never use (npm, Yarn, Corepack, pip), apply the latest OS security fixes, and carry health checks.
 - **Secrets stay out of Git.** Production secrets live only in an encrypted ansible-vault file; the rendered Compose file is written with mode `0600`.
 
@@ -108,14 +109,14 @@ This is a monorepo with one toolchain per language: a [uv](https://docs.astral.s
 ```sh
 make install       # locked Python and Node.js dependencies
 make format        # Ruff and Prettier; format-check, lint, test and build work across the repository too
-make validate      # everything CI checks except the stack (needs Docker for the MariaDB tests)
+make validate      # everything CI checks except the stack (needs Docker for the PostgreSQL tests)
 ```
 
-Run the whole stack in containers, rendered from the same Compose template that `deploy/` uses (MariaDB, API and both frontends, without Traefik):
+Run the whole stack in containers, rendered from the same Compose template that `deploy/` uses (Traefik, PostgreSQL, the API and both frontends):
 
 ```sh
-make stack-test    # build the images, start the stack, wait until it is ready, seed sample data, run the e2e tests
-make down          # stop it; the MariaDB volume is kept
+make stack-test    # build the images, start the stack, seed sample data, run the API and edge tests
+make down          # stop it; the database volume is kept
 ```
 
 The archive is then on <http://127.0.0.1:5173>, the editorial desk on <http://127.0.0.1:5174> and the API docs on <http://127.0.0.1:8000/docs>.
@@ -129,8 +130,8 @@ One workflow, [`ci.yml`](.github/workflows/ci.yml), runs on every push, pull req
 | Job       | Checks                                                                                                              |
 | --------- | ------------------------------------------------------------------------------------------------------------------- |
 | `checks`  | Ruff, Prettier, ESLint, ShellCheck, ansible-lint, playbook syntax, OpenAPI freshness, API wheel and frontend builds |
-| `tests`   | pytest on SQLite and on MariaDB (Testcontainers), Vitest                                                            |
-| `e2e`     | Builds the three images, starts the stack with MariaDB, seeds sample data and runs the end-to-end API tests         |
+| `tests`   | pytest on SQLite and on PostgreSQL (Testcontainers), Vitest                                                         |
+| `e2e`     | Builds the three images, starts the stack, runs the API and edge tests, and scans the images with Trivy             |
 | `ci-ok`   | Passes only when every other job passed; the single check to require on pull requests                               |
 | `release` | On a release tag only: publishes the component's multi-arch image to GHCR and its GitHub Release                    |
 

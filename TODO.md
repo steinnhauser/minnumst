@@ -140,14 +140,18 @@ The `e2e` job tests the API only. No test loads either frontend in a browser aga
 
 ## 5. Introduce database migrations
 
-- [ ] Replace `create_all` at startup with Alembic. Add a baseline migration that matches the current schema on both MariaDB and SQLite, and test it in CI (upgrade from empty, and a downgrade smoke test).
+PostgreSQL replaced MariaDB before the first deployment, for its SCRAM-SHA-256 authentication, role and privilege model, native UUIDs, a fully unprivileged container, and its tooling (Alembic, CloudNativePG for item 10). The API connects with `psycopg` 3.
+
+- [ ] Replace `create_all` at startup with Alembic. Add a baseline migration that matches the current schema on both PostgreSQL and SQLite, and test it in CI (upgrade from empty, and a downgrade smoke test).
 - [ ] Decide where migrations run in deployment: a one-off `api` container step in `site.yml` before `up`, not on every replica start. Document how to roll back.
 - [ ] Do this before any schema change, including the media contract in the component backlog.
+- [ ] With migrations in place, split the database roles: a migration role that owns the schema, and a runtime role for the API with only `SELECT`/`INSERT` on `blog_revisions` (append-only enforced by privileges) and the minimum on the other tables. `create_all` at startup currently needs the API role to own the schema.
+- [ ] Use TLS between the API and PostgreSQL if the database ever leaves the internal `backend` network (for example a managed database).
 
 ## 6. Backups with a tested restore
 
-- [ ] Add a scheduled `mariadb-dump` (or `mariadb-backup`) to `deploy/`, with retention and an off-host copy. Named volumes are not backups.
-- [ ] Add a restore playbook or `make` target, plus a CI job that restores a dump into a disposable MariaDB and runs `tools/scripts/e2e_api.py` reads against it.
+- [ ] Add a scheduled `pg_dump` (custom format, run as the read-only-capable `postgres` user) to `deploy/`, with retention and an off-host copy. Named volumes are not backups.
+- [ ] Add a restore playbook or `make` target, plus a CI job that restores a dump into a disposable PostgreSQL and runs `tools/scripts/e2e_api.py` reads against it.
 - [ ] Write the restore runbook in `deploy/README.md`, including the RPO/RTO the setup actually achieves.
 
 ## 7. Monitoring, alerting and request tracing
@@ -158,11 +162,11 @@ The `e2e` job tests the API only. No test loads either frontend in a browser aga
 
 ## 8. Harden the write boundary and the supply chain
 
-- [x] Edge tests: the `e2e` job runs the production Compose template with Traefik and a stand-in forward-auth, and `tools/scripts/e2e_edge.sh` proves that the editorial desk and every write method need authentication, reads stay public, HTTP redirects to HTTPS, HSTS and the CSP are sent, and the API rate limit holds. It also asserts from the rendered production file that only Traefik publishes ports, MariaDB and the Docker API proxy sit on internal networks, and every container is hardened.
+- [x] Edge tests: the `e2e` job runs the production Compose template with Traefik and a stand-in forward-auth, and `tools/scripts/e2e_edge.sh` proves that the editorial desk and every write method need authentication, reads stay public, HTTP redirects to HTTPS, HSTS and the CSP are sent, and the API rate limit holds. It also asserts from the rendered production file that only Traefik publishes ports, PostgreSQL and the Docker API proxy sit on internal networks, and every container is hardened.
 - [x] Security headers: a same-origin CSP, `frame-ancestors 'none'`, `nosniff`, referrer, permissions and cross-origin policies from the static server; HSTS and the same basics for every route from Traefik. `trustForwardHeader` stays `true` because Traefik is the edge: it already discards client-sent `X-Forwarded-*` headers, so it only passes its own to Authentik.
 - [x] Container hardening: read-only root filesystems, no capabilities, `no-new-privileges`, log rotation, root-owned code, no package managers in runtime images, OS fixes applied at build, and a Docker API proxy instead of the socket for Traefik.
 - [x] Supply chain: actions pinned to commit SHAs, job-scoped permissions, `persist-credentials: false`, zizmor in `make lint`, CodeQL (security-extended) for Python, TypeScript and the workflow, dependency review on pull requests, Dependabot with a seven-day cooldown, and a Trivy gate on fixable high and critical image vulnerabilities before any release.
-- [ ] Pin base images by digest (`node:22-alpine@sha256:…`, `python:3.13-slim-bookworm@sha256:…`, `mariadb:11.4@…`, `traefik:v3.7.16@…`). Dependabot keeps Dockerfile digests current; the Compose template's images need a manual or scripted bump.
+- [ ] Pin base images by digest (`node:22-alpine@sha256:…`, `python:3.13-slim-bookworm@sha256:…`, `postgres:18-alpine@…`, `traefik:v3.7.16@…`). Dependabot keeps Dockerfile digests current; the Compose template's images need a manual or scripted bump.
 - [ ] Upload the Trivy results as SARIF to code scanning, so findings below the gate are visible in the Security tab.
 
 ## 9. First production deployment
@@ -176,7 +180,7 @@ These are the deployment readiness blockers, once items 1, 5 and 6 are done:
 
 ## 10. Kubernetes as a second deployment target
 
-- [ ] Write Helm charts for `api`, `web` and `admin`, plus an external or operator-managed MariaDB, using the same images, ports (`8080`/`8000`), health endpoints and runtime config as the Compose deployment.
+- [ ] Write Helm charts for `api`, `web` and `admin`, plus PostgreSQL managed by the CloudNativePG operator, using the same images, ports (`8080`/`8000`), health endpoints and runtime config as the Compose deployment.
 - [ ] Add an ArgoCD `Application`, demonstrated on kind or k3d. Add CI that runs `helm lint` and `kubeconform` and installs the charts into kind and runs the API e2e test.
 - [ ] Keep Compose with Ansible as the supported production path, and document how the two differ.
 
@@ -186,8 +190,8 @@ Smaller items, by component. Items that need an API change start in `api/` and a
 
 ### `api/`
 
-- [ ] Design the portrait and media contract with `admin/` and `deploy/`: upload authorisation, content type and size validation, metadata, retention and deletion, and delivery. Prefer object storage for the bytes with metadata in the database, unless storing them in MariaDB is a deliberate decision. Browsers never query MariaDB directly.
-- [ ] Support autocomplete with bounded results and a predictable minimum query length. Benchmark the normalised-name `ILIKE` search on MariaDB, and add indexes or another search strategy only from measured query plans.
+- [ ] Design the portrait and media contract with `admin/` and `deploy/`: upload authorisation, content type and size validation, metadata, retention and deletion, and delivery. Prefer object storage for the bytes with metadata in the database, unless storing them in PostgreSQL is a deliberate decision. Browsers never query the database directly.
+- [ ] Support autocomplete with bounded results and a predictable minimum query length. Benchmark the normalised-name `ILIKE` search on PostgreSQL, and add indexes (for example a `pg_trgm` GIN index) only from measured query plans.
 - [ ] Localise validation and error messages only where the clients need it. Stored names and story content stay language-neutral.
 
 ### `web/`

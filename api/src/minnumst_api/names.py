@@ -6,18 +6,22 @@ from sqlalchemy.orm import Session
 
 from minnumst_api.models import Person
 
+# Letters that are not accented variants, so Unicode decomposition keeps them.
+TRANSLITERATION = str.maketrans({"þ": "th", "ð": "d", "æ": "ae", "ø": "o", "ß": "ss"})
+
+
+def ascii_folded(value: str) -> str:
+    """Lowercase, transliterate and strip accents: Sigríður -> sigridur."""
+    decomposed = unicodedata.normalize("NFKD", value.lower().translate(TRANSLITERATION))
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
+
 
 def normalized_person_name(name: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", name)
-    unaccented = "".join(char for char in decomposed if not unicodedata.combining(char))
-    return " ".join(unaccented.strip().lower().split())
+    return " ".join(ascii_folded(name).split())
 
 
 def person_slug(name: str) -> str:
-    transliteration = str.maketrans({"þ": "th", "ð": "d", "æ": "ae", "ö": "o"})
-    value = unicodedata.normalize("NFKD", name.lower().translate(transliteration))
-    unaccented = "".join(char for char in value if not unicodedata.combining(char))
-    return re.sub(r"^-|-$", "", re.sub(r"[^a-z0-9]+", "-", unaccented))
+    return re.sub(r"^-|-$", "", re.sub(r"[^a-z0-9]+", "-", ascii_folded(name)))
 
 
 def unique_person_slug(session: Session, name: str) -> str:

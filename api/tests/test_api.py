@@ -35,6 +35,19 @@ def test_people_search_and_normalized_duplicate_protection(client: TestClient) -
     assert duplicate.status_code == 409
 
 
+def test_search_folds_icelandic_letters_independently_of_the_database(
+    client: TestClient,
+) -> None:
+    person = client.post("/api/people", json={"name": "Sólveig Þorgrímsdóttir"}).json()
+
+    for query in ("solveig", "Þorgríms", "thorgrimsdottir", "SOLVEIG THORG"):
+        page = client.get("/api/people", params={"query": query}).json()
+        assert [item["id"] for item in page["items"]] == [person["id"]], query
+    assert person["slug"] == "solveig-thorgrimsdottir"
+    duplicate = client.post("/api/people", json={"name": "Solveig Thorgrimsdottir"})
+    assert duplicate.status_code == 409
+
+
 def test_person_slug_collisions_get_a_unique_suffix(client: TestClient) -> None:
     first = create_person(client, "Ada Lovelace")
     second = create_person(client, "Ada-Lovelace")

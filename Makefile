@@ -24,7 +24,7 @@ help:
 	  '  install         Install the locked Python and Node dependencies' \
 	  '  format          Format all code (Ruff, Prettier)' \
 	  '  format-check    Check formatting without changing files' \
-	  '  lint            Ruff, ESLint, ShellCheck, zizmor (workflow security), ansible-lint, playbook syntax' \
+	  '  lint            Ruff, ESLint, ShellCheck, zizmor (workflow security), ansible-lint, playbook syntax, old-name guard' \
 	  '  test            API tests on SQLite and the frontend tests' \
 	  '  test-postgres    API tests against PostgreSQL in a container (needs Docker)' \
 	  '  openapi         Regenerate api/openapi.json and the TypeScript types generated from it' \
@@ -80,6 +80,9 @@ lint: deploy-check
 	npm run lint
 	$(UV_RUN) shellcheck tools/scripts/*.sh deploy/roles/*/files/*.sh
 	$(UV_RUN) zizmor --offline .github
+	@# The bracket keeps this line from matching itself.
+	@if git grep -n -I -i 'eftir[m]' -- ':!*CHANGELOG.md' ':!README.md' ':!TODO.md'; then \
+	  echo "The project's former name belongs only in changelogs, the README History and TODO."; exit 1; fi
 
 test: test-api test-frontends
 

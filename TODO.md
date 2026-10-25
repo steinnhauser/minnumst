@@ -118,7 +118,7 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 
 ## 3. Keep the rename complete and guarded
 
-- [ ] Add a CI step that fails on new `eftirm` matches (case-insensitive, including `Eftirmál`) outside an allowlist: the README History section and the `CHANGELOG.md` entries written before the rename. Cover file paths, contents, image names and package names.
+- [x] `make lint` (and so CI) fails on the old name outside the changelogs, the README History section and this file.
 - [ ] Use `minnumst.org` consistently as the real domain, while inventories and examples keep using `minnumst.example`. Check that the OpenAPI title and description, HTML `<title>`, logger names (`minnumst-public`, …) and the `window.__MINNUMST_ENV__` key all follow one naming scheme.
 - [ ] Update the GitHub repository description and website field. Add the topics `monorepo` and `github-actions` once item 1 lands.
 

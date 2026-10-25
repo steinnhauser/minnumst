@@ -49,6 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -63,11 +64,27 @@ jobs:
         with:
           version: v0.76.1
           cache: true
-      - name: Scan the images for fixable high and critical vulnerabilities
+      - name: Scan the images and record every finding
         run: |
-          for image in minnumst-local/api:dev minnumst-local/public:dev minnumst-local/admin:dev; do
+          mkdir -p "$RUNNER_TEMP/trivy"
+          for image in api public admin; do
+            trivy image --scanners vuln --format sarif --no-progress \
+              --output "$RUNNER_TEMP/trivy/$image.sarif" "minnumst-local/$image:dev"
+            # One code scanning category per image.
+            jq --arg id "trivy/$image/" '.runs[].automationDetails.id = $id' \
+              "$RUNNER_TEMP/trivy/$image.sarif" > "$RUNNER_TEMP/trivy/$image.tmp"
+            mv "$RUNNER_TEMP/trivy/$image.tmp" "$RUNNER_TEMP/trivy/$image.sarif"
+          done
+      - name: Publish the findings to code scanning
+        if: github.event_name != 'pull_request'
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          sarif_file: ${{ runner.temp }}/trivy
+      - name: Block fixable high and critical vulnerabilities
+        run: |
+          for image in api public admin; do
             trivy image --scanners vuln --ignore-unfixed --severity HIGH,CRITICAL \
-              --exit-code 1 --no-progress "$image"
+              --exit-code 1 --no-progress "minnumst-local/$image:dev"
           done
       - name: Stop the stack
         if: always()

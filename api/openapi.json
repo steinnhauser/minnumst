@@ -499,6 +499,7 @@
             "name": "person_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "Person Id",
               "type": "string"
             }
@@ -529,6 +530,7 @@
             "name": "person_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "Person Id",
               "type": "string"
             }
@@ -566,6 +568,7 @@
             "name": "person_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "Person Id",
               "type": "string"
             }
@@ -615,6 +618,7 @@
             "name": "person_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "Person Id",
               "type": "string"
             }
@@ -652,6 +656,7 @@
             "name": "person_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "Person Id",
               "type": "string"
             }
@@ -701,6 +706,7 @@
             "name": "person_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "Person Id",
               "type": "string"
             }

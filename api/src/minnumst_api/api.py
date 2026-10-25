@@ -1,6 +1,6 @@
 import logging
 from typing import Annotated
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
@@ -69,14 +69,16 @@ def blog_response(blog: BlogPost) -> BlogResponse:
     )
 
 
-def get_person(session: Session, person_id: str) -> Person:
+# Log lines only carry values read from the database, never request input; the
+# request ID in every record correlates them with the request.
+def get_person(session: Session, person_id: UUID) -> Person:
     person = session.scalar(
         select(Person)
         .options(selectinload(Person.blog).selectinload(BlogPost.revisions))
-        .where(Person.id == person_id)
+        .where(Person.id == str(person_id))
     )
     if person is None:
-        logger.warning("Person lookup failed person_id=%s", person_id)
+        logger.warning("Person lookup failed")
         raise HTTPException(status_code=404, detail="Person not found")
     return person
 
@@ -88,12 +90,6 @@ def list_people(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> PersonPage:
-    logger.debug(
-        "Listing people query_present=%s offset=%d limit=%d",
-        bool(query and query.strip()),
-        offset,
-        limit,
-    )
     statement = select(Person)
     count_statement = select(func.count(Person.id))
     if query and query.strip():
@@ -162,7 +158,7 @@ def get_person_by_slug(slug: str, session: SessionDep) -> PersonDetail:
 
 
 @router.get("/people/{person_id}", response_model=PersonDetail)
-def read_person(person_id: str, session: SessionDep) -> PersonDetail:
+def read_person(person_id: UUID, session: SessionDep) -> PersonDetail:
     person = get_person(session, person_id)
     logger.debug("Person loaded person_id=%s", person.id)
     current = latest_revision(person.blog) if person.blog else None
@@ -176,7 +172,7 @@ def read_person(person_id: str, session: SessionDep) -> PersonDetail:
 
 @router.patch("/people/{person_id}", response_model=PersonResponse)
 def update_person(
-    person_id: str, payload: PersonUpdate, session: SessionDep
+    person_id: UUID, payload: PersonUpdate, session: SessionDep
 ) -> PersonResponse:
     person = get_person(session, person_id)
     normalized_name = normalized_person_name(payload.name)
@@ -198,7 +194,7 @@ def update_person(
         session.commit()
     except IntegrityError as error:
         session.rollback()
-        logger.warning("Person update conflicted person_id=%s", person_id)
+        logger.warning("Person update rejected because the normalized name exists")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="A person with this normalized name already exists",
@@ -209,16 +205,16 @@ def update_person(
 
 
 @router.get("/people/{person_id}/blog", response_model=BlogResponse)
-def read_blog(person_id: str, session: SessionDep) -> BlogResponse:
+def read_blog(person_id: UUID, session: SessionDep) -> BlogResponse:
     person = get_person(session, person_id)
     if person.blog is None:
         logger.warning(
-            "Blog read failed because no blog exists person_id=%s", person_id
+            "Blog read failed because no blog exists person_id=%s", person.id
         )
         raise HTTPException(status_code=404, detail="Blog not found")
     logger.debug(
         "Blog loaded person_id=%s revision_count=%d",
-        person_id,
+        person.id,
         len(person.blog.revisions),
     )
     return blog_response(person.blog)
@@ -226,7 +222,7 @@ def read_blog(person_id: str, session: SessionDep) -> BlogResponse:
 
 @router.put("/people/{person_id}/blog", response_model=BlogResponse)
 def save_blog(
-    person_id: str, payload: BlogRevisionInput, session: SessionDep
+    person_id: UUID, payload: BlogRevisionInput, session: SessionDep
 ) -> BlogResponse:
     person = get_person(session, person_id)
     blog = session.scalar(
@@ -270,12 +266,13 @@ def save_blog(
     "/people/{person_id}/blog/revisions", response_model=list[BlogRevisionResponse]
 )
 def list_blog_revisions(
-    person_id: str, session: SessionDep
+    person_id: UUID, session: SessionDep
 ) -> list[BlogRevisionResponse]:
     person = get_person(session, person_id)
     if person.blog is None:
         logger.warning(
-            "Blog history read failed because no blog exists person_id=%s", person_id
+            "Blog history read failed because no blog exists person_id=%s",
+            person.id,
         )
         raise HTTPException(status_code=404, detail="Blog not found")
     revisions = [
@@ -288,19 +285,19 @@ def list_blog_revisions(
     ]
     logger.debug(
         "Blog history loaded person_id=%s revision_count=%d",
-        person_id,
+        person.id,
         len(revisions),
     )
     return revisions
 
 
 @router.delete("/people/{person_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_person(person_id: str, session: SessionDep) -> Response:
+def delete_person(person_id: UUID, session: SessionDep) -> Response:
     person = get_person(session, person_id)
     if person.blog is not None:
         logger.warning(
             "Person deletion rejected because blog history exists person_id=%s",
-            person_id,
+            person.id,
         )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -308,7 +305,8 @@ def delete_person(person_id: str, session: SessionDep) -> Response:
                 "Person has blog history; deletion is disabled to preserve revisions"
             ),
         )
+    deleted_id = person.id
     session.delete(person)
     session.commit()
-    logger.info("Person deleted person_id=%s", person_id)
+    logger.info("Person deleted person_id=%s", deleted_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

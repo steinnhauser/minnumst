@@ -95,9 +95,14 @@ def test_people_can_be_updated_but_blog_history_blocks_deletion(
 
 
 def test_missing_person_returns_not_found(client: TestClient) -> None:
-    response = client.get("/api/people/unknown")
+    response = client.get("/api/people/00000000-0000-4000-8000-000000000000")
 
     assert response.status_code == 404
+
+
+def test_malformed_person_id_is_rejected_before_lookup(client: TestClient) -> None:
+    for path in ("/api/people/unknown", "/api/people/1%0Aforged/blog"):
+        assert client.get(path).status_code == 422
 
 
 def test_successful_health_checks_are_debug_level(
@@ -184,6 +189,5 @@ def test_request_logs_route_and_status_without_logging_search_text(
         and getattr(record, "request_id", None) == "test-request-123"
         for record in caplog.records
     )
-    assert "query_present=True" in caplog.text
     assert search_text not in caplog.text
     configure_logging("INFO")

@@ -1,5 +1,4 @@
-# Repository-wide safety net. Each component keeps its own .gitignore for its
-# build output; these rules apply everywhere in the tree.
+# The only .gitignore in the repository; it covers every component.
 
 # Secrets and local configuration
 .env
@@ -51,10 +50,13 @@ htmlcov/
 .coverage.*
 *.tsbuildinfo
 
-# Dev servers and logs
-.dev-server.pid
-.dev-server.log
+# Logs and local overrides
 *.log
+*.local
+
+# Local Compose stack: rendered configuration and local credentials
+tools/compose/.local/
+tools/compose/local-vars.yml
 
 # Editors and operating systems
 .vscode/*

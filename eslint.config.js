@@ -6,14 +6,21 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist/**", "node_modules/**"] },
+  {
+    ignores: [
+      ".*/**",
+      "**/dist/**",
+      "**/coverage/**",
+      "api/**",
+      "deploy/**",
+      "tools/**",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["**/*.{ts,tsx}"],
-    languageOptions: {
-      globals: globals.browser,
-    },
+    files: ["{web,admin}/{src,public}/**/*.{ts,tsx,js}"],
+    languageOptions: { globals: globals.browser },
     plugins: {
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
@@ -25,6 +32,10 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
     },
+  },
+  {
+    files: ["**/*.mjs", "*.{js,ts}", "{web,admin}/vite.config.ts"],
+    languageOptions: { globals: globals.node },
   },
   eslintConfigPrettier,
 );

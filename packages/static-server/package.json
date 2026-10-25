@@ -1,0 +1,10 @@
+{
+  "name": "@minnumst/static-server",
+  "description": "Static file server, JSON request logging and runtime configuration for the Minnumst frontends",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "pino": "10.4.0",
+    "serve-handler": "6.1.7"
+  }
+}

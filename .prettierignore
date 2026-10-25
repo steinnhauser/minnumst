@@ -1,0 +1,8 @@
+# Prettier also skips everything in .gitignore.
+/.*/
+!/.github/
+package-lock.json
+uv.lock
+api/openapi.json
+deploy/templates/
+**/.cz.yaml

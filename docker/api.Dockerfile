@@ -1,16 +1,22 @@
+# Build from the repository root: docker build -f docker/api.Dockerfile .
 FROM python:3.13-slim-bookworm AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.22 /uv /uvx /bin/
 
 ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock README.md LICENSE ./
-COPY src/ ./src/
+# Workspace manifests first, so the dependency layer is cached across source changes.
+COPY pyproject.toml uv.lock .python-version ./
+COPY api/pyproject.toml api/README.md api/
+COPY deploy/pyproject.toml deploy/
+RUN uv sync --locked --no-dev --package minnumst-api --no-install-workspace
 
-RUN uv sync --locked --no-dev --no-editable
+COPY api/src/ api/src/
+RUN uv sync --locked --no-dev --package minnumst-api --no-editable
 
 FROM python:3.13-slim-bookworm
 
@@ -23,8 +29,7 @@ WORKDIR /app
 RUN groupadd --system app \
     && useradd --system --gid app --uid 10001 --create-home app
 
-COPY --from=builder /app/.venv /app/.venv
-RUN chown -R app:app /app
+COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
 USER app
 

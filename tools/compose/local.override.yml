@@ -1,8 +1,14 @@
+# Local builds on top of the deploy/ Compose template. Paths are relative to
+# the rendered file in tools/compose/.local/; build contexts are the repository root.
 services:
   public:
     image: minnumst-local/public:dev
     build:
-      context: ../../../web
+      context: ../../..
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        APP: web
+        SERVICE_NAME: minnumst-public
     environment:
       VITE_API_URL: http://127.0.0.1:8000
     ports:
@@ -11,7 +17,12 @@ services:
   admin:
     image: minnumst-local/admin:dev
     build:
-      context: ../../../admin
+      context: ../../..
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        APP: admin
+        SERVICE_NAME: minnumst-admin
+        RUNTIME_CONFIG_KEYS: VITE_API_URL DEBUG
     environment:
       VITE_API_URL: http://127.0.0.1:8000
     ports:
@@ -20,7 +31,8 @@ services:
   api:
     image: minnumst-local/api:dev
     build:
-      context: ../../../api
+      context: ../../..
+      dockerfile: docker/api.Dockerfile
     ports:
       - "127.0.0.1:8000:8000"
     environment:

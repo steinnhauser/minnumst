@@ -19,8 +19,5 @@ traefik_acme_email: ops@example.com
 # TODO: Set the reachable Authentik Traefik outpost URL for this deployment.
 authentik_forwardauth_address: https://auth.example.com/outpost.goauthentik.io/auth/traefik
 
-# TODO: Authenticate the host to private GHCR packages with a read-only token before deploying.
-# Do not put the token in inventory or Compose; use `docker login ghcr.io` on the host.
-
 mariadb_database: minnumst
 mariadb_user: minnumst

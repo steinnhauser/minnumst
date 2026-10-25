@@ -1,112 +1,133 @@
 .DEFAULT_GOAL := help
 
-UV ?= uv
-TOOLS := $(MAKE) -C tools
+# The only Makefile in the repository. Python tooling runs in the uv workspace
+# (pyproject.toml, uv.lock, .venv) and Node tooling in the npm workspace
+# (package.json, package-lock.json, node_modules).
 
-# Components that implement each target. deploy/ has no unit tests or build
-# artefact; its playbook syntax check runs as part of `test`.
-FORMAT_DIRS := api web admin deploy tools
-LINT_DIRS := api web admin deploy tools
-TEST_DIRS := api web admin
-BUILD_DIRS := api web admin
+UV_RUN := uv run --locked --all-packages
+COMPOSE := bash tools/scripts/compose.sh
+INVENTORY ?= deploy/inventory/hosts.ini
+VAULT_ARGS ?= --ask-vault-pass
 
-# Markdown and workflow files outside the frontends, which format their own.
-# Uses the Prettier version pinned in web/package-lock.json.
-PRETTIER := web/node_modules/.bin/prettier
-DOCS := '*.md' 'api/*.md' 'deploy/*.md' 'tools/*.md' '.github/**/*.yml'
+# Use the workspace's .venv even when another virtual environment is active.
+unexport VIRTUAL_ENV
 
-.PHONY: help install format format-check docs-format docs-format-check lint test test-mariadb build validate clean ci \
-	stack-config up wait seed e2e stack-test ps logs down
+.PHONY: help install format format-check lint test test-api test-mariadb test-frontends \
+	openapi openapi-check build validate clean ci \
+	dev-api dev-web dev-admin \
+	stack-config up wait seed e2e stack-test ps logs down db-update db-clear db-reset \
+	deploy-check deploy
 
 help:
 	@printf '%s\n' \
-	  'Checks (run across api/, web/, admin/, deploy/ and tools/):' \
-	  '  install       Install locked dependencies for every component' \
-	  '  format        Format all code' \
-	  '  format-check  Check formatting without changing files' \
-	  '  docs-format   Format Markdown and workflow files outside web/ and admin/ (part of format)' \
-	  '  lint          Run Ruff, ESLint, ansible-lint and ShellCheck' \
-	  '  test          Run unit tests (pytest on SQLite, Vitest) and the playbook syntax check' \
-	  '  test-mariadb  Run the API integration tests against MariaDB (needs Docker)' \
-	  '  build         Build the API package and both frontends' \
-	  '  validate      Run the full validation of every component, as CI does (needs Docker)' \
-	  '  clean         Remove build output' \
+	  'Setup and checks' \
+	  '  install         Install the locked Python and Node dependencies' \
+	  '  format          Format all code (Ruff, Prettier)' \
+	  '  format-check    Check formatting without changing files' \
+	  '  lint            Ruff, ESLint, ShellCheck, ansible-lint and the playbook syntax check' \
+	  '  test            API tests on SQLite and the frontend tests' \
+	  '  test-mariadb    API tests against MariaDB in a container (needs Docker)' \
+	  '  openapi         Regenerate api/openapi.json' \
+	  '  openapi-check   Fail if api/openapi.json is out of date' \
+	  '  build           Build the API wheel and both frontends' \
+	  '  validate        All of the above, as CI runs it (needs Docker)' \
+	  '  clean           Remove build and test output' \
 	  '' \
-	  'Local stack (the deploy/ Compose template, rendered by tools/, without Traefik):' \
-	  '  stack-config  Render and validate the Compose configuration' \
-	  '  up            Build the three images and start MariaDB, API, web and admin' \
-	  '  wait          Wait until the API is ready and both frontends serve' \
-	  '  seed          Add fictional sample people and stories (idempotent)' \
-	  '  e2e           Run the end-to-end API tests against the running stack' \
-	  '  stack-test    up, wait, seed and e2e in order' \
-	  '  ps            Show service status' \
-	  '  logs          Follow logs (SERVICES="api public admin" for some services)' \
-	  '  down          Stop the stack; the MariaDB volume is kept' \
+	  'Development servers (run each in its own terminal)' \
+	  '  dev-api         API with reload on http://127.0.0.1:8000 (docs at /docs)' \
+	  '  dev-web         Public archive on http://127.0.0.1:5173' \
+	  '  dev-admin       Editorial desk on http://127.0.0.1:5174' \
 	  '' \
-	  '  ci            validate, then stack-test' \
+	  'Local stack: the deploy/ Compose template with locally built images, without Traefik' \
+	  '  stack-test      up, wait, seed and e2e in order' \
+	  '  up              Build the images and start MariaDB, API, web and admin' \
+	  '  wait            Wait until the API is ready and both frontends serve' \
+	  '  seed            Add fictional sample people and stories (idempotent)' \
+	  '  e2e             Run the end-to-end API tests against the stack' \
+	  '  ps, logs, down  Status, logs (SERVICES="api public") and stop (keeps data)' \
+	  '  stack-config    Render and validate the Compose configuration' \
+	  '  db-update       Append revisions when the sample stories change' \
+	  '  db-clear        Delete all local data (asks for confirmation)' \
+	  '  db-reset        Delete all local data and reseed (asks for confirmation)' \
 	  '' \
-	  'Web: http://127.0.0.1:5173  Admin: http://127.0.0.1:5174  API: http://127.0.0.1:8000/docs'
+	  'Deployment' \
+	  '  deploy-check    ansible-lint and playbook syntax check' \
+	  '  deploy          Run the playbook against INVENTORY (production; asks for the vault password)' \
+	  '' \
+	  '  ci              validate, then stack-test'
 
 install:
-	cd api && $(UV) sync --locked --all-groups
-	cd deploy && $(UV) sync --locked --all-groups
-	cd web && npm ci
-	cd admin && npm ci
+	uv sync --locked --all-packages --all-groups
+	npm ci
 
-format: docs-format
-	@set -e; for dir in $(FORMAT_DIRS); do $(MAKE) -C $$dir format; done
+format:
+	$(UV_RUN) ruff format .
+	$(UV_RUN) ruff check --fix --select I .
+	npm run format
 
-format-check: docs-format-check
-	@set -e; for dir in $(FORMAT_DIRS); do $(MAKE) -C $$dir format-check; done
+format-check:
+	$(UV_RUN) ruff format --check .
+	npm run format:check
 
-docs-format:
-	$(PRETTIER) --write $(DOCS)
+lint: deploy-check
+	$(UV_RUN) ruff check .
+	npm run lint
+	$(UV_RUN) shellcheck tools/scripts/*.sh
 
-docs-format-check:
-	$(PRETTIER) --check $(DOCS)
+test: test-api test-frontends
 
-lint:
-	@set -e; for dir in $(LINT_DIRS); do $(MAKE) -C $$dir lint; done
-
-test:
-	@set -e; for dir in $(TEST_DIRS); do $(MAKE) -C $$dir test; done
-	$(MAKE) -C deploy syntax-check
+test-api:
+	$(UV_RUN) pytest api/tests
 
 test-mariadb:
-	$(MAKE) -C api test-mariadb
+	RUN_MARIADB_TESTS=1 $(UV_RUN) pytest api/tests/test_mariadb.py
+
+test-frontends:
+	npm test
+
+openapi:
+	$(UV_RUN) python api/scripts/generate_openapi.py
+
+openapi-check:
+	$(UV_RUN) python api/scripts/generate_openapi.py --check
 
 build:
-	@set -e; for dir in $(BUILD_DIRS); do $(MAKE) -C $$dir build; done
+	uv build --package minnumst-api --out-dir api/dist
+	npm run build
 
-validate:
-	$(MAKE) -C api validate
-	$(MAKE) -C web validate
-	$(MAKE) -C admin validate
-	$(MAKE) -C deploy validate
-	$(TOOLS) check
-	$(MAKE) docs-format-check
+validate: format-check lint openapi-check test test-mariadb build
 
 clean:
-	@set -e; for dir in api web admin; do $(MAKE) -C $$dir clean; done
+	rm -rf api/dist web/dist admin/dist coverage .pytest_cache
+	find api tools -type d -name __pycache__ -prune -exec rm -rf {} +
 
 ci:
 	$(MAKE) validate
 	$(MAKE) stack-test
 
+dev-api:
+	cd api && $(UV_RUN) uvicorn minnumst_api.main:app --app-dir src --reload --host 127.0.0.1 --port 8000
+
+dev-web:
+	npm run dev --workspace web -- --host 127.0.0.1 --port 5173 --strictPort
+
+dev-admin:
+	npm run dev --workspace admin -- --host 127.0.0.1 --port 5174 --strictPort
+
 stack-config:
-	$(TOOLS) compose-config
+	$(COMPOSE) config
 
 up:
-	$(TOOLS) compose-up
+	$(COMPOSE) up
 
 wait:
-	$(TOOLS) compose-wait
+	$(COMPOSE) wait
 
 seed:
-	$(TOOLS) db-seed
+	$(COMPOSE) seed
 
 e2e:
-	$(TOOLS) e2e
+	$(COMPOSE) e2e
 
 stack-test:
 	$(MAKE) up
@@ -115,10 +136,26 @@ stack-test:
 	$(MAKE) e2e
 
 ps:
-	$(TOOLS) compose-ps
+	$(COMPOSE) ps
 
 logs:
-	$(TOOLS) compose-logs SERVICES="$(SERVICES)"
+	$(COMPOSE) logs $(SERVICES)
 
 down:
-	$(TOOLS) compose-down
+	$(COMPOSE) down
+
+db-update:
+	$(COMPOSE) update
+
+db-clear:
+	$(COMPOSE) clear
+
+db-reset:
+	$(COMPOSE) reset
+
+deploy-check:
+	cd deploy && $(UV_RUN) ansible-lint
+	cd deploy && $(UV_RUN) ansible-playbook -i inventory/hosts.ini.example site.yml --syntax-check
+
+deploy:
+	cd deploy && $(UV_RUN) ansible-playbook -i $(abspath $(INVENTORY)) $(VAULT_ARGS) site.yml

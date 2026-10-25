@@ -4,7 +4,7 @@ import {
   getRequestId,
   parseLogLevel,
   safeRoute,
-} from "./server-logging.mjs";
+} from "./logging.mjs";
 
 describe("container logging", () => {
   it("accepts only the four supported log levels and defaults to INFO", () => {

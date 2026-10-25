@@ -1,0 +1,30 @@
+# uv workspace for the Python components. One lockfile (uv.lock) and one
+# virtual environment (.venv) serve the API, the deployment tooling and the
+# scripts in tools/.
+[tool.uv.workspace]
+members = ["api", "deploy"]
+
+[dependency-groups]
+dev = [
+  "ansible-lint>=24.10,<27.0",
+  "httpx>=0.27,<1.0",
+  "pytest>=8.3,<10.0",
+  "ruff>=0.8,<1.0",
+  "shellcheck-py>=0.11,<1.0",
+  "testcontainers[mysql]>=4.10,<5.0",
+]
+
+[tool.ruff]
+line-length = 88
+src = ["api/src", "api/tests", "api/scripts", "tools/scripts"]
+extend-exclude = ["node_modules"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["minnumst_api"]
+
+[tool.ruff.format]
+indent-style = "space"
+quote-style = "double"

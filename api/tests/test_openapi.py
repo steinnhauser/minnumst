@@ -4,7 +4,7 @@ from pathlib import Path
 from minnumst_api.main import app
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC_PATH = ROOT / "api" / "openapi.json"
+SPEC_PATH = ROOT / "openapi.json"
 
 
 def test_checked_in_openapi_spec_matches_application() -> None:

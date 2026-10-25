@@ -16,16 +16,9 @@ vars_file="${LOCAL_COMPOSE_VARS:-$tools_root/compose/local-vars.yml}"
 for required_tool in docker uv; do
   command -v "$required_tool" >/dev/null 2>&1 || { printf 'Required command not found: %s\n' "$required_tool" >&2; exit 1; }
 done
-if docker compose version >/dev/null 2>&1; then
-  compose=(docker compose)
-elif command -v docker-compose >/dev/null 2>&1; then
-  docker-compose version >/dev/null
-  compose=(docker-compose)
-else
-  printf 'Docker Compose is required (install the Compose plugin or docker-compose).\n' >&2
-  exit 1
-fi
-[[ -d "$deploy_dir/.venv" ]] || { printf 'Install deployment dependencies first: make -C deploy install\n' >&2; exit 1; }
+docker compose version >/dev/null 2>&1 || { printf 'Docker Compose v2 (docker compose) is required.\n' >&2; exit 1; }
+compose=(docker compose)
+[[ -d "$repo_root/.venv" ]] || { printf 'Install dependencies first: make install\n' >&2; exit 1; }
 [[ -f "$vars_file" ]] || vars_file="$tools_root/compose/local-vars.example.yml"
 if [[ "$vars_file" == "$tools_root/compose/local-vars.yml" ]]; then
   chmod 600 "$vars_file"

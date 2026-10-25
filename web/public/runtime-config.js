@@ -1,1 +1,1 @@
-globalThis.__MINNUMST_ENV__ = {};
+window.__MINNUMST_ENV__ = {};

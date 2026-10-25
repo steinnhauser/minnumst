@@ -10,16 +10,9 @@ dependencies = [
 description = "Central CRUD API for the Minnumst people archive"
 name = "minnumst-api"
 readme = "README.md"
-requires-python = ">=3.11"
+license = "Apache-2.0"
+requires-python = ">=3.13"
 version = "0.1.2"
-
-[dependency-groups]
-dev = [
-  "httpx>=0.27,<1.0",
-  "pytest>=8.3,<10.0",
-  "ruff>=0.8,<1.0",
-  "testcontainers[mysql]>=4.10,<5.0",
-]
 
 [build-system]
 build-backend = "hatchling.build"
@@ -31,14 +24,3 @@ packages = ["src/minnumst_api"]
 [tool.pytest.ini_options]
 addopts = "-ra"
 testpaths = ["tests"]
-
-[tool.ruff]
-line-length = 88
-src = ["src"]
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
-
-[tool.ruff.format]
-indent-style = "space"
-quote-style = "double"

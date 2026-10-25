@@ -5,7 +5,7 @@ from pathlib import Path
 from minnumst_api.main import app
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC_PATH = ROOT / "api" / "openapi.json"
+SPEC_PATH = ROOT / "openapi.json"
 
 
 def render_openapi() -> str:
@@ -26,7 +26,7 @@ def main() -> None:
     if args.check:
         if not SPEC_PATH.exists() or SPEC_PATH.read_text(encoding="utf-8") != document:
             raise SystemExit(
-                "api/openapi.json is missing or out of date; run make generate-openapi"
+                "api/openapi.json is missing or out of date; run make openapi"
             )
         print("api/openapi.json is up to date")
         return

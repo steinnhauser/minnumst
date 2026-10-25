@@ -1,0 +1,21 @@
+# Images build from the repository root. Send only what they need.
+**
+!pyproject.toml
+!uv.lock
+!.python-version
+!api/pyproject.toml
+!api/README.md
+!api/src/
+!deploy/pyproject.toml
+!package.json
+!package-lock.json
+!tsconfig.base.json
+!web/
+!admin/
+!packages/static-server/
+**/node_modules/
+**/dist/
+**/coverage/
+**/__pycache__/
+**/.env
+**/.env.*

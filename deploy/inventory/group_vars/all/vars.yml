@@ -10,10 +10,13 @@ minnumst_api_domain: api.minnumst.example
 minnumst_admin_debug: "false"
 minnumst_log_level: INFO
 
-minnumst_public_image: ghcr.io/steinnhauser/minnumst-web:0.1.1
-minnumst_admin_image: ghcr.io/steinnhauser/minnumst-admin:0.2.1
-minnumst_api_image: ghcr.io/steinnhauser/minnumst-api:0.1.2
+# Exact versions pinned by digest, so a re-pushed tag can't change what runs.
+minnumst_public_image: ghcr.io/steinnhauser/minnumst-web:0.2.0@sha256:334e7716c21cf0112b9d919bc0976d058eab6a53bb457739b91243e3ab8bc4eb
+minnumst_admin_image: ghcr.io/steinnhauser/minnumst-admin:0.3.0@sha256:c8d69188d7b92624fec64082154a4ed1b0e7a076d14103b49dc35db12d4fdc81
+minnumst_api_image: ghcr.io/steinnhauser/minnumst-api:0.2.0@sha256:0ca1a60db91e29a6655eeae3b99e5048047db8e60ceb34dcc4deb99482e85c73
 
+# Third-party images stay on version tags so patch releases (security fixes)
+# arrive on the next deploy; Dependabot can't update digests in this file.
 traefik_image: traefik:v3.7.16
 docker_socket_proxy_image: ghcr.io/tecnativa/docker-socket-proxy:v0.5.0
 # TODO: Set a monitored email address for Let's Encrypt certificate notices.

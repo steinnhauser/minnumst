@@ -38,31 +38,23 @@ Releasing is not done. Each old repository had its own `CI and Release` workflow
 
 ### 1.4 Container registry and image references
 
-- [ ] Before the first release:
-  - Check whether any `minnumst-*` or `eftirmal*` package already exists under the account (`gh api /users/steinnhauser/packages?package_type=container` needs the `read:packages` scope).
-  - If a `minnumst-*` package was created by an archived repository, either grant `steinnhauser/minnumst` **Write** under _Package settings → Manage Actions access_ or delete the package. Otherwise the first push from this repository fails with 403.
-- [ ] After the first push, set each `minnumst-*` package to **public** and confirm it shows as linked to `steinnhauser/minnumst`. Public images need no registry credential on the host.
-- [ ] Repin `deploy/inventory/group_vars/all/vars.yml` to the first published versions. Pin by digest as well (`…:0.1.3@sha256:…`) so a re-pushed tag can't change what is deployed. Have the release job print the digest in the release notes.
+- [x] The first release pushed without registry permission problems.
+- [x] The `minnumst-*` packages are public and linked to the repository; images pull without credentials.
+- [x] `deploy/inventory/group_vars/all/vars.yml` pins `minnumst-web:0.2.0`, `minnumst-admin:0.3.0` and `minnumst-api:0.2.0` by digest.
 - [ ] Optional follow-up: after an image release, open a PR that bumps the matching pin in `vars.yml` (Dependabot can't update GHCR references in Ansible variables).
 - [ ] Decide what happens to the old `eftirmal*` packages: delete them, or keep them private with a description pointing here. Add a pointer to `steinnhauser/minnumst` in the README of each archived repository.
 
 ### 1.5 Repository settings for a public repository
 
-- [ ] Add a ruleset on `main`:
-  - require a pull request and the `ci-ok` check;
-  - block force pushes and deletion;
-  - require linear history.
-
-  `main` currently has no protection or ruleset.
-
-- [ ] Add a tag ruleset for `api-*`, `web-*`, `admin-*` and `deploy-*` that blocks deleting or moving tags, so a published version always maps to one commit.
-- [ ] Merge settings: squash merge only, using the PR title as the commit message; delete head branches after merge. Today both merge commits and squash are enabled, and branches aren't deleted.
-- [ ] Turn on secret scanning with push protection, Dependabot security updates, and private vulnerability reporting. Add a short `SECURITY.md`.
+- [x] Rulesets: `main` can't be force-pushed or deleted, and release tags (`api-*`, `web-*`, `admin-*`, `deploy-*`) can't be moved or deleted, so a published version always maps to one commit.
+- [x] Squash merge only, with the PR title as the commit message, and head branches deleted after merge.
+- [x] Secret scanning with push protection, Dependabot security updates, private vulnerability reporting and `.github/SECURITY.md`.
+- [ ] Require pull requests and the `ci-ok` check on `main` (see the manual TODOs; it would end direct pushes).
 
 ### 1.6 Cut over
 
 - [x] First monorepo releases: `api-0.2.0`, `web-0.2.0`, `admin-0.3.0` and `deploy-0.2.0`, published by the release job as public multi-arch images with provenance and SBOMs, plus GitHub Releases.
-- [ ] Repin `deploy/inventory/group_vars/all/vars.yml` to the published versions.
+- [x] `deploy/` pins the published versions by digest.
 
 **Done when:**
 
@@ -166,7 +158,7 @@ PostgreSQL replaced MariaDB before the first deployment, for its SCRAM-SHA-256 a
 - [x] Security headers: a same-origin CSP, `frame-ancestors 'none'`, `nosniff`, referrer, permissions and cross-origin policies from the static server; HSTS and the same basics for every route from Traefik. `trustForwardHeader` stays `true` because Traefik is the edge: it already discards client-sent `X-Forwarded-*` headers, so it only passes its own to Authentik.
 - [x] Container hardening: read-only root filesystems, no capabilities, `no-new-privileges`, log rotation, root-owned code, no package managers in runtime images, OS fixes applied at build, and a Docker API proxy instead of the socket for Traefik.
 - [x] Supply chain: actions pinned to commit SHAs, job-scoped permissions, `persist-credentials: false`, zizmor in `make lint`, CodeQL (security-extended) for Python, TypeScript and the workflow, dependency review on pull requests, Dependabot with a seven-day cooldown, and a Trivy gate on fixable high and critical image vulnerabilities before any release.
-- [ ] Pin base images by digest (`node:22-alpine@sha256:…`, `python:3.13-slim-bookworm@sha256:…`, `postgres:18-alpine@…`, `traefik:v3.7.16@…`). Dependabot keeps Dockerfile digests current; the Compose template's images need a manual or scripted bump.
+- [x] Base images in `docker/` are pinned by digest, and Dependabot keeps the digests current. Third-party images in the Compose template stay on version tags so their patch releases arrive on deploy.
 - [ ] Upload the Trivy results as SARIF to code scanning, so findings below the gate are visible in the Security tab.
 
 ## 9. First production deployment
@@ -221,7 +213,6 @@ Once these priorities are agreed, they can move to GitHub Issues with component 
 
 Steps that need the repository owner, because they depend on account access or decisions outside the code.
 
-- [ ] **GHCR, after the first release tag:** if the push fails with 403, an archived repository created the package first; grant `steinnhauser/minnumst` Write under _Package settings → Manage Actions access_, then re-run the release job. Then set each `minnumst-*` package to **Public**.
 - [ ] **Branch protection level:** `main` blocks force pushes and deletion. Requiring pull requests and the `ci-ok` check as well would stop direct pushes to `main`; decide whether to turn that on.
 - [ ] **Install the host:** Ubuntu Server 24.04 LTS (minimal) with _Encrypt the LVM group with LUKS_, an administrator with an SSH key, and `dropbear-initramfs` to unlock the disk after a remote reboot. See [`deploy/README.md`](deploy/README.md#setting-up-the-host).
 - [ ] **Optional Ubuntu Pro:** attach a (free personal) token as `host_ubuntu_pro_token` in the vault for Livepatch and ESM.

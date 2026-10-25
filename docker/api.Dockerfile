@@ -1,5 +1,5 @@
 # Build from the repository root: docker build -f docker/api.Dockerfile .
-FROM python:3.13-slim-trixie@sha256:d98cc29d3266e535dd9da1099688d9cb3ca4753813571e071763d17725460962 AS builder
+FROM python:3.13-alpine@sha256:bf12ecc0bea3f171d55145dd02c78b5eeb09f30ee2ac9cc2b4c9e4e8f5e30741 AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.22@sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc /uv /uvx /bin/
 
@@ -18,7 +18,7 @@ RUN uv sync --locked --no-dev --package minnumst-api --no-install-workspace
 COPY api/src/ api/src/
 RUN uv sync --locked --no-dev --package minnumst-api --no-editable
 
-FROM python:3.13-slim-trixie@sha256:d98cc29d3266e535dd9da1099688d9cb3ca4753813571e071763d17725460962
+FROM python:3.13-alpine@sha256:bf12ecc0bea3f171d55145dd02c78b5eeb09f30ee2ac9cc2b4c9e4e8f5e30741
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -26,14 +26,14 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 WORKDIR /app
 
-# Apply OS security fixes released since the base image was built, remove pip
-# (the app runs from its own virtualenv), and add an unprivileged user.
-RUN apt-get update \
-    && apt-get upgrade -y --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/* \
+# Alpine keeps the base small: far fewer packages, and so fewer
+# vulnerabilities, than a Debian base. Apply OS fixes released since the image
+# was built, remove pip (the app runs from its own virtualenv), and add an
+# unprivileged user.
+RUN apk upgrade --no-cache \
     && python -m pip uninstall -y pip \
-    && groupadd --system app \
-    && useradd --system --gid app --uid 10001 --no-create-home app
+    && addgroup -S app \
+    && adduser -S -D -H -G app -u 10001 app
 
 # Owned by root: the app user can run the code but not change it.
 COPY --from=builder /app/.venv /app/.venv

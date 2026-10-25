@@ -1,63 +1,24 @@
-# Minnumst | Public Archive
+# Minnumst public archive
 
-![Minnumst concept: a family tree of stories, names, and memories](../docs/assets/minnumst-concept.png)
+The public, read-only React frontend: search the archive and read each person's current story. It has no sign-in.
 
-> Minnumst is a shared written history of our ancestors, preserving people and their stories across generations.
-
-This is the public-facing React, TypeScript, and Vite frontend for searching the archive and reading published stories. It is read-only and has no sign-in flow.
-
-## Requirements
-
-- Node.js 20.19 or newer
-- npm
-
-## Getting Started
+Setup, checks and the local stack are documented in the [repository README](../README.md) and [CONTRIBUTING](../CONTRIBUTING.md). From the repository root, with the API running (`make dev-api`):
 
 ```sh
-make install
-cp .env.example .env
-make dev-start
+cp web/.env.example web/.env
+make dev-web          # http://127.0.0.1:5173
 ```
 
-Start the API separately with `make -C ../api dev-start`. The public frontend runs at `http://127.0.0.1:5173/`; use `make dev-stop` to stop it. `VITE_API_URL` is the API origin, not an `/api` path. It defaults to `http://127.0.0.1:8000`.
+## API usage
 
-## Commands
+Search calls `GET /api/people?query=…&limit=…` (8 suggestions while typing, 50 results on submit). Selecting a person loads `GET /api/people/by-slug/{slug}` and shows the current revision of their story. The client lives in [`src/api.ts`](src/api.ts).
 
-| Command             | Purpose                                               |
-| ------------------- | ----------------------------------------------------- |
-| `make format`       | Format source, configuration, and documentation files |
-| `make format-check` | Check formatting without writing changes              |
-| `make lint`         | Run ESLint                                            |
-| `make test`         | Run the Vitest suite once                             |
-| `make test-watch`   | Run tests in watch mode                               |
-| `make validate`     | Run formatting, lint, tests, and production build     |
-| `make build`        | Type-check and build the production frontend          |
-| `make dev-start`    | Start Vite in the background                          |
-| `make dev-stop`     | Stop the process started by `make dev-start`          |
-| `make preview`      | Preview the production build locally                  |
-| `make clean`        | Remove build and coverage output                      |
+## Configuration
 
-The matching npm scripts are available directly in `package.json`.
+`VITE_API_URL` is the API origin (not an `/api` path) and defaults to `http://127.0.0.1:8000`. In development Vite reads it from `.env`. In the container, [`runtime-config.mjs`](../packages/static-server/runtime-config.mjs) writes it to `/runtime-config.js` at start-up, so one image serves every environment.
 
-## Current Scope
+## Container image
 
-The public search uses `GET /api/people?query=...&offset=0&limit=50`. Selecting a result loads `GET /api/people/by-slug/{slug}` and displays its current blog revision when one exists. Search and profile details are public; administration is handled by the separate admin service.
+[`docker/frontend.Dockerfile`](../docker/frontend.Dockerfile) with `APP=web` and `SERVICE_NAME=minnumst-public`, built from the repository root. The image serves the build with [`packages/static-server`](../packages/static-server/) as a non-root user on port `8080` and reads `VITE_API_URL` and `LOG_LEVEL` at runtime. Its logs are JSON lines with a request ID, method, sanitised route, status and duration; query strings and slugs are not logged.
 
-The landing photograph is bundled locally from [Unsplash](https://images.unsplash.com/photo-1551632811-561732d1e306), so the page does not depend on an image host at runtime.
-
-## Container Image
-
-The Dockerfile builds the Vite bundle and serves it as a non-root user on port `8080`. The image reads `VITE_API_URL` and `LOG_LEVEL` from its runtime environment; no API URL is required during the build. The HTTP server writes one-line JSON startup and access logs to stdout for `docker logs`.
-
-```sh
-docker build -t minnumst-web:local .
-docker run --rm -p 8080:8080 -e VITE_API_URL=https://api.example.com -e LOG_LEVEL=DEBUG minnumst-web:local
-```
-
-Multi-platform images will be published as `ghcr.io/steinnhauser/minnumst-web:<version>` by the repository-level release workflow, which is not in place yet. The image is environment-neutral; deployment Compose supplies `VITE_API_URL` from the configured API hostname.
-
-`LOG_LEVEL` accepts `DEBUG`, `INFO`, `WARNING`, or `ERROR` and defaults to `INFO`. Use `docker logs <container>` to read its JSON startup/access records. Access records include a request ID, method, sanitized route, status, and duration; query strings and person slugs are not logged. API calls carry the same `X-Request-ID` into the API logs.
-
-```
-
-```
+The landing photograph is from [Unsplash](https://images.unsplash.com/photo-1551632811-561732d1e306) and is bundled, so the page doesn't depend on an image host.

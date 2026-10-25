@@ -31,66 +31,59 @@ It is self-hosted with Ansible and Docker Compose behind Traefik, with Authentik
                    deployed by deploy/ (Ansible, Docker Compose, ansible-vault)
 ```
 
-| Folder               | What it is                                                              | Stack                                                                   |
-| -------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| [`api/`](api/)       | Shared data API: people and append-only story revisions                 | Python 3.11+, FastAPI, SQLAlchemy, MariaDB (SQLite locally), uv         |
-| [`web/`](web/)       | Public, read-only archive with search                                   | React, TypeScript, Vite, Vitest                                         |
-| [`admin/`](admin/)   | Editorial desk for creating people and writing story revisions          | React, TypeScript, Vite, Vitest                                         |
-| [`deploy/`](deploy/) | Provisioning and deployment to Debian/Ubuntu hosts                      | Ansible, Docker Compose, Traefik, Authentik forward-auth, ansible-vault |
-| [`tools/`](tools/)   | Local full-stack Compose environment, sample data, end-to-end API tests | Bash, Make, Docker Compose                                              |
+| Path                                                 | What it is                                                                         | Stack                                                                   |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [`api/`](api/)                                       | Data API: people and append-only story revisions                                   | Python 3.13, FastAPI, SQLAlchemy, MariaDB (SQLite locally)              |
+| [`web/`](web/)                                       | Public, read-only archive with search                                              | React, TypeScript, Vite, Vitest                                         |
+| [`admin/`](admin/)                                   | Editorial desk for creating people and writing story revisions                     | React, TypeScript, Vite, Vitest                                         |
+| [`packages/static-server/`](packages/static-server/) | Static server, JSON request logs and runtime config shared by both frontend images | Node.js, Pino                                                           |
+| [`docker/`](docker/)                                 | Image definitions: one for the API, one for both frontends                         | Docker                                                                  |
+| [`deploy/`](deploy/)                                 | Provisioning and deployment to Debian/Ubuntu hosts                                 | Ansible, Docker Compose, Traefik, Authentik forward-auth, ansible-vault |
+| [`tools/`](tools/)                                   | Local stack from the deploy Compose template, sample data, end-to-end tests        | Bash, Docker Compose                                                    |
 
 Each service ships as a non-root container image that logs structured JSON. The frontends read their API URL at runtime, so one image works in every environment.
 MariaDB is only reachable on an internal network, and secrets live in ansible-vault rather than in the repository.
 
-## Running locally
+## Development
 
-The root `Makefile` drives every component. Run `make help` for the full list.
+This is a monorepo with one toolchain per language: a [uv](https://docs.astral.sh/uv/) workspace for Python (`pyproject.toml`, `uv.lock`, Python version in `.python-version`) and an npm workspace for Node.js (`package.json`, `package-lock.json`, Node.js version in `.nvmrc`). The root [`Makefile`](Makefile) is the entry point; `make help` lists every target.
 
 ```sh
-make install       # locked dependencies for api/, web/, admin/ and deploy/
-make format        # format everything; format-check, lint, test and build work the same way
-make validate      # every component's full validation, as CI runs it (needs Docker)
+make install       # locked Python and Node.js dependencies
+make format        # Ruff and Prettier; format-check, lint, test and build work across the repository too
+make validate      # everything CI checks except the stack (needs Docker for the MariaDB tests)
 ```
 
-To run the whole stack in containers, rendered from the same Compose template that `deploy/` uses (MariaDB, API and both frontends, without Traefik):
+Run the whole stack in containers, rendered from the same Compose template that `deploy/` uses (MariaDB, API and both frontends, without Traefik):
 
 ```sh
-make stack-test    # build the images, start the stack, wait until ready, seed sample data, run the e2e tests
+make stack-test    # build the images, start the stack, wait until it is ready, seed sample data, run the e2e tests
 make down          # stop it; the MariaDB volume is kept
 ```
 
-The web archive is then on <http://127.0.0.1:5173>, the editorial desk on <http://127.0.0.1:5174> and the API docs on <http://127.0.0.1:8000/docs>. See [`tools/README.md`](tools/README.md) for the details.
+The archive is then on <http://127.0.0.1:5173>, the editorial desk on <http://127.0.0.1:5174> and the API docs on <http://127.0.0.1:8000/docs>.
 
-Each component also runs on its own with a dev server. Copy its `.env.example` to `.env` first:
-
-```sh
-make -C api dev-start      # http://127.0.0.1:8000
-make -C web dev-start      # http://127.0.0.1:5173
-make -C admin dev-start    # http://127.0.0.1:5174
-```
-
-Python is pinned per component in `.python-version` and Node in the root `.nvmrc`; CI uses the same versions as the container images. See [`deploy/README.md`](deploy/README.md) for production deployment.
+For quicker iteration, run the development servers instead, each in its own terminal, after copying each component's `.env.example` to `.env`: `make dev-api`, `make dev-web` and `make dev-admin`. [CONTRIBUTING](CONTRIBUTING.md) has the details, and [`deploy/README.md`](deploy/README.md) covers production.
 
 ## CI and releases
 
-[`ci.yml`](.github/workflows/ci.yml) runs on every push and pull request:
+One workflow, [`ci.yml`](.github/workflows/ci.yml), runs on every push and pull request, using the same `make` targets:
 
-| Job            | Checks                                                                                                        |
-| -------------- | ------------------------------------------------------------------------------------------------------------- |
-| `api`          | Ruff, OpenAPI freshness, pytest on SQLite and on MariaDB (Testcontainers), package build                      |
-| `web`, `admin` | Prettier, ESLint, Vitest, TypeScript, production build                                                        |
-| `deploy`       | Ruff, ansible-lint, playbook syntax check against the example inventory                                       |
-| `tools`        | Ruff and ShellCheck on the helpers, Prettier on docs and workflows                                            |
-| `e2e`          | `make stack-test`: builds all three images, starts the stack with MariaDB, seeds data, runs the API e2e tests |
+| Job      | Checks                                                                                                              |
+| -------- | ------------------------------------------------------------------------------------------------------------------- |
+| `checks` | Ruff, Prettier, ESLint, ShellCheck, ansible-lint, playbook syntax, OpenAPI freshness, API wheel and frontend builds |
+| `tests`  | pytest on SQLite and on MariaDB (Testcontainers), Vitest                                                            |
+| `e2e`    | Builds the three images, starts the stack with MariaDB, seeds sample data and runs the end-to-end API tests         |
+| `ci-ok`  | Passes only when every other job passed; the single check to require on pull requests                               |
 
 Dependabot keeps npm, uv, Docker base images and GitHub Actions up to date, in weekly grouped pull requests.
 
-Components are versioned independently with Commitizen, and tags are prefixed by component: `api-0.1.2`, `web-0.1.1`, `admin-0.2.1`, `deploy-0.1.0`. Publishing images and GitHub Releases from those tags is the next step.
+Components are versioned independently with Commitizen, and tags are prefixed by component: `api-0.1.2`, `web-0.1.1`, `admin-0.2.1`, `deploy-0.1.0`. Publishing images and GitHub Releases from those tags is the next step; see [`TODO.md`](TODO.md).
 
 ## History
 
 The project was previously called **Eftirmál**. This repository combines four earlier repositories, `eftirmal-api`, `eftirmal`, `eftirmal-admin` and `eftirmal-deploy`, with their commits kept.
-The local tooling in `tools/` was added when they were merged.
+They now share one toolchain, one workflow and one license.
 
 ## License
 

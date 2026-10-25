@@ -1,59 +1,50 @@
-# Minnumst | Archive API
+# Minnumst API
 
-![Minnumst concept: a family tree of stories, names, and memories](../docs/assets/minnumst-concept.png)
+The FastAPI service that owns people and their append-only story revisions. It is the only component that touches the database: MariaDB in deployment, SQLite for local development. Both frontends read and write through it.
 
-> Minnumst is a shared written history of our ancestors, preserving people and their stories across generations.
-
-This FastAPI service is the shared data boundary for the public archive and editorial desk. It owns people and immutable blog revisions; MariaDB is used in deployment and SQLite is the local development default.
-
-## Run locally
-
-Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+Setup, checks and the local stack are documented in the [repository README](../README.md) and [CONTRIBUTING](../CONTRIBUTING.md). From the repository root:
 
 ```sh
-cp .env.example .env
-make install
-make dev-start
+cp api/.env.example api/.env
+make dev-api          # http://127.0.0.1:8000, interactive docs at /docs
+make test-api         # SQLite-backed tests
+make test-mariadb     # the same writes and reads against MariaDB in a container
+make openapi          # regenerate api/openapi.json after changing routes or schemas
 ```
 
-The API is available at `http://127.0.0.1:8000`, with interactive documentation at `/docs`. Use `make dev-stop` to stop the background server. The local CORS example allows the public frontend on port 5173 and admin on port 5174. Override `DEV_HOST` and `DEV_PORT` when starting it.
+## Contract
 
-## Database
+The checked-in contract is [`openapi.json`](openapi.json). `make openapi-check` and the test suite fail when it no longer matches the application.
 
-Set `DATABASE_URL` in the API service environment. For MariaDB in the same Compose network, use a URL like:
+| Route                                        | Purpose                                                        |
+| -------------------------------------------- | -------------------------------------------------------------- |
+| `GET /api/people?query=&offset=0&limit=50`   | Search people by name (accent-insensitive), one page at a time |
+| `POST /api/people`                           | Create a person                                                |
+| `GET /api/people/{person_id}`                | Read a person with their current story                         |
+| `PATCH /api/people/{person_id}`              | Rename a person                                                |
+| `DELETE /api/people/{person_id}`             | Delete a person who has no story; `409` otherwise              |
+| `GET /api/people/by-slug/{slug}`             | Read a person and their current story by public slug           |
+| `GET /api/people/{person_id}/blog`           | Read the story                                                 |
+| `PUT /api/people/{person_id}/blog`           | Save a new revision (creates the story on first save)          |
+| `GET /api/people/{person_id}/blog/revisions` | The full revision history, newest first                        |
+| `GET /healthz`, `GET /readyz`                | Liveness, and readiness including the database                 |
 
-```text
-mysql+pymysql://minnumst:password@mariadb:3306/minnumst?charset=utf8mb4
-```
+- Names are unique after normalisation (accents and whitespace), enforced by a database constraint. Each person has at most one story.
+- Every save appends an immutable revision. There are no routes to edit, delete or restore revisions, and a person with a story can't be deleted.
+- Writes rely on Traefik and Authentik in front of the API: `POST`, `PUT`, `PATCH` and `DELETE` are routed through forward-auth. The API itself has no login.
 
-Keep credentials in the deployment secret mechanism, not in tracked files. The application creates tables on startup for this initial implementation; introduce versioned migrations before applying schema changes to a production database.
+## Configuration
 
-Set `LOG_LEVEL` in `.env` or the container environment to `DEBUG`, `INFO`, `WARNING`, or `ERROR`; the default is `INFO`. Other values are rejected during settings validation. The API writes one-line JSON logs to stdout/stderr, so they are available through `docker logs <container>`. Records include timestamp, level, service/logger, and structured request fields. Request records include a validated `X-Request-ID`, method, route template, status, and duration; query values and request bodies are not logged. The API echoes the ID in its response header for correlation. Uvicorn's duplicate access logger is disabled.
+| Variable       | Default                   | Purpose                                                                                |
+| -------------- | ------------------------- | -------------------------------------------------------------------------------------- |
+| `DATABASE_URL` | `sqlite:///./minnumst.db` | SQLAlchemy URL, e.g. `mysql+pymysql://user:pass@mariadb:3306/minnumst?charset=utf8mb4` |
+| `CORS_ORIGINS` | empty                     | Comma-separated origins of the two frontends                                           |
+| `LOG_LEVEL`    | `INFO`                    | `DEBUG`, `INFO`, `WARNING` or `ERROR`                                                  |
 
-## Initial API contract
+Tables are created on startup (`create_all`); add versioned migrations before changing the schema of a database that holds real data.
 
-- `GET /api/people?query=...&offset=0&limit=50` searches public people by name and returns a page of results.
-- `POST /api/people`, `GET /api/people/{person_id}`, and `PATCH /api/people/{person_id}` create, read, and update person names.
-- `DELETE /api/people/{person_id}` removes a person only when no blog history exists; otherwise it returns `409`.
-- `GET /api/people/by-slug/{slug}` returns a public person and their current blog revision.
-- `GET /api/people/{person_id}/blog` reads the person's blog; `PUT` creates it or saves a new revision.
-- `GET /api/people/{person_id}/blog/revisions` returns the complete revision history in reverse chronological order.
-- `GET /healthz` checks process liveness; `GET /readyz` checks database connectivity.
-
-Person names are normalized for uniqueness using an accent-insensitive, whitespace-normalized rule. A database uniqueness constraint enforces one person per normalized name. Each person has at most one blog row, also enforced by a database constraint. Saving a blog appends an immutable snapshot; it never overwrites an earlier revision. The public frontend searches with `GET /api/people` and reads the current story with `GET /api/people/by-slug/{slug}`. The admin loads people, creates people, saves revisions with `PUT /api/people/{person_id}/blog`, and reads revision history from the corresponding `/revisions` route.
-
-The admin supports person-linked blog title, excerpt, and story revisions; profile attributes, image upload/storage, and blog delete/restore behavior are not represented in the current API. A person with blog revisions cannot be hard-deleted, and there is no route to delete revisions. Mutating routes rely on deployment-level access control: protect them behind the existing Traefik/Authentik boundary before exposing the API.
+Logs are one JSON object per line on stdout. Request records carry a validated `X-Request-ID` (echoed in the response), method, route template, status and duration. Query values, bodies, credentials and slugs are never logged.
 
 ## Container image
 
-Build locally with `docker build -t minnumst-api:local .`. Multi-platform images (`linux/amd64`, `linux/arm64`) will be published as `ghcr.io/steinnhauser/minnumst-api:<version>` by the repository-level release workflow, which is not in place yet. The image listens on port 8000, runs as a non-root user, and exposes `/healthz` as its container healthcheck. Make the GHCR package public in its package settings before pulling it from a host that has not authenticated to GitHub Container Registry.
-
-## Commands
-
-`make install`, `make format`, `make format-check`, `make lint`, `make test`, `make test-mariadb`, `make generate-openapi`, `make check-openapi`, `make validate`, `make build`, `make dev-start`, `make dev-stop`, and `make clean` use UV and Ruff. `make run-dev` and `make stop` remain compatibility aliases. Cleanup removes the local virtual environment and generated build/test output; it does not remove the local SQLite database or checked-in API specification.
-
-`make test` runs the fast SQLite-backed endpoint suite and verifies the checked-in OpenAPI document is current. `make test-mariadb` starts a disposable `mariadb:11.4` container using Testcontainers and exercises admin writes followed by public reads. It requires Docker access and may need to download the image the first time. Keep it as a separate check for local/CI environments with a Docker daemon.
-
-`make validate` runs the non-mutating format check, Ruff lint, OpenAPI freshness check, all SQLite and MariaDB tests, and the package build. It requires Docker access for the MariaDB test. The validation OpenAPI check fails without modifying the committed file if it is stale.
-
-Run `make generate-openapi` after changing routes, schemas, or API metadata. It serializes FastAPI's generated OpenAPI document deterministically to `api/openapi.json`; `make check-openapi` checks it without writing, and the drift test also verifies the contract.
+[`docker/api.Dockerfile`](../docker/api.Dockerfile), built from the repository root. The image runs as a non-root user on port `8000` and uses `/healthz` as its health check.

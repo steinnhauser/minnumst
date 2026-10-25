@@ -10,7 +10,7 @@ services:
   # Stands in for Authentik's forward-auth endpoint: it allows a request only
   # when it carries the local test token.
   auth-stub:
-    image: python:3.13-slim-bookworm
+    image: python:3.13-slim-trixie
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]

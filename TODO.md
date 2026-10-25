@@ -156,7 +156,7 @@ PostgreSQL replaced MariaDB before the first deployment, for its SCRAM-SHA-256 a
 - [x] Container hardening: read-only root filesystems, no capabilities, `no-new-privileges`, log rotation, root-owned code, no package managers in runtime images, OS fixes applied at build, and a Docker API proxy instead of the socket for Traefik.
 - [x] Supply chain: actions pinned to commit SHAs, job-scoped permissions, `persist-credentials: false`, zizmor in `make lint`, CodeQL (security-extended) for Python, TypeScript and the workflow, dependency review on pull requests, Dependabot with a seven-day cooldown, and a Trivy gate on fixable high and critical image vulnerabilities before any release.
 - [x] Base images in `docker/` are pinned by digest, and Dependabot keeps the digests current. Third-party images in the Compose template stay on version tags so their patch releases arrive on deploy.
-- [ ] Upload the Trivy results as SARIF to code scanning, so findings below the gate are visible in the Security tab.
+- [x] Trivy results go to code scanning as SARIF (one category per image), and the API image moved to Debian 13 after the first upload showed a critical and 31 high unfixed vulnerabilities in Debian 12.
 
 ## 9. First production deployment
 

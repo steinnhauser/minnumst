@@ -14,87 +14,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  api:
-    name: api (lint, OpenAPI, tests incl. MariaDB, build)
+  checks:
+    name: checks (format, lint, OpenAPI, build)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: api
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.0
-        with:
-          enable-cache: true
-      - run: uv sync --locked --all-groups
-      - run: make validate
+      - uses: ./.github/actions/setup
+      - run: make format-check lint openapi-check build
 
-  frontend:
-    name: ${{ matrix.component }} (format, lint, tests, type-check, build)
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        component: [web, admin]
-    defaults:
-      run:
-        working-directory: ${{ matrix.component }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: ${{ matrix.component }}/package-lock.json
-      - run: npm ci
-      - run: npm run validate
-
-  deploy:
-    name: deploy (Ruff, ansible-lint, syntax check)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: deploy
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.0
-        with:
-          enable-cache: true
-      - run: uv sync --locked --all-groups
-      - run: make validate
-
-  tools:
-    name: tools and docs (Ruff, ShellCheck, Prettier)
+  tests:
+    name: tests (API on SQLite and MariaDB, frontends)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.0
-        with:
-          enable-cache: true
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - run: make -C tools check
-      - run: npm ci --prefix web
-      - run: make docs-format-check
+      - uses: ./.github/actions/setup
+      - run: make test test-mariadb
 
   e2e:
-    name: e2e (full stack with MariaDB)
+    name: e2e (images and full stack with MariaDB)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.0
-        with:
-          enable-cache: true
-      - name: Install the deployment tooling used to render Compose
-        run: make -C deploy install
-      - name: Build and start the stack
-        run: make up
-      - name: Wait for the API and both frontends
-        run: make wait
-      - name: Seed sample data and run end-to-end API tests
-        run: make seed e2e
+      - uses: ./.github/actions/setup
+      - name: Build, start, seed and test the stack
+        run: make stack-test
       - name: Check that both frontends serve on their host ports
         run: |
           curl -fsS http://127.0.0.1:5173/runtime-config.js
@@ -102,3 +45,12 @@ jobs:
       - name: Stop the stack
         if: always()
         run: make down
+
+  ci-ok:
+    name: ci-ok
+    if: always()
+    needs: [checks, tests, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every job to succeed
+        run: test "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = false

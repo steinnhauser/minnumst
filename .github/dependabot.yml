@@ -2,7 +2,7 @@ version: 2
 
 updates:
   - package-ecosystem: npm
-    directories: ["/web", "/admin"]
+    directory: "/"
     schedule: { interval: weekly }
     groups:
       npm-minor-and-patch:
@@ -12,7 +12,7 @@ updates:
     commit-message: { prefix: "chore(deps)" }
 
   - package-ecosystem: uv
-    directories: ["/api", "/deploy"]
+    directory: "/"
     schedule: { interval: weekly }
     groups:
       uv-minor-and-patch:
@@ -22,7 +22,7 @@ updates:
     commit-message: { prefix: "chore(deps)" }
 
   - package-ecosystem: docker
-    directories: ["/web", "/admin", "/api"]
+    directory: "/docker"
     schedule: { interval: weekly }
     ignore:
       # Stay on Node LTS; move to the next LTS line deliberately.
@@ -31,7 +31,7 @@ updates:
     commit-message: { prefix: "chore(deps)" }
 
   - package-ecosystem: github-actions
-    directory: "/"
+    directories: ["/", "/.github/actions/*"]
     schedule: { interval: weekly }
     groups:
       actions:

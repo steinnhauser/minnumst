@@ -1,0 +1,14 @@
+name: Set up the workspace
+description: Install uv, Python, Node.js and the locked dependencies of the uv and npm workspaces.
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v10.3.0
+      with:
+        enable-cache: true
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+    - run: make install
+      shell: bash

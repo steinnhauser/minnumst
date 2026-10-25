@@ -128,9 +128,10 @@ jobs:
           printf '[minnumst]\nlocalhost ansible_connection=local\n' > "$RUNNER_TEMP/inventory"
           # The runner's disk is not LUKS-encrypted, and upgrading every package
           # or removing snapd would only slow CI down.
+          set -o pipefail
+          overrides='{"host_require_disk_encryption": false, "host_upgrade_packages": false, "host_remove_snapd": false}'
           for run in first second; do
-            make deploy INVENTORY="$RUNNER_TEMP/inventory" VAULT_ARGS= \
-              ARGS="--tags host -e host_require_disk_encryption=false -e host_upgrade_packages=false -e host_remove_snapd=false" \
+            make deploy INVENTORY="$RUNNER_TEMP/inventory" VAULT_ARGS= ARGS="--tags host -e '$overrides'" \
               | tee "$RUNNER_TEMP/$run.log"
           done
           grep -E 'localhost +: ok=[0-9]+ +changed=0 +unreachable=0 +failed=0' "$RUNNER_TEMP/second.log"

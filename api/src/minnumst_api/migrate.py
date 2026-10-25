@@ -1,6 +1,7 @@
 """Database migrations.
 
     python -m minnumst_api.migrate                     apply all migrations
+    python -m minnumst_api.migrate downgrade REVISION   roll the schema back
     python -m minnumst_api.migrate revision "message"  generate a new migration
 
 Migrations run with a role that owns the schema. They grant the API's runtime
@@ -53,11 +54,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Minnumst database migrations")
     commands = parser.add_subparsers(dest="command")
     commands.add_parser("upgrade", help="apply all migrations (the default)")
+    commands.add_parser("downgrade", help="roll back to a revision").add_argument(
+        "revision"
+    )
     commands.add_parser("revision", help="generate a migration").add_argument("message")
     args = parser.parse_args()
     configure_logging(settings.log_level)
     if args.command == "revision":
         revision(args.message)
+        return
+    if args.command == "downgrade":
+        downgrade(make_engine(), args.revision)
+        logger.info("Database schema rolled back to %s", args.revision)
         return
     upgrade(make_engine())
     logger.info("Database schema is up to date")

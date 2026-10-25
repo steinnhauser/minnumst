@@ -104,6 +104,14 @@
         group: root
         mode: "0750"
 
+    - name: Install the PostgreSQL role setup script
+      ansible.builtin.copy:
+        src: files/postgres-app-role.sh
+        dest: "{{ minnumst_deploy_dir }}/postgres-app-role.sh"
+        owner: root
+        group: root
+        mode: "0644"
+
     - name: Render Compose deployment
       ansible.builtin.template:
         src: templates/compose.yml.j2

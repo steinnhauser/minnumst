@@ -77,7 +77,7 @@ format-check:
 lint: deploy-check
 	$(UV_RUN) ruff check .
 	npm run lint
-	$(UV_RUN) shellcheck tools/scripts/*.sh
+	$(UV_RUN) shellcheck tools/scripts/*.sh deploy/files/*.sh
 	$(UV_RUN) zizmor --offline .github
 
 test: test-api test-frontends

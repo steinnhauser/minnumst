@@ -144,6 +144,7 @@ services:
       POSTGRES_PASSWORD: {{ postgres_superuser_password | to_json }}
       POSTGRES_DB: {{ postgres_database | to_json }}
       POSTGRES_INITDB_ARGS: --auth-local=scram-sha-256 --auth-host=scram-sha-256
+      MINNUMST_APP_USER: {{ postgres_user | to_json }}
       MINNUMST_APP_PASSWORD: {{ postgres_password | to_json }}
     configs:
       - source: postgres-app-role
@@ -159,18 +160,11 @@ services:
       start_period: 30s
     networks: [backend]
 
-# Runs once, when the data directory is created. The API logs in as its own role,
-# which owns the application database but cannot create roles or databases and
-# is not a superuser. Nothing but the API can reach PostgreSQL.
+# deploy/files/postgres-app-role.sh, installed next to this file, creates the
+# API's own login role when the data directory is first created.
 configs:
   postgres-app-role:
-    content: |
-      psql --set ON_ERROR_STOP=1 --set app_password="$$MINNUMST_APP_PASSWORD" \
-        --username postgres --dbname {{ postgres_database }} <<'SQL'
-      CREATE ROLE {{ postgres_user }} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD :'app_password';
-      ALTER DATABASE {{ postgres_database }} OWNER TO {{ postgres_user }};
-      REVOKE ALL ON DATABASE {{ postgres_database }} FROM PUBLIC;
-      SQL
+    file: ./postgres-app-role.sh
 
 volumes:
   postgres_data:

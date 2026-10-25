@@ -31,7 +31,7 @@ Ansible prompts for the vault password. Use `make deploy VAULT_ARGS="--vault-pas
 
 The frontend images must serve their built Vite assets on port 8080. At startup, each image writes browser configuration from its runtime environment. Compose sets `VITE_API_URL` to `https://{{ minnumst_api_domain }}` for both frontends and sets admin `DEBUG` from `minnumst_admin_debug`; configure these values in `inventory/group_vars/all/vars.yml`. The API image must listen on port 8000 and provide the existing `DATABASE_URL`, `CORS_ORIGINS`, and `/readyz` contract. The image references are configurable in `vars.yml`.
 
-The images will be published publicly as `ghcr.io/steinnhauser/minnumst-web`, `minnumst-admin` and `minnumst-api` by the release workflow, which isn't in place yet (see the repository [`TODO.md`](../TODO.md)). Until then, the versions pinned in `vars.yml` don't exist. Pin exact versions, never `latest`.
+Release tags publish the images as `ghcr.io/steinnhauser/minnumst-web`, `minnumst-admin` and `minnumst-api` (see [CONTRIBUTING](../CONTRIBUTING.md#releases)). Pin exact versions in `vars.yml`, never `latest`.
 
 ## Logging
 

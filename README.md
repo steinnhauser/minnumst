@@ -67,18 +67,19 @@ For quicker iteration, run the development servers instead, each in its own term
 
 ## CI and releases
 
-One workflow, [`ci.yml`](.github/workflows/ci.yml), runs on every push and pull request, using the same `make` targets:
+One workflow, [`ci.yml`](.github/workflows/ci.yml), runs on every push, pull request and release tag, using the same `make` targets:
 
-| Job      | Checks                                                                                                              |
-| -------- | ------------------------------------------------------------------------------------------------------------------- |
-| `checks` | Ruff, Prettier, ESLint, ShellCheck, ansible-lint, playbook syntax, OpenAPI freshness, API wheel and frontend builds |
-| `tests`  | pytest on SQLite and on MariaDB (Testcontainers), Vitest                                                            |
-| `e2e`    | Builds the three images, starts the stack with MariaDB, seeds sample data and runs the end-to-end API tests         |
-| `ci-ok`  | Passes only when every other job passed; the single check to require on pull requests                               |
+| Job       | Checks                                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------------------- |
+| `checks`  | Ruff, Prettier, ESLint, ShellCheck, ansible-lint, playbook syntax, OpenAPI freshness, API wheel and frontend builds |
+| `tests`   | pytest on SQLite and on MariaDB (Testcontainers), Vitest                                                            |
+| `e2e`     | Builds the three images, starts the stack with MariaDB, seeds sample data and runs the end-to-end API tests         |
+| `ci-ok`   | Passes only when every other job passed; the single check to require on pull requests                               |
+| `release` | On a release tag only: publishes the component's multi-arch image to GHCR and its GitHub Release                    |
 
 Dependabot keeps npm, uv, Docker base images and GitHub Actions up to date, in weekly grouped pull requests.
 
-Components are versioned independently with Commitizen, and tags are prefixed by component: `api-0.1.2`, `web-0.1.1`, `admin-0.2.1`, `deploy-0.1.0`. Publishing images and GitHub Releases from those tags is the next step; see [`TODO.md`](TODO.md).
+Each component is versioned on its own, with tags such as `api-0.2.0`. `make release COMPONENT=api` reads the Conventional Commits that touched the component since its last tag, bumps the version, adds a `CHANGELOG.md` section, commits and tags; it never pushes. Pushing the tag runs the checks again and then publishes `ghcr.io/steinnhauser/minnumst-api:0.2.0` (and `:0.2`) for `linux/amd64` and `linux/arm64`, with provenance and an SBOM, plus a GitHub Release with that changelog section. `deploy` releases have no image.
 
 ## History
 

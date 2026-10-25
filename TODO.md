@@ -22,47 +22,13 @@ Releasing is not done. Each old repository had its own `CI and Release` workflow
 - `deploy/inventory/group_vars/all/vars.yml` pins `minnumst-web:0.1.1`, `minnumst-admin:0.2.1` and `minnumst-api:0.1.2`, which do not exist.
 - The existing tags can't be used to build them either. `api-0.1.2`, `web-0.1.1`, `admin-0.2.1` and the rest point at code from before the rename (`api/src/eftirmal_api/`, npm package `eftirmal`) and from before the workspace layout. **Don't backfill images from these tags.** Cut new releases from the current `main` instead (step 1.6).
 
-### 1.1 Release jobs in `ci.yml`
+### 1.1 Release job and `make release`
 
-Keep one workflow: add a tag trigger and release jobs to `ci.yml` rather than a second workflow, so a release reuses the exact `checks`, `tests` and `e2e` jobs.
-
-- [ ] Trigger on component-prefixed tags: `api-[0-9]+.[0-9]+.[0-9]+`, `web-…`, `admin-…`, `deploy-…`. Add a `tag` input to `workflow_dispatch` for reruns. A rerun builds the tagged commit; it never builds `main` under an old tag.
-- [ ] Have a `release-meta` job parse `<component>-<version>` from the tag and fail if:
-  - the component is not one of `api|web|admin|deploy`;
-  - the version doesn't match the component's manifest (`api/pyproject.toml`, `web/package.json`, `admin/package.json`, `deploy/pyproject.toml`) and `.cz.yaml`;
-  - the tagged commit is not reachable from `main`.
-- [ ] Publish only after `checks`, `tests` and `e2e` pass on the tagged commit.
-- [ ] Build and push images for `api`, `web` and `admin` (`deploy` has no image):
-  - Use `docker/build-push-action` with `context: .`, `file: docker/api.Dockerfile` or `docker/frontend.Dockerfile` with the same build arguments as `tools/compose/local.override.yml`, `platforms: linux/amd64,linux/arm64`, and a GHA build cache scoped per image.
-  - Tag them `ghcr.io/steinnhauser/minnumst-<component>:<version>` and `:<major>.<minor>`. Don't publish `latest`: deployments pin exact versions.
-  - Add OCI labels: `org.opencontainers.image.source=https://github.com/steinnhauser/minnumst` (this links each package to the repository), plus `version`, `revision` (commit SHA), `title`, `description` and `licenses=Apache-2.0`. The `web` component's image is `minnumst-web`, while its Compose service stays `public`.
-  - Generate provenance and SBOM attestations (`provenance: mode=max`, `sbom: true`). Optionally sign keylessly with cosign.
-  - Request least-privilege job permissions: `contents: read` by default, `packages: write` and `id-token: write`/`attestations: write` only on the image job, and `contents: write` only on the release job.
-- [ ] Create one GitHub Release per tag, titled with the tag (`api 0.1.3`).
-  - Take the notes from that component's `CHANGELOG.md` section. `gh release create --generate-notes` lists every PR in the repository since the previous tag, including other components' PRs.
-  - Attach the wheel and sdist for `api`, and `minnumst-<component>-<version>.tar.gz` of `dist/` for `web` and `admin`. `deploy` gets a source-only release.
-- [ ] Never cancel a running release: give tag runs their own concurrency group per tag, without `cancel-in-progress`.
-
-### 1.2 Versioning and changelogs that respect component boundaries
-
-- [ ] Commitizen works out the next version from every commit since the component's last tag, not only commits that touch that component's folder. So a run of `web` fixes would bump `api` too. Fix this with a helper, `tools/scripts/release.sh <component> [--dry-run]` (plus `make release COMPONENT=api`), that:
-  1. refuses to run on a dirty tree or off an up-to-date `main`;
-  2. lists the commits since `<component>-<last version>` that touch `<component>/`, and stops if there are none;
-  3. derives the increment from only those commits (`feat` → minor, `fix`/`perf` → patch, `!`/`BREAKING CHANGE` → major; minor while the version is `0.x`);
-  4. runs `cz bump --increment <X>` in the component folder, which updates the manifest, `.cz.yaml` and `CHANGELOG.md`, and creates the prefixed tag;
-  5. prints the push command and doesn't push. Every push is approved by hand.
-
-  Shared files (`docker/`, `packages/static-server/`, the lockfiles) affect several images: count a commit touching `packages/static-server/` or `docker/frontend.Dockerfile` for both `web` and `admin`, and `docker/api.Dockerfile` for `api`.
-
-  The alternative is release-please in manifest mode, which handles monorepos natively and keeps the current tag format (`include-component-in-tag`, `include-v-in-tag: false`). But it needs a PAT or GitHub App, because tags created with `GITHUB_TOKEN` don't trigger other workflows, and it replaces Commitizen. Choose between them before building this step; the helper above is the smaller change.
-
-- [ ] Add Commitizen to the root dev dependency group so the helper runs a pinned version.
-- [ ] Add the missing `deploy/.cz.yaml` (`tag_format: deploy-$version`, `version_files: pyproject.toml:version`). `deploy-0.1.0` exists, but `deploy/` can't be bumped right now.
-- [ ] Normalise the changelogs once:
-  - `api/CHANGELOG.md` mixes Keep a Changelog headings (`## [0.1.1] - …`) with Commitizen output (`## 0.1.2 (…)`) and has `[Unreleased]` at the bottom.
-  - Choose the Commitizen format, since it generates the files.
-  - Add a line in each changelog marking where the history from the separate repositories ends. Entries such as "Manual reruns for tagged API release and GHCR image publishing workflows" describe workflows that no longer exist.
-- [ ] Enforce the scope convention. Add a PR check that the Conventional Commit scope (`fix(api)`) matches the folders the commit touches, and that the PR title is a valid Conventional Commit. With squash merging (1.5), the title becomes the commit on `main` that the release helper reads.
+- [x] A `release` job in `ci.yml` runs on component tags (`api-*`, `web-*`, `admin-*`, `deploy-*`) after `checks`, `tests` and `e2e` pass on the tagged commit. It verifies the tag against the manifest, the changelog and `main`, pushes `ghcr.io/steinnhauser/minnumst-<component>:<version>` and `:<major>.<minor>` for amd64 and arm64 with OCI labels, provenance and an SBOM, and creates a GitHub Release from the component's changelog section. Tag runs are never cancelled.
+- [x] `make release COMPONENT=… [INCREMENT=…] [DRY_RUN=1]` (`tools/scripts/release.py`) derives the increment from the Conventional Commits that touched the component since its last tag (ignoring commits scoped to another component), updates the manifest and lockfile (and `api/openapi.json`), writes the changelog section, commits and tags. It never pushes. This replaces Commitizen, which can't scope a release to one component's files.
+- [x] The changelogs share one header, and the API reports its package version in `openapi.json`.
+- [ ] Sign images keylessly with cosign, if a consumer needs signatures beyond the provenance attestation.
+- [ ] Enforce the scope convention: a PR check that the PR title is a Conventional Commit whose scope matches the folders it touches. With squash merging (1.5), the title becomes the commit on `main` that `make release` reads.
 
 ### 1.3 Faster CI
 
@@ -94,8 +60,8 @@ Keep one workflow: add a tag trigger and release jobs to `ci.yml` rather than a 
 
 ### 1.6 Cut over
 
-- [ ] Land 1.1 to 1.5. Then release each component from `main` with the helper: `api-0.1.3`, `web-0.1.2`, `admin-0.2.2` and `deploy-0.1.1` (or whatever increment the commits since the old tags justify). Confirm that each image pulls anonymously and runs non-root on amd64 and arm64.
-- [ ] Repin `deploy/`, then remove the "not in place yet" wording from the README "CI and releases" section and `deploy/README.md`.
+- [ ] Land 1.4 and 1.5. Then release each component from `main` with `make release`. The commits since the old tags are refactors and build changes, so the first releases need `INCREMENT=MINOR`: `api-0.2.0`, `web-0.2.0`, `admin-0.3.0` and `deploy-0.2.0`. Confirm that each image pulls anonymously and runs non-root on amd64 and arm64.
+- [ ] Repin `deploy/inventory/group_vars/all/vars.yml` to the published versions.
 
 **Done when:**
 
@@ -143,7 +109,7 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 
 ### 2.3 Fix the drift found so far
 
-- [ ] **API version:** `FastAPI(title="Minnumst API", version="0.1.0")` is hard-coded in `api/src/minnumst_api/main.py`, while the package is at `0.1.2`, so the published spec reports the wrong version. Read it from the package metadata (`importlib.metadata.version("minnumst-api")`), regenerate `openapi.json`, and add the spec to `version_files` in `api/.cz.yaml` so a bump keeps `make openapi-check` green.
+- [x] **API version:** the spec reported a hard-coded `0.1.0`. It now reads the package version, and `make release` regenerates `openapi.json`.
 - [ ] **Validation errors:** `422` responses carry `detail` as a list, which both clients replace with "The Minnumst API returned 422." Either format the first validation message in the client, or return a single error shape from the API for every 4xx. Add `maxLength={255}` to the web search input to match the API's `query` limit.
 - [ ] **Result limits:** `web` asks for 50 results and shows "Showing 50 of N people" without a way to see the rest. Either page through results with `offset`, or tell the reader to refine the search. Document the API's bounds (`limit` 1 to 100, empty `query` returns everyone in name order) in the route descriptions.
 - [ ] **Slugs:** `PATCH /api/people/{id}` renames a person but keeps the old slug. Decide whether slugs are permanent public identifiers (and document that) or whether renames create a new slug that redirects from the old one. Then give `web` real profile URLs (`/people/<slug>` with a history-API route; the shared static server already falls back to `index.html`), so profiles can be linked and bookmarked. Today, `by-slug` is only reached by clicking a search result.

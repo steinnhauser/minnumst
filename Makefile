@@ -16,7 +16,7 @@ unexport VIRTUAL_ENV
 	openapi openapi-check build validate clean ci \
 	dev-api dev-web dev-admin \
 	stack-config up wait seed e2e stack-test ps logs down db-update db-clear db-reset \
-	deploy-check deploy
+	deploy-check deploy release
 
 help:
 	@printf '%s\n' \
@@ -49,6 +49,10 @@ help:
 	  '  db-update       Append revisions when the sample stories change' \
 	  '  db-clear        Delete all local data (asks for confirmation)' \
 	  '  db-reset        Delete all local data and reseed (asks for confirmation)' \
+	  '' \
+	  'Releases' \
+	  '  release         Version, changelog, commit and tag one component; never pushes' \
+	  '                  COMPONENT=api|web|admin|deploy [INCREMENT=MAJOR|MINOR|PATCH] [DRY_RUN=1]' \
 	  '' \
 	  'Deployment' \
 	  '  deploy-check    ansible-lint and playbook syntax check' \
@@ -159,3 +163,7 @@ deploy-check:
 
 deploy:
 	cd deploy && $(UV_RUN) ansible-playbook -i $(abspath $(INVENTORY)) $(VAULT_ARGS) site.yml
+
+release:
+	@test -n "$(COMPONENT)" || { echo 'Usage: make release COMPONENT=api|web|admin|deploy [INCREMENT=…] [DRY_RUN=1]'; exit 2; }
+	$(UV_RUN) python tools/scripts/release.py bump $(COMPONENT) $(if $(INCREMENT),--increment $(INCREMENT)) $(if $(DRY_RUN),--dry-run)

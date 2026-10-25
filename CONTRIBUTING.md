@@ -64,4 +64,8 @@ To change the local settings, for example `minnumst_log_level: DEBUG`, copy `too
 ## Commit messages
 
 Use [Conventional Commits](https://www.conventionalcommits.org/) with the component as the scope, for example `feat(web): add profile filters`, `fix(api): validate blog revisions` or `docs(deploy): clarify vault setup`. Changes to shared tooling use `build:`, `ci:` or `chore:` without a component scope.
-Use `!` or a `BREAKING CHANGE:` footer for incompatible changes. Each component is versioned separately with Commitizen (`<component>/.cz.yaml`), and its tags are prefixed with the component name (`api-0.1.2`).
+Use `!` or a `BREAKING CHANGE:` footer for incompatible changes. Release notes and version bumps come from these messages: `feat` bumps the minor version, `fix` and `perf` the patch version, and breaking changes the major version (the minor version before 1.0). A commit counts towards a component when it touches the component's files and isn't scoped to another component.
+
+## Releases
+
+On an up-to-date `main`, run `make release COMPONENT=api DRY_RUN=1` to preview the next version and changelog section, then `make release COMPONENT=api` to commit and tag it. Add `INCREMENT=MINOR` (or `PATCH`, `MAJOR`) to override the computed increment. Push the commit and tag together with the `git push --atomic` command it prints; CI publishes the image and the GitHub Release.

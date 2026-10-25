@@ -75,3 +75,9 @@ class PersonPage(BaseModel):
     total: int
     offset: int
     limit: int
+
+
+class ErrorResponse(BaseModel):
+    """The body of every 404 and 409 response."""
+
+    detail: str

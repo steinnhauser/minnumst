@@ -18,6 +18,7 @@ from minnumst_api.schemas import (
     BlogRevisionInput,
     BlogRevisionResponse,
     BlogSummary,
+    ErrorResponse,
     PersonCreate,
     PersonDetail,
     PersonPage,
@@ -26,6 +27,10 @@ from minnumst_api.schemas import (
 )
 
 router = APIRouter(prefix="/api")
+# Documented error responses, so the OpenAPI contract and generated clients
+# know every status a route can return.
+NOT_FOUND = {404: {"model": ErrorResponse, "description": "Person or story not found"}}
+CONFLICT = {409: {"model": ErrorResponse, "description": "Conflicts with stored data"}}
 SessionDep = Annotated[Session, Depends(get_session)]
 logger = logging.getLogger(__name__)
 
@@ -113,7 +118,10 @@ def list_people(
 
 
 @router.post(
-    "/people", response_model=PersonResponse, status_code=status.HTTP_201_CREATED
+    "/people",
+    response_model=PersonResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=CONFLICT,
 )
 def create_person(payload: PersonCreate, session: SessionDep) -> PersonResponse:
     person = Person(
@@ -137,7 +145,7 @@ def create_person(payload: PersonCreate, session: SessionDep) -> PersonResponse:
     return person_response(person)
 
 
-@router.get("/people/by-slug/{slug}", response_model=PersonDetail)
+@router.get("/people/by-slug/{slug}", response_model=PersonDetail, responses=NOT_FOUND)
 def get_person_by_slug(slug: str, session: SessionDep) -> PersonDetail:
     person = session.scalar(
         select(Person)
@@ -157,7 +165,7 @@ def get_person_by_slug(slug: str, session: SessionDep) -> PersonDetail:
     )
 
 
-@router.get("/people/{person_id}", response_model=PersonDetail)
+@router.get("/people/{person_id}", response_model=PersonDetail, responses=NOT_FOUND)
 def read_person(person_id: UUID, session: SessionDep) -> PersonDetail:
     person = get_person(session, person_id)
     logger.debug("Person loaded person_id=%s", person.id)
@@ -170,7 +178,11 @@ def read_person(person_id: UUID, session: SessionDep) -> PersonDetail:
     )
 
 
-@router.patch("/people/{person_id}", response_model=PersonResponse)
+@router.patch(
+    "/people/{person_id}",
+    response_model=PersonResponse,
+    responses=NOT_FOUND | CONFLICT,
+)
 def update_person(
     person_id: UUID, payload: PersonUpdate, session: SessionDep
 ) -> PersonResponse:
@@ -204,7 +216,9 @@ def update_person(
     return person_response(updated_person)
 
 
-@router.get("/people/{person_id}/blog", response_model=BlogResponse)
+@router.get(
+    "/people/{person_id}/blog", response_model=BlogResponse, responses=NOT_FOUND
+)
 def read_blog(person_id: UUID, session: SessionDep) -> BlogResponse:
     person = get_person(session, person_id)
     if person.blog is None:
@@ -220,7 +234,9 @@ def read_blog(person_id: UUID, session: SessionDep) -> BlogResponse:
     return blog_response(person.blog)
 
 
-@router.put("/people/{person_id}/blog", response_model=BlogResponse)
+@router.put(
+    "/people/{person_id}/blog", response_model=BlogResponse, responses=NOT_FOUND
+)
 def save_blog(
     person_id: UUID, payload: BlogRevisionInput, session: SessionDep
 ) -> BlogResponse:
@@ -263,7 +279,9 @@ def save_blog(
 
 
 @router.get(
-    "/people/{person_id}/blog/revisions", response_model=list[BlogRevisionResponse]
+    "/people/{person_id}/blog/revisions",
+    response_model=list[BlogRevisionResponse],
+    responses=NOT_FOUND,
 )
 def list_blog_revisions(
     person_id: UUID, session: SessionDep
@@ -291,7 +309,11 @@ def list_blog_revisions(
     return revisions
 
 
-@router.delete("/people/{person_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/people/{person_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=NOT_FOUND | CONFLICT,
+)
 def delete_person(person_id: UUID, session: SessionDep) -> Response:
     person = get_person(session, person_id)
     if person.blog is not None:

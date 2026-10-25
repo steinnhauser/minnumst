@@ -35,6 +35,10 @@ host_public_tcp_ports: [80, 443]
 # Keep true unless the host gets its IPv6 address by SLAAC.
 host_disable_ipv6_router_advertisements: true
 
+# File integrity (CIS 6.3, NIST SI-7). Recording the first AIDE baseline scans
+# the whole filesystem and takes minutes.
+host_aide_baseline: true
+
 # Auditing (CIS 6.2, NIST AU-2, AU-9). Immutable rules can only change with a reboot.
 host_audit_rules_immutable: true
 

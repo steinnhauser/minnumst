@@ -16,6 +16,10 @@
   ansible.builtin.command:
     argv: [aideinit, --yes, --force]
     creates: /var/lib/aide/aide.db
+  # A full filesystem scan; run it detached so a slow scan can't drop SSH.
+  async: 3600
+  poll: 30
+  when: host_aide_baseline
 
 - name: Check file integrity daily (CIS 6.3)
   ansible.builtin.systemd_service:

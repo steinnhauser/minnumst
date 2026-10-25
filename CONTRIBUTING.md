@@ -38,6 +38,8 @@ Run `make validate` before opening a pull request, and `make stack-test` as well
 
 When an API route or schema changes, run `make openapi`. It regenerates `api/openapi.json` and the TypeScript types in `packages/api-types/`, which both frontends compile against, so a contract change that breaks a frontend fails its type check. Update the frontends in the same pull request; `make openapi-check` (in CI) fails if either generated file is stale.
 
+When a model changes, run `make migration MESSAGE="describe the change"`, review the generated file in `api/src/minnumst_api/migrations/versions/`, and grant any new table to the runtime role in the same migration. `make test` fails if the models and the migrations disagree.
+
 ## Development servers
 
 Run each server in its own terminal. The defaults connect them to each other; override a setting with an environment variable or a `.env` file in the component's folder.

@@ -130,14 +130,12 @@ The `e2e` job tests the API only. No test loads either frontend in a browser aga
 - [ ] Add automated accessibility checks (axe) to those flows, at desktop and phone widths.
 - [ ] Set coverage thresholds for pytest and Vitest at the current level, so coverage can only go up.
 
-## 5. Introduce database migrations
+## 5. Database migrations and roles
 
 PostgreSQL replaced MariaDB before the first deployment, for its SCRAM-SHA-256 authentication, role and privilege model, native UUIDs, a fully unprivileged container, and its tooling (Alembic, CloudNativePG for item 10). The API connects with `psycopg` 3.
 
-- [ ] Replace `create_all` at startup with Alembic. Add a baseline migration that matches the current schema on both PostgreSQL and SQLite, and test it in CI (upgrade from empty, and a downgrade smoke test).
-- [ ] Decide where migrations run in deployment: a one-off `api` container step in `site.yml` before `up`, not on every replica start. Document how to roll back.
-- [ ] Do this before any schema change, including the media contract in the component backlog.
-- [ ] With migrations in place, split the database roles: a migration role that owns the schema, and a runtime role for the API with only `SELECT`/`INSERT` on `blog_revisions` (append-only enforced by privileges) and the minimum on the other tables. `create_all` at startup currently needs the API role to own the schema.
+- [x] Alembic migrations ship inside the API package and replace `create_all`. A one-shot `migrate` service applies them before the API starts; `make migration MESSAGE=…` generates new ones; tests check that the migrations match the models and downgrade cleanly.
+- [x] Separate roles: a migration role owns the schema; the API's runtime role gets only the privileges it needs, with `blog_revisions` insert-only. The PostgreSQL test proves the runtime role can't rewrite or delete revisions or change the schema, and the edge test asserts the API doesn't connect as the owner.
 - [ ] Use TLS between the API and PostgreSQL if the database ever leaves the internal `backend` network (for example a managed database).
 
 ## 6. Backups with a tested restore

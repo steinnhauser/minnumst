@@ -37,12 +37,8 @@ describe("admin API client", () => {
     ]);
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/people?offset=0&limit=100",
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          "Content-Type": "application/json",
-          "X-Request-ID": expect.any(String),
-        }),
-      }),
+      // Reads send the Authentik session cookie and need no CORS preflight.
+      expect.objectContaining({ credentials: "include" }),
     );
   });
 

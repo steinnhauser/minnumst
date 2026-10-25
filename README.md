@@ -31,16 +31,16 @@ It is self-hosted with Ansible and Docker Compose behind Traefik, with Authentik
                    deployed by deploy/ (Ansible, Docker Compose, ansible-vault)
 ```
 
-| Path                                                 | What it is                                                                         | Stack                                                                   |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| [`api/`](api/)                                       | Data API: people and append-only story revisions                                   | Python 3.13, FastAPI, SQLAlchemy, PostgreSQL (SQLite locally)           |
-| [`web/`](web/)                                       | Public, read-only archive with search                                              | React, TypeScript, Vite, Vitest                                         |
-| [`admin/`](admin/)                                   | Editorial desk for creating people and writing story revisions                     | React, TypeScript, Vite, Vitest                                         |
-| [`packages/static-server/`](packages/static-server/) | Static server, JSON request logs and runtime config shared by both frontend images | Node.js, Pino                                                           |
-| [`packages/api-types/`](packages/api-types/)         | TypeScript types generated from the API's OpenAPI contract, used by both frontends | TypeScript (openapi-typescript)                                         |
-| [`docker/`](docker/)                                 | Image definitions: one for the API, one for both frontends                         | Docker                                                                  |
-| [`deploy/`](deploy/)                                 | Provisioning and deployment to Debian/Ubuntu hosts                                 | Ansible, Docker Compose, Traefik, Authentik forward-auth, ansible-vault |
-| [`tools/`](tools/)                                   | Local stack from the deploy Compose template, sample data, end-to-end tests        | Bash, Docker Compose                                                    |
+| Path                                                 | What it is                                                                                        | Stack                                                                   |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [`api/`](api/)                                       | Data API: people and append-only story revisions                                                  | Python 3.13, FastAPI, SQLAlchemy, PostgreSQL (SQLite locally)           |
+| [`web/`](web/)                                       | Public, read-only archive with search                                                             | React, TypeScript, Vite, Vitest                                         |
+| [`admin/`](admin/)                                   | Editorial desk for creating people and writing story revisions                                    | React, TypeScript, Vite, Vitest                                         |
+| [`packages/static-server/`](packages/static-server/) | Static server, JSON request logs and runtime config shared by both frontend images                | Node.js, Pino                                                           |
+| [`packages/api-client/`](packages/api-client/)       | The frontends' API client: types generated from the OpenAPI contract and one shared fetch wrapper | TypeScript (openapi-typescript)                                         |
+| [`docker/`](docker/)                                 | Image definitions: one for the API, one for both frontends                                        | Docker                                                                  |
+| [`deploy/`](deploy/)                                 | Provisioning and deployment to Debian/Ubuntu hosts                                                | Ansible, Docker Compose, Traefik, Authentik forward-auth, ansible-vault |
+| [`tools/`](tools/)                                   | Local stack from the deploy Compose template, sample data, end-to-end tests                       | Bash, Docker Compose                                                    |
 
 Each service ships as a non-root container image that logs structured JSON. The frontends read their API URL at runtime, so one image works in every environment.
 

@@ -135,6 +135,7 @@ function App() {
                 <input
                   id="person-search"
                   type="search"
+                  maxLength={255}
                   role="combobox"
                   aria-autocomplete="list"
                   aria-expanded={suggestions.length > 0}

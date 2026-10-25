@@ -82,7 +82,7 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 
 ### 2.1 One source of truth for the contract
 
-- [x] Generate TypeScript types from `api/openapi.json` into `packages/api-types` (openapi-typescript, readonly). Both frontends compile against them, and `make openapi-check` fails when the spec or the types are stale.
+- [x] Generate TypeScript types from `api/openapi.json` into `packages/api-client` (openapi-typescript, readonly). Both frontends compile against them, and `make openapi-check` fails when the spec or the types are stale.
 - [ ] Type the mocked responses in `web/src/api.test.ts` (and admin's) against the generated types, so a fixture can't describe a response shape the API doesn't return.
 - [x] Declare the error responses in the OpenAPI spec: every route documents its `404` and `409` with a shared `ErrorResponse` model.
 - [ ] Make a change to `api/openapi.json` count as a frontend change once path filters exist (item 1.3).
@@ -103,12 +103,12 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 ### 2.3 Fix the drift found so far
 
 - [x] **API version:** the spec reported a hard-coded `0.1.0`. It now reads the package version, and `make release` regenerates `openapi.json`.
-- [ ] **Validation errors:** `422` responses carry `detail` as a list, which both clients replace with "The Minnumst API returned 422." Either format the first validation message in the client, or return a single error shape from the API for every 4xx. Add `maxLength={255}` to the web search input to match the API's `query` limit.
+- [x] **Validation errors:** the shared client shows the first validation message instead of a bare status, and the web search input is capped at the API's 255 characters.
 - [ ] **Result limits:** `web` asks for 50 results and shows "Showing 50 of N people" without a way to see the rest. Either page through results with `offset`, or tell the reader to refine the search. Document the API's bounds (`limit` 1 to 100, empty `query` returns everyone in name order) in the route descriptions.
 - [ ] **Slugs:** `PATCH /api/people/{id}` renames a person but keeps the old slug. Decide whether slugs are permanent public identifiers (and document that) or whether renames create a new slug that redirects from the old one. Then give `web` real profile URLs (`/people/<slug>` with a history-API route; the shared static server already falls back to `index.html`), so profiles can be linked and bookmarked. Today, `by-slug` is only reached by clicking a search result.
 - [ ] **Unused routes:** no client calls `GET /api/people/{id}`, `GET /api/people/{id}/blog` or `DELETE /api/people/{id}`. For each, either use it (for example, admin could load one person instead of paging through everyone) or document why it exists. `DELETE` only removes a person without a story, returns 409 otherwise, and goes through Authentik. Make sure the docs say this and that no UI implies stories or revisions can be deleted.
-- [ ] **Request IDs:** both clients send `X-Request-ID`, and the API validates it, echoes it and exposes it through CORS. Document it as a header parameter in the spec, and show it in client error messages so a reader's report can be matched to a log line.
-- [ ] **Admin, before deploying:** cross-origin writes through Authentik forward-auth need `credentials: "include"` in `admin/src/api.ts` and `allow_credentials=True` (with explicit origins) in the API's CORS settings. Neither is set. Also, admin sends `Content-Type: application/json` on GET requests, which triggers a CORS preflight on every read.
+- [x] **Request IDs:** every request carries an `X-Request-ID`, and client errors keep the ID (from the response) so a report can be matched to a log line. Still open: show it in the admin UI.
+- [x] **Cross-origin admin writes:** the admin client sends credentials, so the Authentik session cookie reaches the API's hostname, and the API allows credentials for its configured origins only (tested, including that unlisted origins get no CORS headers). Reads send no `Content-Type`, so they need no preflight.
 
 ### 2.4 Process
 

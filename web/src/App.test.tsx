@@ -82,19 +82,11 @@ describe("public people search", () => {
       expect.stringContaining(
         "/api/people?query=Ada+Lovelace&offset=0&limit=50",
       ),
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          "X-Request-ID": expect.any(String),
-        }),
-      }),
+      expect.anything(),
     );
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/people/by-slug/ada-lovelace",
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          "X-Request-ID": expect.any(String),
-        }),
-      }),
+      expect.anything(),
     );
   });
 
@@ -138,11 +130,7 @@ describe("public people search", () => {
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/people?query=Ada&offset=0&limit=8",
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          "X-Request-ID": expect.any(String),
-        }),
-      }),
+      expect.anything(),
     );
     expect(
       fetchMock.mock.calls.filter(([input]) =>

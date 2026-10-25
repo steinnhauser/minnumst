@@ -1,4 +1,4 @@
-import type { components } from "@minnumst/api-types";
+import { createRequest, type components } from "@minnumst/api-client";
 import { appConfig } from "./config";
 
 export type PostRevision = {
@@ -36,41 +36,12 @@ type ApiRevision = Schemas["BlogRevisionResponse"];
 type ApiPersonPage = Schemas["PersonPage"];
 type ApiBlogResponse = Schemas["BlogResponse"];
 
-const apiBaseUrl = (appConfig.apiUrl || "http://127.0.0.1:8000").replace(
-  /\/+$/,
-  "",
-);
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(`${apiBaseUrl}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        "X-Request-ID": crypto.randomUUID(),
-        ...init?.headers,
-      },
-    });
-  } catch {
-    throw new Error(
-      "Could not reach the Minnumst API. Check that it is running.",
-    );
-  }
-
-  if (!response.ok) {
-    let message = `The Minnumst API returned ${response.status}.`;
-    try {
-      const body = (await response.json()) as { detail?: unknown };
-      if (typeof body.detail === "string") message = body.detail;
-    } catch {
-      // Keep the status-based message when the API response is not JSON.
-    }
-    throw new Error(message);
-  }
-
-  return (await response.json()) as T;
-}
+// The admin and the API are on different hostnames; "include" sends the
+// Authentik session cookie that authorises writes.
+const request = createRequest({
+  baseUrl: appConfig.apiUrl,
+  credentials: "include",
+});
 
 function mapPerson(person: ApiPerson): PersonPost {
   return {

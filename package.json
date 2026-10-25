@@ -22,7 +22,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "build": "npm run build --workspaces --if-present",
-    "openapi:types": "openapi-typescript api/openapi.json --immutable --output packages/api-types/openapi.d.ts"
+    "openapi:types": "openapi-typescript api/openapi.json --immutable --output packages/api-client/openapi.d.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

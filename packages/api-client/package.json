@@ -1,12 +1,9 @@
 {
-  "name": "@minnumst/api-types",
-  "description": "TypeScript types generated from api/openapi.json by `make openapi`",
+  "name": "@minnumst/api-client",
+  "description": "The frontends' API client: types generated from api/openapi.json by `make openapi`, and one fetch wrapper",
   "private": true,
   "type": "module",
-  "types": "./openapi.d.ts",
   "exports": {
-    ".": {
-      "types": "./openapi.d.ts"
-    }
+    ".": "./index.ts"
   }
 }

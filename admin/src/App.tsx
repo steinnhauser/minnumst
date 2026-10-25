@@ -298,7 +298,7 @@ function App() {
             <Info size={17} aria-hidden="true" />
             <p>
               <strong>Shared archive.</strong> People and story revisions are
-              loaded from the central API and saved to MariaDB.
+              loaded from and saved through the central API.
             </p>
           </div>
 

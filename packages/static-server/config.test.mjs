@@ -6,7 +6,7 @@ describe("runtime configuration", () => {
     const env = {
       RUNTIME_CONFIG_KEYS: "VITE_API_URL DEBUG",
       VITE_API_URL: "https://api.example.org",
-      DATABASE_URL: "mysql://secret",
+      DATABASE_URL: "postgresql://secret",
     };
     expect(runtimeConfigScript(env)).toBe(
       'window.__MINNUMST_ENV__ = {"VITE_API_URL":"https://api.example.org","DEBUG":""};\n',

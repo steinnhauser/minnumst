@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.13"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -762,7 +762,7 @@ wheels = [
 
 [[package]]
 name = "minnumst-api"
-version = "0.1.2"
+version = "0.2.0"
 source = { editable = "api" }
 dependencies = [
     { name = "fastapi" },

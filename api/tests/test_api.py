@@ -2,17 +2,24 @@ import logging
 from collections.abc import Iterator
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from minnumst_api.config import settings
 from minnumst_api.logging_config import configure_logging
 from minnumst_api.main import create_app
+from minnumst_api.migrate import upgrade
+
+
+def migrated_app() -> FastAPI:
+    app = create_app(database_url="sqlite://")
+    upgrade(app.state.engine)
+    return app
 
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
-    app = create_app(database_url="sqlite://", create_tables=True)
-    with TestClient(app) as test_client:
+    with TestClient(migrated_app()) as test_client:
         yield test_client
 
 
@@ -137,7 +144,7 @@ def test_successful_health_checks_are_debug_level(
 
 def test_cors_allows_and_exposes_request_id(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "cors_origins", "https://public.example")
-    app = create_app(database_url="sqlite://", create_tables=True)
+    app = migrated_app()
 
     with TestClient(app) as test_client:
         preflight = test_client.options(

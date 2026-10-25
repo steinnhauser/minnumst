@@ -34,13 +34,20 @@ The checked-in contract is [`openapi.json`](openapi.json). `make openapi-check` 
 
 ## Configuration
 
-| Variable       | Default                   | Purpose                                                                      |
-| -------------- | ------------------------- | ---------------------------------------------------------------------------- |
-| `DATABASE_URL` | `sqlite:///./minnumst.db` | SQLAlchemy URL, e.g. `postgresql+psycopg://user:pass@postgres:5432/minnumst` |
-| `CORS_ORIGINS` | empty                     | Comma-separated origins of the two frontends                                 |
-| `LOG_LEVEL`    | `INFO`                    | `DEBUG`, `INFO`, `WARNING` or `ERROR`                                        |
+| Variable                | Default                   | Purpose                                                                      |
+| ----------------------- | ------------------------- | ---------------------------------------------------------------------------- |
+| `DATABASE_URL`          | `sqlite:///./minnumst.db` | SQLAlchemy URL, e.g. `postgresql+psycopg://user:pass@postgres:5432/minnumst` |
+| `CORS_ORIGINS`          | empty                     | Comma-separated origins of the two frontends                                 |
+| `LOG_LEVEL`             | `INFO`                    | `DEBUG`, `INFO`, `WARNING` or `ERROR`                                        |
+| `DATABASE_RUNTIME_ROLE` | empty                     | For migrations: the PostgreSQL role that receives the API's privileges       |
 
-Tables are created on startup (`create_all`); add versioned migrations before changing the schema of a database that holds real data.
+## Schema and migrations
+
+The schema comes from Alembic migrations in [`src/minnumst_api/migrations/`](src/minnumst_api/migrations/), shipped inside the package, so the image needs no extra files. `python -m minnumst_api.migrate` applies them; in deployment a one-shot `migrate` service runs it before the API starts, and `make dev-api` runs it against SQLite.
+
+Migrations run as a role that owns the schema. They grant the API's runtime role (`DATABASE_RUNTIME_ROLE`) only what it needs: full access to `people`, read, insert and lock on `blog_posts`, and **only `SELECT` and `INSERT` on `blog_revisions`**. Story history is therefore append-only in the database itself, not just in the code: the PostgreSQL test connects as the runtime role and checks that updating or deleting revisions, deleting stories, dropping tables and creating tables are all refused.
+
+After changing the models, run `make migration MESSAGE="describe the change"` to generate the migration, review it, and commit it. A test fails if the migrations and the models ever disagree, and another checks that they downgrade cleanly.
 
 Logs are one JSON object per line on stdout. Request records carry a validated `X-Request-ID` (echoed in the response), method, route template, status and duration. Query values, bodies, credentials and slugs are never logged.
 

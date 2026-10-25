@@ -9,14 +9,12 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from minnumst_api.api import router
 from minnumst_api.config import settings
 from minnumst_api.database import make_engine, make_session_factory
 from minnumst_api.logging_config import configure_logging, request_id_context
-from minnumst_api.models import Base
 
 logger = logging.getLogger(__name__)
 REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
@@ -59,7 +57,8 @@ class RequestContextMiddleware:
             request_id_context.reset(context_token)
 
 
-def create_app(database_url: str | None = None, create_tables: bool = True) -> FastAPI:
+def create_app(database_url: str | None = None) -> FastAPI:
+    """The API. Its schema comes from migrations (`python -m minnumst_api.migrate`)."""
     configure_logging(settings.log_level)
     engine = make_engine(database_url)
     session_factory = make_session_factory(engine)
@@ -67,14 +66,6 @@ def create_app(database_url: str | None = None, create_tables: bool = True) -> F
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         logger.info("Starting Minnumst API")
-        if create_tables:
-            try:
-                Base.metadata.create_all(engine)
-            except SQLAlchemyError:
-                logger.exception("Database schema initialization failed")
-                engine.dispose()
-                raise
-            logger.info("Database schema is ready")
         try:
             yield
         finally:

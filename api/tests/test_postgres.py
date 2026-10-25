@@ -3,14 +3,23 @@ from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ProgrammingError
 from testcontainers.community.postgres import PostgresContainer
 
+from minnumst_api.config import settings
+from minnumst_api.database import make_engine
 from minnumst_api.main import create_app
-from minnumst_api.models import Base
+from minnumst_api.migrate import downgrade, upgrade
+
+RUNTIME_ROLE = "minnumst_runtime"
+INSUFFICIENT_PRIVILEGE = "42501"
 
 
 @pytest.fixture(scope="module")
-def postgres_url() -> Iterator[str]:
+def database_urls() -> Iterator[tuple[str, str]]:
+    """The schema owner's URL (migrations) and the API runtime role's URL."""
     if os.getenv("RUN_POSTGRES_TESTS") != "1":
         pytest.skip("Run with `make test-postgres` to enable PostgreSQL tests")
 
@@ -21,17 +30,60 @@ def postgres_url() -> Iterator[str]:
         dbname="minnumst",
         driver="psycopg",
     ) as database:
-        yield database.get_connection_url()
+        owner_url = database.get_connection_url()
+        owner = make_engine(owner_url)
+        with owner.begin() as connection:
+            connection.execute(
+                text(f"CREATE ROLE {RUNTIME_ROLE} LOGIN PASSWORD 'runtime-test'")
+            )
+        owner.dispose()
+        runtime_url = make_url(owner_url).set(
+            username=RUNTIME_ROLE, password="runtime-test"
+        )
+        yield owner_url, runtime_url.render_as_string(hide_password=False)
 
 
 @pytest.fixture
-def postgres_client(postgres_url: str) -> Iterator[TestClient]:
-    app = create_app(database_url=postgres_url, create_tables=True)
-    with TestClient(app) as test_client:
-        engine = app.state.engine
-        Base.metadata.drop_all(engine)
-        Base.metadata.create_all(engine)
+def postgres_client(
+    database_urls: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+) -> Iterator[TestClient]:
+    owner_url, runtime_url = database_urls
+    monkeypatch.setattr(settings, "database_runtime_role", RUNTIME_ROLE)
+    owner = make_engine(owner_url)
+    downgrade(owner)
+    upgrade(owner)
+    owner.dispose()
+    with TestClient(create_app(database_url=runtime_url)) as test_client:
         yield test_client
+
+
+def test_runtime_role_cannot_rewrite_history_or_the_schema(
+    postgres_client: TestClient, database_urls: tuple[str, str]
+) -> None:
+    person = postgres_client.post("/api/people", json={"name": "Jón Jónsson"}).json()
+    saved = postgres_client.put(
+        f"/api/people/{person['id']}/blog",
+        json={"title": "A story", "content": "The first version."},
+    )
+    assert saved.status_code == 200
+
+    runtime = make_engine(database_urls[1])
+    for statement in (
+        "UPDATE blog_revisions SET content = 'rewritten'",
+        "DELETE FROM blog_revisions",
+        "DELETE FROM blog_posts",
+        "DROP TABLE people",
+        "CREATE TABLE intruder (id int)",
+    ):
+        with runtime.connect() as connection, pytest.raises(ProgrammingError) as error:
+            connection.execute(text(statement))
+        assert error.value.orig.sqlstate == INSUFFICIENT_PRIVILEGE, statement
+    runtime.dispose()
+
+    history = postgres_client.get(f"/api/people/{person['id']}/blog/revisions")
+    assert [revision["content"] for revision in history.json()] == [
+        "The first version."
+    ]
 
 
 def test_admin_writes_persist_and_public_reads_return_current_data(

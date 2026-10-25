@@ -13,7 +13,7 @@ VAULT_ARGS ?= --ask-vault-pass
 unexport VIRTUAL_ENV
 
 .PHONY: help install format format-check lint test test-api test-postgres test-frontends \
-	openapi openapi-check build validate clean ci \
+	openapi openapi-check migration build validate clean ci \
 	dev-api dev-web dev-admin \
 	stack-config up wait seed e2e edge stack-test ps logs down db-update db-clear db-reset \
 	deploy-check deploy release
@@ -29,6 +29,7 @@ help:
 	  '  test-postgres    API tests against PostgreSQL in a container (needs Docker)' \
 	  '  openapi         Regenerate api/openapi.json and the TypeScript types generated from it' \
 	  '  openapi-check   Fail if the spec or the generated types are out of date' \
+	  '  migration       Generate a database migration from the models (MESSAGE="…")' \
 	  '  build           Build the API wheel and both frontends' \
 	  '  validate        All of the above, as CI runs it (needs Docker)' \
 	  '  clean           Remove build and test output' \
@@ -99,6 +100,10 @@ openapi-check:
 	$(UV_RUN) python api/scripts/generate_openapi.py --check
 	npm run --silent openapi:types -- --check
 
+migration:
+	@test -n "$(MESSAGE)" || { echo 'Usage: make migration MESSAGE="describe the change"'; exit 2; }
+	cd api && $(UV_RUN) python -m minnumst_api.migrate revision "$(MESSAGE)"
+
 build:
 	uv build --package minnumst-api --out-dir api/dist
 	npm run build
@@ -114,6 +119,7 @@ ci:
 	$(MAKE) stack-test
 
 dev-api:
+	cd api && $(UV_RUN) python -m minnumst_api.migrate
 	cd api && CORS_ORIGINS=http://127.0.0.1:5173,http://127.0.0.1:5174 $(UV_RUN) uvicorn minnumst_api.main:app --app-dir src --reload --host 127.0.0.1 --port 8000
 
 dev-web:

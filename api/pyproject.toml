@@ -1,6 +1,7 @@
 [project]
 authors = [{name = "Steinn Hauser Magnússon", email = "hausersteinn@gmail.com"}]
 dependencies = [
+  "alembic>=1.16,<2.0",
   "fastapi>=0.115,<1.0",
   "pydantic-settings>=2.6,<3.0",
   "psycopg[binary]>=3.2,<4.0",

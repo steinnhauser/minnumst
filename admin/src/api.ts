@@ -133,9 +133,8 @@ export async function loadPeople(): Promise<PersonPost[]> {
   const people: PersonPost[] = [];
   const limit = 100;
   let offset = 0;
-  let total = 0;
 
-  do {
+  for (;;) {
     const params = new URLSearchParams({
       offset: String(offset),
       limit: String(limit),
@@ -144,12 +143,9 @@ export async function loadPeople(): Promise<PersonPost[]> {
       `/api/people?${params.toString()}`,
     );
     people.push(...page.items.map(mapPerson));
-    total = page.total;
     offset += page.items.length;
-    if (page.items.length === 0) break;
-  } while (offset < total);
-
-  return people;
+    if (page.items.length === 0 || offset >= page.total) return people;
+  }
 }
 
 export async function createPerson(name: string): Promise<PersonPost> {

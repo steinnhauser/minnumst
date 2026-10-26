@@ -109,3 +109,12 @@
         argv: [mount, "{{ host_data_mount }}"]
       when: host_data_mounted.rc != 0
       changed_when: true
+
+    # The mounted filesystem's root replaces the directory created above.
+    - name: Restrict the mounted volume's root directory
+      ansible.builtin.file:
+        path: "{{ host_data_mount }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0711"

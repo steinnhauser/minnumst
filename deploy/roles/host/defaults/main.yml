@@ -7,9 +7,13 @@
 host_supported_distribution: Ubuntu
 host_supported_version: "24.04"
 
-# NIST SC-28: data at rest. Refuse to deploy unless / is on a LUKS (dm-crypt)
-# volume, set up when the OS is installed.
+# NIST SC-28: data at rest. Either / is on LUKS (set up when the OS is
+# installed), or host_data_device names a block device that this role encrypts
+# with LUKS2 and mounts at host_data_mount, where Docker's data and the backups
+# then live. The infra/ inventory sets host_data_device to the Hetzner volume.
 host_require_disk_encryption: true
+host_data_device: ""
+host_data_mount: /srv/minnumst
 
 # NIST SI-2: flaw remediation. Upgrade everything now, then install security
 # and Docker updates automatically, rebooting in a maintenance window if needed.

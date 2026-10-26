@@ -15,6 +15,7 @@
       - apparmor-utils
       - auditd
       - chrony
+      - cryptsetup
       - debsums
       - libpam-pwquality
       - needrestart

@@ -1,4 +1,7 @@
 {
+{% if docker_data_root %}
+  "data-root": {{ docker_data_root | to_json }},
+{% endif %}
   "icc": false,
   "live-restore": true,
   "no-new-privileges": true,

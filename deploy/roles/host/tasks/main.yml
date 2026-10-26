@@ -5,6 +5,9 @@
 - name: Keep packages minimal and up to date
   ansible.builtin.import_tasks: packages.yml
 
+- name: Encrypt and mount the data volume
+  ansible.builtin.import_tasks: data_volume.yml
+
 - name: Harden the kernel, filesystems and process limits
   ansible.builtin.import_tasks: kernel.yml
 

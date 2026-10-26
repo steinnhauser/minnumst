@@ -14,7 +14,7 @@
     argv: [findmnt, --noheadings, --output, SOURCE, /]
   register: host_root_source
   changed_when: false
-  when: host_require_disk_encryption
+  when: host_require_disk_encryption and not host_data_device
 
 - name: List the block devices the root filesystem sits on
   ansible.builtin.command:
@@ -29,16 +29,16 @@
       ]
   register: host_root_stack
   changed_when: false
-  when: host_require_disk_encryption
+  when: host_require_disk_encryption and not host_data_device
 
 - name: Require full-disk encryption (NIST SC-28)
   ansible.builtin.assert:
     that: "'crypt' in host_root_stack.stdout_lines | map('trim')"
     fail_msg: >-
       The root filesystem is not on a LUKS volume. Reinstall with "Encrypt the
-      LVM group" (see deploy/README.md), or set host_require_disk_encryption:
-      false for a host where the provider encrypts the disks.
-  when: host_require_disk_encryption
+      LVM group", or set host_data_device to a volume this role encrypts for
+      the data (see deploy/README.md).
+  when: host_require_disk_encryption and not host_data_device
 
 - name: Check that the Ansible user can log in with a key before passwords are disabled
   ansible.builtin.stat:

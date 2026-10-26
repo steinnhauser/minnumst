@@ -8,6 +8,7 @@
       !/var/lib/containerd
       !/var/backups/minnumst
       !/var/log
+      !{{ host_data_mount }}
     owner: root
     group: root
     mode: "0644"

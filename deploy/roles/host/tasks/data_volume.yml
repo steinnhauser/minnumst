@@ -1,0 +1,111 @@
+---
+# NIST SP 800-53 SC-28. The key lives on the root disk, readable by root only,
+# so the volume unlocks at boot. That protects the data when the volume is
+# detached, snapshotted or retired by the provider; it can't protect against
+# an attacker who already controls the running host.
+- name: Encrypt and mount the data volume
+  when: host_data_device | length > 0
+  block:
+    - name: Create the key directory, readable by root only
+      ansible.builtin.file:
+        path: /etc/luks
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Generate the volume key
+      ansible.builtin.shell: |
+        set -euo pipefail
+        umask 077
+        head -c 64 /dev/urandom > /etc/luks/minnumst-data.key
+      args:
+        executable: /bin/bash
+        creates: /etc/luks/minnumst-data.key
+
+    - name: Check whether the volume is already encrypted
+      ansible.builtin.command:
+        argv: [cryptsetup, isLuks, "{{ host_data_device }}"]
+      register: host_data_is_luks
+      changed_when: false
+      failed_when: host_data_is_luks.rc not in [0, 1]
+
+    - name: Encrypt the volume with LUKS2
+      ansible.builtin.command:
+        argv:
+          [
+            cryptsetup,
+            luksFormat,
+            --type,
+            luks2,
+            --batch-mode,
+            --key-file,
+            /etc/luks/minnumst-data.key,
+            "{{ host_data_device }}",
+          ]
+      when: host_data_is_luks.rc != 0
+      changed_when: true
+
+    - name: Unlock the volume at boot
+      ansible.builtin.lineinfile:
+        path: /etc/crypttab
+        regexp: "^minnumst-data\\s"
+        line: "minnumst-data {{ host_data_device }} /etc/luks/minnumst-data.key luks,discard"
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Unlock the volume now
+      ansible.builtin.command:
+        argv:
+          [
+            cryptsetup,
+            open,
+            --key-file,
+            /etc/luks/minnumst-data.key,
+            "{{ host_data_device }}",
+            minnumst-data,
+          ]
+        creates: /dev/mapper/minnumst-data
+
+    - name: Look for a filesystem on the volume
+      ansible.builtin.command:
+        argv:
+          [blkid, --output, value, --match-tag, TYPE, /dev/mapper/minnumst-data]
+      register: host_data_filesystem
+      changed_when: false
+      failed_when: host_data_filesystem.rc not in [0, 2]
+
+    - name: Create the filesystem
+      ansible.builtin.command:
+        argv: [mkfs.ext4, -L, minnumst-data, /dev/mapper/minnumst-data]
+      when: host_data_filesystem.stdout == ""
+      changed_when: true
+
+    - name: Create the mount point
+      ansible.builtin.file:
+        path: "{{ host_data_mount }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0711"
+
+    - name: Mount the volume at boot (without hanging boot if it can't unlock)
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        regexp: "^/dev/mapper/minnumst-data\\s"
+        line: "/dev/mapper/minnumst-data {{ host_data_mount }} ext4 defaults,noatime,nofail,x-systemd.device-timeout=30s 0 2"
+
+    - name: Check whether the volume is mounted
+      ansible.builtin.command:
+        argv: [findmnt, --noheadings, "{{ host_data_mount }}"]
+      register: host_data_mounted
+      changed_when: false
+      failed_when: false
+
+    - name: Mount the volume now
+      ansible.builtin.command:
+        argv: [mount, "{{ host_data_mount }}"]
+      when: host_data_mounted.rc != 0
+      changed_when: true

@@ -1,0 +1,4 @@
+---
+# On a host with an encrypted data volume (host_data_device), Docker keeps its
+# images, containers and volumes there, so PostgreSQL's data is encrypted too.
+docker_data_root: "{{ (host_data_mount ~ '/docker') if host_data_device | default('') | length > 0 else '' }}"

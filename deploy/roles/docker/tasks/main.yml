@@ -31,14 +31,44 @@
     signed_by: /etc/apt/keyrings/docker.asc
     state: present
 
+- name: Create Docker's configuration directory
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Harden the Docker daemon (CIS Docker Benchmark 2)
-  ansible.builtin.copy:
-    src: daemon.json
+  ansible.builtin.template:
+    src: daemon.json.j2
     dest: /etc/docker/daemon.json
     owner: root
     group: root
     mode: "0644"
   notify: Restart Docker
+
+- name: Keep Docker from starting without its encrypted data volume
+  when: docker_data_root | length > 0
+  block:
+    - name: Create the Docker service drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/docker.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Require the data volume to be mounted before Docker starts
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/docker.service.d/60-minnumst-data.conf
+        content: |
+          [Unit]
+          RequiresMountsFor={{ host_data_mount }}
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart Docker
 
 - name: Install Docker Engine and the Compose plugin
   ansible.builtin.apt:

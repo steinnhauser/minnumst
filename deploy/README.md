@@ -12,7 +12,7 @@ One machine with 2 vCPUs, 4 GB of memory and 40 GB of disk runs the stack comfor
 
 ## Setting up the host
 
-These steps happen once, before Ansible can take over:
+On Hetzner Cloud, [`infra/`](../infra/) does steps 1 and 2 for you: it creates the server, its firewall and an unformatted data volume, and `make infra-inventory` writes an inventory that names the volume, which the host role encrypts with LUKS2 and mounts at `/srv/minnumst` for Docker's data and the backups. Elsewhere, these steps happen once, before Ansible can take over:
 
 1. **Install with full-disk encryption** (NIST SC-28). In the Ubuntu Server installer, choose _Use an entire disk_ → _Set up this disk as an LVM group_ → _Encrypt the LVM group with LUKS_. The playbook checks that `/` is on a LUKS volume and refuses to continue otherwise. To unlock the disk after a remote reboot, install `dropbear-initramfs` with your SSH key in `/etc/dropbear/initramfs/authorized_keys`. If a provider can only offer its own disk encryption, set `host_require_disk_encryption: false` and record why.
 2. **Create an administrator** with `sudo` rights and an SSH key (Ed25519 or a hardware key), and log in with it once. The playbook disables password and root logins, and checks the key exists first, so it can't lock you out.

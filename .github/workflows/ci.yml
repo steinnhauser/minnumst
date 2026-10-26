@@ -64,6 +64,14 @@ jobs:
         with:
           persist-credentials: false
       - uses: $/.github/actions/setup
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: 1.13.2
+          tofu_wrapper: false
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.76.1
+          cache: true
       - run: make format-check lint openapi-check build
 
   tests:
@@ -191,19 +199,31 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq lynis
           sudo lynis audit system --quick --no-colors > "$RUNNER_TEMP/lynis-before.txt"
+      - name: Attach a scratch block device as the data volume
+        id: volume
+        run: |
+          truncate --size 512M "$RUNNER_TEMP/data.img"
+          echo "device=$(sudo losetup --find --show "$RUNNER_TEMP/data.img")" >> "$GITHUB_OUTPUT"
       - name: Apply the host role twice; the second run must change nothing
+        env:
+          DATA_DEVICE: ${{ steps.volume.outputs.device }}
         run: |
           printf '[minnumst]\nlocalhost ansible_connection=local\n' > "$RUNNER_TEMP/inventory"
-          # The runner's disk is not LUKS-encrypted, and upgrading every package,
-          # removing snapd or scanning its large filesystem for an AIDE baseline
-          # would only slow CI down.
+          # The loop device stands in for the encrypted data volume. Upgrading every
+          # package, removing snapd or scanning the runner's large filesystem for
+          # an AIDE baseline would only slow CI down.
           set -o pipefail
-          overrides='{"host_require_disk_encryption": false, "host_upgrade_packages": false, "host_remove_snapd": false, "host_aide_baseline": false}'
+          overrides=$(jq -nc --arg device "$DATA_DEVICE" \
+            '{host_data_device: $device, host_upgrade_packages: false, host_remove_snapd: false, host_aide_baseline: false}')
           for run in first second; do
             make deploy INVENTORY="$RUNNER_TEMP/inventory" VAULT_ARGS= ARGS="--tags host -e '$overrides'" \
               | tee "$RUNNER_TEMP/$run.log"
           done
           grep -E 'localhost +: ok=[0-9]+ +changed=0 +unreachable=0 +failed=0' "$RUNNER_TEMP/second.log"
+      - name: Check that the data volume is encrypted and mounted
+        run: |
+          sudo cryptsetup status minnumst-data | grep -E 'type: +LUKS2'
+          findmnt --noheadings --output SOURCE /srv/minnumst | grep -x /dev/mapper/minnumst-data
       - name: Score the hardened host
         run: |
           sudo lynis audit system --quick --no-colors > "$RUNNER_TEMP/lynis-after.txt"

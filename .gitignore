@@ -55,6 +55,12 @@ htmlcov/
 *.log
 *.local
 
+# OpenTofu: provider cache, plans and per-deployment settings (examples are tracked)
+.terraform/
+*.tfplan
+infra/terraform.tfvars
+infra/backend.hcl
+
 # Local Compose stack: rendered configuration and local credentials
 tools/compose/.local/
 tools/compose/local-vars.yml

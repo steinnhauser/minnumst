@@ -6,6 +6,7 @@
 
 UV_RUN := uv run --locked --all-packages
 COMPOSE := bash tools/scripts/compose.sh
+TOFU := tofu -chdir=infra
 INVENTORY ?= deploy/inventory/hosts.ini
 VAULT_ARGS ?= --ask-vault-pass
 
@@ -16,7 +17,7 @@ unexport VIRTUAL_ENV
 	openapi openapi-check migration build validate clean ci \
 	dev-api dev-web dev-admin \
 	stack-config up wait seed e2e edge backup-test browser stack-test ps logs down db-update db-clear db-reset \
-	deploy-check deploy release
+	deploy-check deploy release infra-check infra-plan infra-apply infra-inventory
 
 help:
 	@printf '%s\n' \
@@ -58,6 +59,12 @@ help:
 	  '  release         Version, changelog, commit and tag one component; never pushes' \
 	  '                  COMPONENT=api|web|admin|deploy [INCREMENT=MAJOR|MINOR|PATCH] [DRY_RUN=1]' \
 	  '' \
+	  'Infrastructure (OpenTofu, Hetzner Cloud; see infra/README.md)' \
+	  '  infra-check     Format check, validate and Trivy scan of infra/ (part of lint)' \
+	  '  infra-plan      Plan changes to the server, firewall and volume (needs credentials)' \
+	  '  infra-apply     Apply the saved plan' \
+	  '  infra-inventory Write deploy/inventory/hosts.ini from the infrastructure outputs' \
+	  '' \
 	  'Deployment' \
 	  '  deploy-check    ansible-lint and playbook syntax check' \
 	  '  deploy          Harden the host and deploy to INVENTORY (asks for the vault password; ARGS="--tags host" for one part)' \
@@ -77,7 +84,7 @@ format-check:
 	$(UV_RUN) ruff format --check .
 	npm run format:check
 
-lint: deploy-check
+lint: deploy-check infra-check
 	$(UV_RUN) ruff check .
 	npm run lint
 	$(UV_RUN) shellcheck tools/scripts/*.sh deploy/roles/*/files/*.sh
@@ -194,3 +201,20 @@ deploy:
 release:
 	@test -n "$(COMPONENT)" || { echo 'Usage: make release COMPONENT=api|web|admin|deploy [INCREMENT=…] [DRY_RUN=1]'; exit 2; }
 	$(UV_RUN) python tools/scripts/release.py bump $(COMPONENT) $(if $(INCREMENT),--increment $(INCREMENT)) $(if $(DRY_RUN),--dry-run)
+
+infra-check:
+	$(TOFU) fmt -check -recursive
+	$(TOFU) init -backend=false -input=false > /dev/null
+	$(TOFU) validate
+	trivy config --quiet --exit-code 1 --severity HIGH,CRITICAL infra
+
+infra-plan:
+	$(TOFU) init -input=false -backend-config=backend.hcl
+	$(TOFU) plan -out=minnumst.tfplan
+
+infra-apply:
+	$(TOFU) apply minnumst.tfplan
+
+infra-inventory:
+	$(TOFU) output -raw ansible_inventory > deploy/inventory/hosts.ini
+	@echo "Wrote deploy/inventory/hosts.ini"

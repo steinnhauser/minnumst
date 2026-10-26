@@ -1,0 +1,12 @@
+#cloud-config
+# Only bootstraps access for Ansible; deploy/ hardens and configures the rest.
+users:
+  - name: ${admin_user}
+    groups: [sudo]
+    shell: /bin/bash
+    lock_passwd: true
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - ${admin_ssh_public_key}
+disable_root: true
+ssh_pwauth: false

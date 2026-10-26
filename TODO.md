@@ -175,14 +175,15 @@ PostgreSQL replaced MariaDB before the first deployment, for its SCRAM-SHA-256 a
 
 ## 11. Provision the host as code (`infra/`)
 
-OpenTofu with the `hetznercloud/hcloud` provider, one environment, no Terragrunt (it pays off with many environments; here it would only add a layer). The goal: `tofu apply` creates the server that `make deploy` then hardens.
+OpenTofu with the `hetznercloud/hcloud` provider, one environment, no Terragrunt (it pays off with many environments; here it would only add a layer).
 
-- [ ] `infra/` with the server (Ubuntu 24.04), SSH key, primary IPv4/IPv6, and a Hetzner Cloud firewall allowing only 22, 80 and 443 (a second layer in front of nftables). Optionally the three DNS records.
-- [ ] Data at rest: Hetzner Cloud images can't be installed with LUKS, so attach a Hetzner Volume, encrypt it with LUKS in the `host` role, and keep PostgreSQL data and backups on it. The role then checks for the encrypted data volume instead of an encrypted root disk.
-- [ ] Minimal cloud-init: the administrator user and SSH key only; everything else stays in Ansible.
-- [ ] Remote state in Hetzner Object Storage (S3 backend) with OpenTofu's built-in state encryption; the API token only in the environment, never in files.
-- [ ] Generate the Ansible inventory from `tofu output`, so `make deploy` needs no hand-edited host file.
-- [ ] CI: `tofu fmt -check`, `tofu validate`, TFLint and Trivy's IaC scan in `make lint`. No `apply` in CI; plans and applies stay manual.
+- [x] `infra/` creates the Ubuntu 24.04 server (IPv4 and IPv6, Hetzner snapshots, deletion and rebuild protection), the admin SSH key, a Hetzner firewall allowing only 22 (from `ssh_source_ips`), 80, 443 and ICMP, and an unformatted data volume.
+- [x] Data at rest: the `host` role encrypts the data volume with LUKS2, mounts it at `/srv/minnumst`, and moves Docker's data and the backups onto it; Docker won't start without it. The encryption check accepts it in place of an encrypted root. CI tests this on a loop device.
+- [x] Minimal cloud-init (the administrator only), state in Hetzner Object Storage with OpenTofu's enforced state and plan encryption, credentials only in the environment.
+- [x] `make infra-inventory` writes the Ansible inventory, including the data volume, from `tofu output`.
+- [x] `make lint` (and CI) runs `tofu fmt -check`, `tofu validate` and Trivy's IaC scan; plans and applies stay manual (`make infra-plan`, `make infra-apply`).
+- [ ] DNS records as code, once the domain's DNS is hosted somewhere with a provider (Hetzner DNS or another).
+- [ ] TFLint with a ruleset for the hcloud provider, if one matures.
 
 ## Component backlog
 
@@ -223,6 +224,7 @@ Once these priorities are agreed, they can move to GitHub Issues with component 
 Steps that need the repository owner, because they depend on account access or decisions outside the code.
 
 - [ ] **Branch protection level:** `main` blocks force pushes and deletion. Requiring pull requests and the `ci-ok` check as well would stop direct pushes to `main`; decide whether to turn that on.
+- [ ] **Hetzner account:** a Cloud project with a read/write API token, an Object Storage bucket and keys for the OpenTofu state, and a state passphrase in your password manager (see [`infra/README.md`](infra/README.md)). Then `make infra-plan`, `make infra-apply` and `make infra-inventory` replace the host installation below.
 - [ ] **Install the host:** Ubuntu Server 24.04 LTS (minimal) with _Encrypt the LVM group with LUKS_, an administrator with an SSH key, and `dropbear-initramfs` to unlock the disk after a remote reboot. See [`deploy/README.md`](deploy/README.md#setting-up-the-host).
 - [ ] **Backup key and off-host storage:** run `age-keygen` on your own machine, keep the private key safe (a password manager or hardware key), and set the public key as `minnumst_backup_age_recipient`. Choose where encrypted dumps should be copied (object storage or another machine).
 - [ ] **Optional Ubuntu Pro:** attach a (free personal) token as `host_ubuntu_pro_token` in the vault for Livepatch and ESM.

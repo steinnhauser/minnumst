@@ -39,6 +39,7 @@ It is self-hosted with Ansible and Docker Compose behind Traefik, with Authentik
 | [`packages/static-server/`](packages/static-server/) | Static server, JSON request logs and runtime config shared by both frontend images                | Node.js, Pino                                                           |
 | [`packages/api-client/`](packages/api-client/)       | The frontends' API client: types generated from the OpenAPI contract and one shared fetch wrapper | TypeScript (openapi-typescript)                                         |
 | [`docker/`](docker/)                                 | Image definitions: one for the API, one for both frontends                                        | Docker                                                                  |
+| [`infra/`](infra/)                                   | Creates the Hetzner Cloud server, firewall and data volume, with encrypted state                  | OpenTofu, hcloud                                                        |
 | [`deploy/`](deploy/)                                 | Provisioning and deployment to Debian/Ubuntu hosts                                                | Ansible, Docker Compose, Traefik, Authentik forward-auth, ansible-vault |
 | [`tools/`](tools/)                                   | Local stack from the deploy Compose template, sample data, end-to-end tests                       | Bash, Docker Compose                                                    |
 
@@ -51,6 +52,7 @@ Minnumst is built so that the only thing reachable from the internet is a TLS-te
 | Layer               | Standard                                                                                                                  |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Host (Ubuntu 24.04) | CIS Ubuntu Linux 24.04 LTS Benchmark (Level 1 – Server, selected Level 2), NIST SP 800-53 Rev. 5; scored with Lynis in CI |
+| Infrastructure      | OpenTofu with encrypted state, provider firewall, IaC scanning with Trivy                                                 |
 | Containers          | CIS Docker Benchmark, NIST SP 800-190                                                                                     |
 | Web and API         | OWASP ASVS (security headers, authentication at the edge, input validation), OWASP Secure Headers                         |
 | Supply chain and CI | OpenSSF Scorecard practices (pinned actions, least-privilege tokens, dependency review, SAST), SLSA build provenance      |
@@ -92,7 +94,8 @@ Every host setting in [`deploy/`](deploy/) cites the CIS section and NIST contro
 
 **Host**
 
-- **One supported OS, encrypted.** Ubuntu Server 24.04 LTS on a LUKS-encrypted disk; the playbook refuses to deploy anywhere else.
+- **Provisioned as code.** [`infra/`](infra/) creates the server with OpenTofu: a Hetzner firewall in front of the host's own, deletion protection, and state that is encrypted before it leaves the operator's machine.
+- **One supported OS, encrypted.** Ubuntu Server 24.04 LTS; the playbook refuses to deploy unless the data is on LUKS, either the whole disk or a data volume it encrypts itself (the `infra/` setup).
 - **Always patched.** Security, Ubuntu and Docker updates install unattended, with an automatic reboot window and service restarts after library updates; Ubuntu Pro Livepatch is optional.
 - **Locked-down access.** SSH by key only, never as root, for one allow-listed group, with modern algorithms only; an nftables default-deny firewall with rate-limited SSH; `sudo` with its own log.
 - **A hardened kernel and minimal surface.** Kernel and network sysctls, unused filesystems and protocols disabled, no core dumps, AppArmor enforced, snapd and legacy clients removed.

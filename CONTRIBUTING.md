@@ -11,7 +11,7 @@ Thanks for contributing to Minnumst. Please discuss substantial changes in an is
 
 ## Setup
 
-Requirements: [uv](https://docs.astral.sh/uv/) (it installs the Python version in `.python-version`), Node.js 22 (`.nvmrc`) with npm, GNU Make, and Docker with Compose v2 for the PostgreSQL tests and the local stack.
+Requirements: [uv](https://docs.astral.sh/uv/) (it installs the Python version in `.python-version`), Node.js 22 (`.nvmrc`) with npm, GNU Make, [OpenTofu](https://opentofu.org) and [Trivy](https://trivy.dev) (for `make lint`'s check of `infra/`), and Docker with Compose v2 for the PostgreSQL tests and the local stack.
 
 ```sh
 make install
@@ -26,7 +26,7 @@ Dependencies are managed at the root as well. Add a Python dependency with `uv a
 | Command              | What it runs                                                                                                                                                |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `make format`        | Ruff (Python) and Prettier (TypeScript, JavaScript, CSS, Markdown, YAML, JSON)                                                                              |
-| `make lint`          | Ruff, ESLint, ShellCheck, ansible-lint and the playbook syntax check                                                                                        |
+| `make lint`          | Ruff, ESLint, ShellCheck, zizmor, ansible-lint, the playbook syntax check, and `tofu fmt`/`validate` plus a Trivy scan of `infra/`                          |
 | `make test`          | pytest on SQLite and Vitest for both frontends and the shared packages, failing if coverage drops below the current level (API 85%, frontends 70% of lines) |
 | `make test-postgres` | The API tests against PostgreSQL in a disposable container (Testcontainers)                                                                                 |
 | `make openapi-check` | Fails if `api/openapi.json` is stale; regenerate it with `make openapi`                                                                                     |

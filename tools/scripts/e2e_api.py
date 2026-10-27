@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -20,6 +21,8 @@ from minnumst_api.database import make_engine
 from minnumst_api.models import BlogPost, BlogRevision, Person
 
 API_URL = os.environ.get("MINNUMST_E2E_API_URL", "http://127.0.0.1:8000").rstrip("/")
+# Every (method, path) this run called, to check that no route goes untested.
+CALLED: set[tuple[str, str]] = set()
 
 
 def require_local_database() -> None:
@@ -39,6 +42,7 @@ def require_local_database() -> None:
 def request_json(
     method: str, path: str, payload: dict | None = None
 ) -> tuple[int, object | None]:
+    CALLED.add((method, path.partition("?")[0]))
     body = json.dumps(payload).encode() if payload is not None else None
     request = Request(
         f"{API_URL}{path}",
@@ -66,6 +70,34 @@ def expect_status(
         f"{method} {path}: expected {expected}, got {status}: {result}"
     )
     return result
+
+
+def expect_request_id_echo(path: str, expected: int) -> None:
+    """The API returns a valid caller-supplied X-Request-ID, on errors too."""
+    request_id = f"e2e-{uuid4().hex}"
+    request = Request(f"{API_URL}{path}", headers={"X-Request-ID": request_id})
+    try:
+        with urlopen(request, timeout=5) as response:
+            status, echoed = response.status, response.headers["X-Request-ID"]
+    except HTTPError as error:
+        status, echoed = error.code, error.headers["X-Request-ID"]
+    assert status == expected, f"GET {path}: expected {expected}, got {status}"
+    assert echoed == request_id, f"GET {path}: X-Request-ID came back as {echoed}"
+
+
+def expect_every_route_called() -> None:
+    """Fail when the API serves a route this script never called."""
+    spec = expect_status("GET", "/openapi.json", 200)
+    missing = []
+    for template, operations in spec["paths"].items():
+        pattern = re.compile("^" + re.sub(r"\{[^/]+\}", "[^/]+", template) + "$")
+        for method in operations:
+            if not any(
+                called_method == method.upper() and pattern.match(called_path)
+                for called_method, called_path in CALLED
+            ):
+                missing.append(f"{method.upper()} {template}")
+    assert not missing, f"Routes not exercised: {', '.join(missing)}"
 
 
 def cleanup(person_ids: list[str]) -> None:
@@ -99,6 +131,9 @@ def main() -> None:
     wait_until_ready()
     expect_status("GET", "/healthz", 200)
     print("PASS /healthz and PostgreSQL-backed /readyz")
+    expect_request_id_echo("/healthz", 200)
+    expect_request_id_echo("/api/people/by-slug/e2e-nobody", 404)
+    print("PASS X-Request-ID echo on success and error responses")
 
     run_id = uuid4().hex[:12]
     query = f"E2E-{run_id}"
@@ -122,7 +157,10 @@ def main() -> None:
         expect_status("POST", "/api/people", 409, {"name": duplicate})
         detail = expect_status("GET", f"/api/people/{person['id']}", 200)
         assert detail["id"] == person["id"]
-        print("PASS normalized duplicate rejection and person read")
+        assert detail["current_blog"] is None
+        expect_status("GET", f"/api/people/{person['id']}/blog", 404)
+        expect_status("GET", f"/api/people/{person['id']}/blog/revisions", 404)
+        print("PASS normalized duplicate rejection, person read and no story yet")
 
         updated = expect_status(
             "PATCH",
@@ -193,6 +231,8 @@ def main() -> None:
     remaining = expect_status("GET", f"/api/people?{params}", 200)
     assert remaining["total"] == 0, remaining
     print("PASS temporary PostgreSQL fixtures cleaned up")
+    expect_every_route_called()
+    print("PASS every route in the OpenAPI spec exercised")
 
 
 if __name__ == "__main__":

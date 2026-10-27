@@ -88,12 +88,25 @@ def get_person(session: Session, person_id: UUID) -> Person:
     return person
 
 
-@router.get("/people", response_model=PersonPage)
+@router.get(
+    "/people",
+    response_model=PersonPage,
+    description=(
+        "Search people by name, ordered by name. The search ignores case, accents "
+        "and repeated spaces and matches any part of the name. An empty or "
+        "missing `query` returns everyone. Results come in pages of `limit` "
+        "people (1 to 100, default 50) starting at `offset` (0 or more); "
+        "`total` counts every match, so clients can page through them with `offset`."
+    ),
+)
 def list_people(
     session: SessionDep,
-    query: Annotated[str | None, Query(max_length=255)] = None,
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    query: Annotated[
+        str | None,
+        Query(max_length=255, description="Part of a name; empty matches everyone"),
+    ] = None,
+    offset: Annotated[int, Query(ge=0, description="Number of matches to skip")] = 0,
+    limit: Annotated[int, Query(ge=1, le=100, description="Page size, 1 to 100")] = 50,
 ) -> PersonPage:
     statement = select(Person)
     count_statement = select(func.count(Person.id))
@@ -313,6 +326,10 @@ def list_blog_revisions(
     "/people/{person_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     responses=NOT_FOUND | CONFLICT,
+    description=(
+        "Delete a person who has no story. A person with a story returns 409 "
+        "and is kept, because stories and their revisions are never deleted."
+    ),
 )
 def delete_person(person_id: UUID, session: SessionDep) -> Response:
     person = get_person(session, person_id)

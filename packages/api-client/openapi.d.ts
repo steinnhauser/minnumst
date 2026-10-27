@@ -11,7 +11,10 @@ export interface paths {
             readonly path?: never;
             readonly cookie?: never;
         };
-        /** List People */
+        /**
+         * List People
+         * @description Search people by name, ordered by name. The search ignores case, accents and repeated spaces and matches any part of the name. An empty or missing `query` returns everyone. Results come in pages of `limit` people (1 to 100, default 50) starting at `offset` (0 or more); `total` counts every match, so clients can page through them with `offset`.
+         */
         readonly get: operations["list_people_api_people_get"];
         readonly put?: never;
         /** Create Person */
@@ -50,7 +53,10 @@ export interface paths {
         readonly get: operations["read_person_api_people__person_id__get"];
         readonly put?: never;
         readonly post?: never;
-        /** Delete Person */
+        /**
+         * Delete Person
+         * @description Delete a person who has no story. A person with a story returns 409 and is kept, because stories and their revisions are never deleted.
+         */
         readonly delete: operations["delete_person_api_people__person_id__delete"];
         readonly options?: never;
         readonly head?: never;
@@ -285,8 +291,11 @@ export interface operations {
     readonly list_people_api_people_get: {
         readonly parameters: {
             readonly query?: {
+                /** @description Part of a name; empty matches everyone */
                 readonly query?: string | null;
+                /** @description Number of matches to skip */
                 readonly offset?: number;
+                /** @description Page size, 1 to 100 */
                 readonly limit?: number;
             };
             readonly header?: never;

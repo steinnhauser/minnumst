@@ -361,9 +361,11 @@
   "paths": {
     "/api/people": {
       "get": {
+        "description": "Search people by name, ordered by name. The search ignores case, accents and repeated spaces and matches any part of the name. An empty or missing `query` returns everyone. Results come in pages of `limit` people (1 to 100, default 50) starting at `offset` (0 or more); `total` counts every match, so clients can page through them with `offset`.",
         "operationId": "list_people_api_people_get",
         "parameters": [
           {
+            "description": "Part of a name; empty matches everyone",
             "in": "query",
             "name": "query",
             "required": false,
@@ -377,26 +379,31 @@
                   "type": "null"
                 }
               ],
+              "description": "Part of a name; empty matches everyone",
               "title": "Query"
             }
           },
           {
+            "description": "Number of matches to skip",
             "in": "query",
             "name": "offset",
             "required": false,
             "schema": {
               "default": 0,
+              "description": "Number of matches to skip",
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
           },
           {
+            "description": "Page size, 1 to 100",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 50,
+              "description": "Page size, 1 to 100",
               "maximum": 100,
               "minimum": 1,
               "title": "Limit",
@@ -526,6 +533,7 @@
     },
     "/api/people/{person_id}": {
       "delete": {
+        "description": "Delete a person who has no story. A person with a story returns 409 and is kept, because stories and their revisions are never deleted.",
         "operationId": "delete_person_api_people__person_id__delete",
         "parameters": [
           {

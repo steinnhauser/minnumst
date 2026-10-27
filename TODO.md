@@ -34,7 +34,7 @@ Releasing is not done. Each old repository had its own `CI and Release` workflow
 
 - [x] Run everything on pushes to `main`, tags, pull requests, `workflow_dispatch` and a weekly `schedule` (new vulnerabilities in unchanged code and images).
 - [x] A `changes` job lets documentation-only changes skip the tests, e2e, host and CodeQL jobs; `ci-ok` treats skipped jobs as passing, and tags, schedules and manual runs always run everything.
-- [ ] Cache the Docker layers of the `e2e` image builds (Buildx with the GHA cache), so unchanged dependency layers aren't rebuilt on every run.
+- [x] Cache the Docker layers of the `e2e` image builds (Buildx Bake with the GHA cache, one scope per image), so unchanged dependency layers aren't rebuilt on every run.
 
 ### 1.4 Container registry and image references
 
@@ -104,10 +104,10 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 
 - [x] **API version:** the spec reported a hard-coded `0.1.0`. It now reads the package version, and `make release` regenerates `openapi.json`.
 - [x] **Validation errors:** the shared client shows the first validation message instead of a bare status, and the web search input is capped at the API's 255 characters.
-- [ ] **Result limits:** `web` asks for 50 results and shows "Showing 50 of N people" without a way to see the rest. Either page through results with `offset`, or tell the reader to refine the search. The API's bounds (`limit` 1 to 100, empty `query` returns everyone in name order) are now in the route descriptions.
+- [x] **Result limits:** `web` shows 50 results at a time, with a "Show more people" button that pages through the rest with `offset`. The API's bounds (`limit` 1 to 100, empty `query` returns everyone in name order) are now in the route descriptions.
 - [x] **Slugs and profile URLs:** slugs are permanent public identifiers (a rename keeps the slug), and every profile has its own address, `/people/<slug>`, that works with links, bookmarks and the back and forward buttons; unit and browser tests cover it.
 - [ ] **Unused routes:** no client calls `GET /api/people/{id}`, `GET /api/people/{id}/blog` or `DELETE /api/people/{id}`. For each, either use it (for example, admin could load one person instead of paging through everyone) or document why it exists. `DELETE` only removes a person without a story, returns 409 otherwise, and goes through Authentik. Make sure the docs say this and that no UI implies stories or revisions can be deleted.
-- [x] **Request IDs:** every request carries an `X-Request-ID`, and client errors keep the ID (from the response) so a report can be matched to a log line. Still open: show it in the admin UI.
+- [x] **Request IDs:** every request carries an `X-Request-ID`, and client errors keep the ID (from the response) so a report can be matched to a log line. The admin desk shows it in every error message.
 - [x] **Cross-origin admin writes:** the admin client sends credentials, so the Authentik session cookie reaches the API's hostname, and the API allows credentials for its configured origins only (tested, including that unlisted origins get no CORS headers). Reads send no `Content-Type`, so they need no preflight.
 
 ### 2.4 Process
@@ -127,7 +127,8 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 - [x] Playwright tests against the running stack (`make browser`, in the CI `e2e` job), at desktop and phone widths: a reader searching and reading a story, an editor writing two revisions and seeing both in the history. Any browser console error, including a CSP violation, fails the test.
 - [x] axe audits in those flows; the first run found WCAG contrast failures in both frontends, now fixed to AA.
 - [x] 100% coverage gates: lines and branches for the API, and lines, statements, branches and functions for the frontends and shared packages. `make test` fails below them, and the README's coverage table is generated from the run (`make coverage-readme`; CI fails if it is stale).
-- [ ] Return the `X-Request-ID` header on unhandled `500` responses too: Starlette's error handler runs outside the request-context middleware, so today only the log line carries the ID.
+- [x] Return the `X-Request-ID` header on unhandled `500` responses too, with a generic JSON body.
+- [ ] Unhandled `500` responses still lack CORS headers (Starlette builds them outside `CORSMiddleware`), so a cross-origin client can't read their status or request ID.
 - [ ] Extend the browser tests to renaming, validation messages and keyboard navigation of the search suggestions.
 
 ## 5. Database migrations and roles
@@ -205,7 +206,7 @@ Smaller items, by component. Items that need an API change start in `api/` and a
 ### `admin/`
 
 - [ ] Localise the editor in Icelandic and English, preserving story content as authored. Test validation, loading, save status, history and preview in both languages.
-- [ ] Warn before discarding an unsaved story when changing the selected person or starting another page.
+- [x] Warn before discarding an unsaved story when changing the selected person or starting another page.
 - [ ] Add portrait selection and upload once the API's media contract exists. Don't keep image bytes in browser state or imply the feature exists before then.
 
 ### `deploy/` (deferred)

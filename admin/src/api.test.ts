@@ -6,33 +6,39 @@ import {
   savePersonRevision,
   updatePersonName,
 } from "./api";
+import {
+  apiPerson,
+  apiResponse,
+  apiRevision,
+  blogResponse,
+  blogSummary,
+  peoplePage,
+} from "./test/fixtures";
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe("admin API client", () => {
   it("loads people using the shared paginated people endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      Response.json({
-        items: [
-          {
+      apiResponse(
+        peoplePage([
+          apiPerson({
             id: "person-1",
             name: "Ásta Jónsdóttir",
             slug: "asta-jonsdottir",
-            blog: null,
-          },
-        ],
-        total: 1,
-        offset: 0,
-        limit: 100,
-      }),
+          }),
+        ]),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(loadPeople()).resolves.toMatchObject([
+    await expect(loadPeople()).resolves.toEqual([
       {
         id: "person-1",
         personName: "Ásta Jónsdóttir",
         slug: "asta-jonsdottir",
+        blog: null,
+        revisions: [],
       },
     ]);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -42,14 +48,94 @@ describe("admin API client", () => {
     );
   });
 
+  it("maps each person's story summary", async () => {
+    const revision = apiRevision(3, {
+      title: "A life in letters",
+      excerpt: "Letters home",
+      saved_at: "2026-09-28T13:00:00Z",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        apiResponse(
+          peoplePage([
+            apiPerson({
+              id: "person-1",
+              name: "Ada Lovelace",
+              slug: "ada-lovelace",
+              blog: blogSummary(revision),
+            }),
+          ]),
+        ),
+      ),
+    );
+
+    await expect(loadPeople()).resolves.toMatchObject([
+      {
+        blog: {
+          title: "A life in letters",
+          excerpt: "Letters home",
+          savedAt: "2026-09-28T13:00:00Z",
+          revisionCount: 3,
+        },
+        revisions: [],
+      },
+    ]);
+  });
+
+  it("follows the pages until every person is loaded", async () => {
+    const first = apiPerson({ id: "person-1", name: "Ada", slug: "ada" });
+    const second = apiPerson({ id: "person-2", name: "Björk", slug: "bjork" });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(apiResponse(peoplePage([first], { total: 2 })))
+      .mockResolvedValueOnce(
+        apiResponse(peoplePage([second], { total: 2, offset: 1 })),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const people = await loadPeople();
+
+    expect(people.map((person) => person.id)).toEqual(["person-1", "person-2"]);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "http://127.0.0.1:8000/api/people?offset=0&limit=100",
+      "http://127.0.0.1:8000/api/people?offset=1&limit=100",
+    ]);
+  });
+
+  it("stops paging when a page comes back empty", async () => {
+    // People deleted between requests can leave the total higher than the
+    // rows that remain.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        apiResponse(
+          peoplePage(
+            [apiPerson({ id: "person-1", name: "Ada", slug: "ada" })],
+            {
+              total: 5,
+            },
+          ),
+        ),
+      )
+      .mockResolvedValueOnce(
+        apiResponse(peoplePage([], { total: 5, offset: 1 })),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(loadPeople()).resolves.toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("creates a person through the API", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      Response.json({
-        id: "person-1",
-        name: "Ada Lovelace",
-        slug: "ada-lovelace",
-        blog: null,
-      }),
+      apiResponse(
+        apiPerson({
+          id: "person-1",
+          name: "Ada Lovelace",
+          slug: "ada-lovelace",
+        }),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -67,14 +153,13 @@ describe("admin API client", () => {
   });
 
   it("updates a person's name through the existing API endpoint", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      Response.json({
-        id: "person-1",
-        name: "Ada Byron",
-        slug: "ada-byron",
-        blog: null,
-      }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        apiResponse(
+          apiPerson({ id: "person-1", name: "Ada Byron", slug: "ada-byron" }),
+        ),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
@@ -95,46 +180,59 @@ describe("admin API client", () => {
 
   it("loads revisions in chronological order for the editor", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      Response.json([
-        {
-          id: "revision-2",
-          revision_number: 2,
+      apiResponse([
+        apiRevision(2, {
           saved_at: "2026-09-28T11:00:00Z",
           title: "Second",
-          excerpt: "",
           content: "Second version",
-        },
-        {
-          id: "revision-1",
-          revision_number: 1,
+        }),
+        apiRevision(1, {
           saved_at: "2026-09-28T10:00:00Z",
           title: "First",
-          excerpt: "",
+          excerpt: "An excerpt",
           content: "First version",
-        },
+        }),
       ]),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(loadPersonRevisions("person-1")).resolves.toMatchObject([
-      { revisionNumber: 1, content: "First version" },
-      { revisionNumber: 2, content: "Second version" },
+    await expect(loadPersonRevisions("person-1")).resolves.toEqual([
+      {
+        id: "revision-1",
+        revisionNumber: 1,
+        savedAt: "2026-09-28T10:00:00Z",
+        title: "First",
+        excerpt: "An excerpt",
+        content: "First version",
+      },
+      {
+        id: "revision-2",
+        revisionNumber: 2,
+        savedAt: "2026-09-28T11:00:00Z",
+        title: "Second",
+        excerpt: "",
+        content: "Second version",
+      },
     ]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/people/person-1/blog/revisions",
+      expect.anything(),
+    );
   });
 
   it("saves a revision using the API's append-only blog endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      Response.json({
-        revision_count: 2,
-        current_revision: {
-          id: "revision-2",
-          revision_number: 2,
-          saved_at: "2026-09-28T11:00:00Z",
-          title: "Updated story",
-          excerpt: "An excerpt",
-          content: "Updated content",
-        },
-      }),
+      apiResponse(
+        blogResponse(
+          "person-1",
+          apiRevision(2, {
+            saved_at: "2026-09-28T11:00:00Z",
+            title: "Updated story",
+            excerpt: "An excerpt",
+            content: "Updated content",
+          }),
+        ),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
 

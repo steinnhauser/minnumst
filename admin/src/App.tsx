@@ -43,6 +43,7 @@ function App() {
   const activeRevision = selectedPost ? currentRevision(selectedPost) : null;
   const revisionCount =
     selectedPost?.blog?.revisionCount ?? selectedPost?.revisions.length ?? 0;
+  const lastSavedAt = activeRevision?.savedAt ?? selectedPost?.blog?.savedAt;
   const visiblePosts = useMemo(() => {
     const query = filter.trim().toLocaleLowerCase();
     return posts.filter((post) =>
@@ -105,7 +106,7 @@ function App() {
           ),
         );
         const latest = revisions.at(-1);
-        setTitle(latest?.title ?? post.blog?.title ?? "");
+        setTitle(latest?.title ?? post.blog.title);
         setExcerpt(latest?.excerpt ?? post.blog.excerpt);
         setContent(latest?.content ?? "");
         setMessage("");
@@ -188,21 +189,14 @@ function App() {
     }
   }
 
-  async function handleRenamePerson() {
-    if (!selectedPost) return;
-    const cleanedName = personName.trim().replace(/\s+/g, " ");
-    if (!cleanedName) {
-      setMessage("Add a person name before updating it.");
-      setMessageIsError(true);
-      return;
-    }
-    if (cleanedName === selectedPost.personName) return;
-
+  // Only the "Update name" button calls this, and it is disabled unless the
+  // selected person's name has changed to a non-empty one.
+  async function handleRenamePerson(post: PersonPost) {
     setIsSaving(true);
     try {
-      const updated = await updatePersonName(selectedPost.id, cleanedName);
+      const updated = await updatePersonName(post.id, personName);
       const renamedPost = {
-        ...selectedPost,
+        ...post,
         personName: updated.personName,
         slug: updated.slug,
       };
@@ -459,7 +453,7 @@ function App() {
                           personName.trim().replace(/\s+/g, " ") ===
                             selectedPost.personName
                         }
-                        onClick={() => void handleRenamePerson()}
+                        onClick={() => void handleRenamePerson(selectedPost)}
                       >
                         Update name
                       </button>
@@ -617,7 +611,7 @@ function App() {
               </div>
               <div className="detail-block">
                 <span className="detail-label">API BASE URL</span>
-                <strong>{appConfig.apiUrl || "Not configured"}</strong>
+                <strong>{appConfig.apiUrl}</strong>
                 <span className="detail-note">Shared API origin</span>
               </div>
               <div className="detail-block">
@@ -627,8 +621,8 @@ function App() {
                   {revisionCount === 1 ? " version" : " versions"}
                 </strong>
                 <span className="detail-note">
-                  {activeRevision || selectedPost?.blog?.savedAt
-                    ? `Last saved ${new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(activeRevision?.savedAt ?? selectedPost?.blog?.savedAt ?? ""))}`
+                  {lastSavedAt
+                    ? `Last saved ${new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(lastSavedAt))}`
                     : "No versions saved"}
                 </span>
               </div>

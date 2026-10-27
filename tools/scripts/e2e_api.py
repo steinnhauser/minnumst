@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-"""Exercise the running local API over HTTP and clean up only this run's fixtures."""
+"""Exercise the running local API over HTTP and clean up only this run's fixtures.
+
+`cleanup-contract` instead removes the people the admin contract tests created
+(admin/src/api.contract.test.ts), whose names all start with "Contract test ".
+"""
 
 from __future__ import annotations
 
 import json
 import os
 import re
+import sys
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -111,6 +116,22 @@ def cleanup(person_ids: list[str]) -> None:
         session.execute(delete(Person).where(Person.id.in_(person_ids)))
         session.commit()
     engine.dispose()
+
+
+def cleanup_contract() -> None:
+    """Delete the contract tests' people; the API can't delete a person with a story."""
+    engine = make_engine()
+    with Session(engine) as session:
+        person_ids = list(
+            session.scalars(
+                select(Person.id).where(
+                    Person.normalized_name.startswith("contract test ")
+                )
+            )
+        )
+    engine.dispose()
+    cleanup(person_ids)
+    print(f"PASS removed {len(person_ids)} contract test people")
 
 
 def wait_until_ready() -> None:
@@ -236,4 +257,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:] == ["cleanup-contract"]:
+        require_local_database()
+        cleanup_contract()
+    else:
+        main()

@@ -49,7 +49,7 @@ help:
 	  '  wait            Wait until the API is ready and both frontends serve' \
 	  '  seed            Add fictional sample people and stories (idempotent)' \
 	  '  e2e             Run the end-to-end API tests against the stack' \
-	  '  contract        Run the web client against the seeded API (MINNUMST_API_URL=…)' \
+	  '  contract        Run the web and admin API clients against the seeded API (MINNUMST_API_URL=…)' \
 	  '  edge            Test the edge through Traefik: TLS redirect, headers, auth on writes, rate limit, isolation' \
 	  '  backup-test     Back up the database and restore it into a scratch database' \
 	  '  browser         Playwright tests of both frontends, with CSP and accessibility checks' \
@@ -162,8 +162,10 @@ seed:
 e2e:
 	$(COMPOSE) e2e
 
+# The admin suite creates "Contract test …" people; remove them even on failure.
 contract:
-	MINNUMST_API_URL=$(MINNUMST_API_URL) npm test -- web/src/api.contract.test.ts
+	MINNUMST_API_URL=$(MINNUMST_API_URL) npm test -- web/src/api.contract.test.ts admin/src/api.contract.test.ts; \
+	  status=$$?; $(COMPOSE) contract-cleanup && exit $$status
 
 edge:
 	$(COMPOSE) edge

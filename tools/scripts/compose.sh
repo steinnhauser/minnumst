@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-[[ $# -ge 1 ]] || { printf 'Usage: %s <render|config|up|wait|seed|update|e2e|edge|backup-test|clear|reset|down|ps|logs> [services...]\n' "$0" >&2; exit 2; }
+[[ $# -ge 1 ]] || { printf 'Usage: %s <render|config|up|wait|seed|update|e2e|contract-cleanup|edge|backup-test|clear|reset|down|ps|logs> [services...]\n' "$0" >&2; exit 2; }
 action=$1
 shift
 repo_root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -78,6 +78,9 @@ case "$action" in
   e2e)
     "${compose[@]}" run --rm --no-deps -e MINNUMST_ALLOW_E2E=1 -e MINNUMST_E2E_API_URL=http://api:8000 \
       migrate python /opt/minnumst/e2e_api.py
+    ;;
+  contract-cleanup)
+    "${compose[@]}" run --rm --no-deps -e MINNUMST_ALLOW_E2E=1 migrate python /opt/minnumst/e2e_api.py cleanup-contract
     ;;
   edge)
     WEB_HOST=$(var minnumst_domain) ADMIN_HOST=$(var minnumst_admin_domain) API_HOST=$(var minnumst_api_domain) \

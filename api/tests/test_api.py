@@ -408,10 +408,29 @@ def test_unreachable_database_fails_readiness_with_a_logged_request_id(
         record for record in caplog.records if record.getMessage() == "Request failed"
     )
     assert response.status_code == 500
+    assert response.headers["X-Request-ID"] == "ready-1"
+    assert response.json() == {"detail": "Internal Server Error"}
+    assert "sqlite" not in response.text.lower()
     assert failure.levelno == logging.ERROR
     assert failure.route == "/readyz"
     assert failure.request_id == "ready-1"
     assert failure.exc_info is not None
+
+
+def test_unhandled_errors_carry_the_generated_request_id(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    app = create_app(database_url=f"sqlite:///{tmp_path}/missing/minnumst.db")
+
+    with TestClient(app, raise_server_exceptions=False) as test_client:
+        response = test_client.get("/readyz")
+
+    failure = next(
+        record for record in caplog.records if record.getMessage() == "Request failed"
+    )
+    assert response.status_code == 500
+    assert len(response.headers["X-Request-ID"]) == 36
+    assert response.headers["X-Request-ID"] == failure.request_id
 
 
 def test_invalid_request_ids_are_replaced(client: TestClient) -> None:

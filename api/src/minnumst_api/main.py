@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -57,6 +58,21 @@ class RequestContextMiddleware:
             request_id_context.reset(context_token)
 
 
+async def internal_server_error(request: Request, _: Exception) -> JSONResponse:
+    """Answer an unhandled exception with a generic body and the request's ID.
+
+    Starlette's ServerErrorMiddleware calls this from outside
+    RequestContextMiddleware, so the header is set here; the exception itself
+    has already been logged as "Request failed" and its details never reach
+    the client.
+    """
+    return JSONResponse(
+        {"detail": "Internal Server Error"},
+        status_code=500,
+        headers={"X-Request-ID": request.state.request_id},
+    )
+
+
 def create_app(database_url: str | None = None) -> FastAPI:
     """The API. Its schema comes from migrations (`python -m minnumst_api.migrate`)."""
     configure_logging(settings.log_level)
@@ -73,7 +89,10 @@ def create_app(database_url: str | None = None) -> FastAPI:
             logger.info("Stopped Minnumst API")
 
     app = FastAPI(
-        title="Minnumst API", version=version("minnumst-api"), lifespan=lifespan
+        title="Minnumst API",
+        version=version("minnumst-api"),
+        lifespan=lifespan,
+        exception_handlers={Exception: internal_server_error},
     )
     app.state.engine = engine
     app.state.session_factory = session_factory

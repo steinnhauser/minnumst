@@ -90,7 +90,7 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 ### 2.2 Contract tests against the running API
 
 - [x] A contract suite in `web` (`src/api.contract.test.ts`, skipped unless `MINNUMST_API_URL` is set) calls the real `searchPeople` and `getPersonBySlug` against the seeded stack and checks response shapes against the generated types, empty results, the `404` message, accent-insensitive search (`Sólveig` / `solveig`) and the `limit`/`offset` bounds. `make contract` runs it, as part of `make stack-test` and so the CI `e2e` job.
-- [ ] Add the same kind of suite for admin's write calls (`createPerson`, `updatePersonName`, `savePersonRevision`, `loadPersonRevisions`), cleaning up the people it creates.
+- [x] The same kind of suite for admin's write calls (`createPerson`, `updatePersonName`, `savePersonRevision`, `loadPersonRevisions`, `loadPeople`); `make contract` removes the people it creates afterwards.
 
 - [x] Keep `tools/scripts/e2e_api.py` as the route-level test. It covers every route in the table above, including `GET /api/people/{id}/blog` and the `X-Request-ID` echo, and fails if a route in the live spec goes uncalled.
 
@@ -123,7 +123,7 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 - [x] 100% coverage gates: lines and branches for the API, and lines, statements, branches and functions for the frontends and shared packages. `make test` fails below them, and the README's coverage table is generated from the run (`make coverage-readme`; CI fails if it is stale).
 - [x] Return the `X-Request-ID` header on unhandled `500` responses too, with a generic JSON body.
 - [x] Unhandled `500` responses get the same CORS headers as every other response, so the admin desk can read their status and request ID.
-- [ ] Extend the browser tests to renaming, validation messages and keyboard navigation of the search suggestions.
+- [x] Browser tests for renaming (the profile address survives it), validation and duplicate-name messages, and keyboard navigation of the search suggestions.
 
 ## 5. Database migrations and roles
 

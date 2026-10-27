@@ -9,6 +9,8 @@ COMPOSE := bash tools/scripts/compose.sh
 TOFU := tofu -chdir=infra
 INVENTORY ?= deploy/inventory/hosts.ini
 VAULT_ARGS ?= --ask-vault-pass
+# The API that `make contract` tests; the local stack publishes it here.
+MINNUMST_API_URL ?= http://127.0.0.1:8000
 
 # Use the workspace's .venv even when another virtual environment is active.
 unexport VIRTUAL_ENV
@@ -16,7 +18,7 @@ unexport VIRTUAL_ENV
 .PHONY: help install format format-check lint test test-api test-postgres test-frontends coverage-readme \
 	openapi openapi-check migration build validate clean ci \
 	dev-api dev-web dev-admin \
-	stack-config up wait seed e2e edge backup-test browser stack-test ps logs down db-update db-clear db-reset \
+	stack-config up wait seed e2e contract edge backup-test browser stack-test ps logs down db-update db-clear db-reset \
 	deploy-check deploy release infra-check infra-plan infra-apply infra-inventory
 
 help:
@@ -42,11 +44,12 @@ help:
 	  '  dev-admin       Editorial desk on http://127.0.0.1:5174' \
 	  '' \
 	  'Local stack: the deploy/ Compose template with locally built images' \
-	  '  stack-test      up, wait, seed, e2e, edge, backup-test and browser in order' \
+	  '  stack-test      up, wait, seed, e2e, contract, edge, backup-test and browser in order' \
 	  '  up              Build the images and start the stack, Traefik included' \
 	  '  wait            Wait until the API is ready and both frontends serve' \
 	  '  seed            Add fictional sample people and stories (idempotent)' \
 	  '  e2e             Run the end-to-end API tests against the stack' \
+	  '  contract        Run the web client against the seeded API (MINNUMST_API_URL=…)' \
 	  '  edge            Test the edge through Traefik: TLS redirect, headers, auth on writes, rate limit, isolation' \
 	  '  backup-test     Back up the database and restore it into a scratch database' \
 	  '  browser         Playwright tests of both frontends, with CSP and accessibility checks' \
@@ -159,6 +162,9 @@ seed:
 e2e:
 	$(COMPOSE) e2e
 
+contract:
+	MINNUMST_API_URL=$(MINNUMST_API_URL) npm test -- web/src/api.contract.test.ts
+
 edge:
 	$(COMPOSE) edge
 
@@ -173,6 +179,7 @@ stack-test:
 	$(MAKE) wait
 	$(MAKE) seed
 	$(MAKE) e2e
+	$(MAKE) contract
 	$(MAKE) edge
 	$(MAKE) backup-test
 	$(MAKE) browser

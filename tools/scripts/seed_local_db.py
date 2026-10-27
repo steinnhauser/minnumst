@@ -44,6 +44,17 @@ SAMPLE_RECORDS = (
             "the saved sample history."
         ),
     },
+    {
+        # A non-ASCII name for the accent-insensitive search (`make contract`).
+        "name": "Sólveig Þorgrímsdóttir",
+        "title": "A farm under the glacier",
+        "excerpt": "A fictional entry with an Icelandic name.",
+        "content": (
+            "## The farm\n\n"
+            "This fictional profile exercises names with accents and Icelandic "
+            "letters. Searching for Sólveig, solveig or thorgrimsdottir finds it."
+        ),
+    },
 )
 
 

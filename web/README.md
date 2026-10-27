@@ -12,6 +12,8 @@ make dev-web          # http://127.0.0.1:5173
 
 Search calls `GET /api/people?query=…&offset=…&limit=…`: 8 suggestions while typing, and 50 results on submit. When there are more matches, a "Show more people" button loads the next 50 with `offset`, appends them, moves focus to the first new result and updates the announced count ("Showing 100 of 120 people."); it disappears once everyone is listed. Editing the search drops any page still loading. Selecting a person loads `GET /api/people/by-slug/{slug}`, shows the current revision of their story, and gives the profile its own address, `/people/<slug>`, which can be linked and bookmarked and works with the back and forward buttons. The client lives in [`src/api.ts`](src/api.ts).
 
+[`src/api.contract.test.ts`](src/api.contract.test.ts) runs that client against an API holding the sample people from `tools/scripts/seed_local_db.py`, read-only: `make contract` (part of `make stack-test`) tests the stack on `http://127.0.0.1:8000`, and `MINNUMST_API_URL=…` points it elsewhere. `make test` skips it.
+
 ## Configuration
 
 `VITE_API_URL` is the API origin (not an `/api` path) and defaults to `http://127.0.0.1:8000`. In development, set it in the environment or in `web/.env`. In the container, [`runtime-config.mjs`](../packages/static-server/runtime-config.mjs) writes it to `/runtime-config.js` at start-up, so one image serves every environment.

@@ -89,14 +89,8 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 
 ### 2.2 Contract tests against the running API
 
-- [ ] Add a contract suite to `web` (for example `src/api.contract.test.ts`, skipped unless `MINNUMST_API_URL` is set). It should call the real `searchPeople` and `getPersonBySlug` against the seeded stack and assert:
-  - response shapes;
-  - empty results;
-  - the `404` message;
-  - a non-ASCII and accent-insensitive search (`Sólveig` / `solveig`);
-  - the `limit` bounds.
-
-  Wire it into `make stack-test` and the CI `e2e` job, then add the same suite for admin's write calls.
+- [x] A contract suite in `web` (`src/api.contract.test.ts`, skipped unless `MINNUMST_API_URL` is set) calls the real `searchPeople` and `getPersonBySlug` against the seeded stack and checks response shapes against the generated types, empty results, the `404` message, accent-insensitive search (`Sólveig` / `solveig`) and the `limit`/`offset` bounds. `make contract` runs it, as part of `make stack-test` and so the CI `e2e` job.
+- [ ] Add the same kind of suite for admin's write calls (`createPerson`, `updatePersonName`, `savePersonRevision`, `loadPersonRevisions`), cleaning up the people it creates.
 
 - [x] Keep `tools/scripts/e2e_api.py` as the route-level test. It covers every route in the table above, including `GET /api/people/{id}/blog` and the `X-Request-ID` echo, and fails if a route in the live spec goes uncalled.
 
@@ -106,7 +100,7 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 - [x] **Validation errors:** the shared client shows the first validation message instead of a bare status, and the web search input is capped at the API's 255 characters.
 - [x] **Result limits:** `web` shows 50 results at a time, with a "Show more people" button that pages through the rest with `offset`. The API's bounds (`limit` 1 to 100, empty `query` returns everyone in name order) are now in the route descriptions.
 - [x] **Slugs and profile URLs:** slugs are permanent public identifiers (a rename keeps the slug), and every profile has its own address, `/people/<slug>`, that works with links, bookmarks and the back and forward buttons; unit and browser tests cover it.
-- [ ] **Unused routes:** no client calls `GET /api/people/{id}`, `GET /api/people/{id}/blog` or `DELETE /api/people/{id}`. For each, either use it (for example, admin could load one person instead of paging through everyone) or document why it exists. `DELETE` only removes a person without a story, returns 409 otherwise, and goes through Authentik. Make sure the docs say this and that no UI implies stories or revisions can be deleted.
+- [x] **Unused routes:** no client calls `GET /api/people/{id}`, `GET /api/people/{id}/blog` or `DELETE /api/people/{id}`; the route descriptions and `api/README.md` say why each exists (ID-based reads for integrations and the e2e test, the current story alone, and undoing a mistaken create, which only works without a story and goes through Authentik). No UI offers to delete stories or revisions.
 - [x] **Request IDs:** every request carries an `X-Request-ID`, and client errors keep the ID (from the response) so a report can be matched to a log line. The admin desk shows it in every error message.
 - [x] **Cross-origin admin writes:** the admin client sends credentials, so the Authentik session cookie reaches the API's hostname, and the API allows credentials for its configured origins only (tested, including that unlisted origins get no CORS headers). Reads send no `Content-Type`, so they need no preflight.
 
@@ -119,8 +113,8 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 ## 3. Keep the rename complete and guarded
 
 - [x] `make lint` (and so CI) fails on the old name outside the changelogs, the README History section and this file.
-- [ ] Use `minnumst.org` consistently as the real domain, while inventories and examples keep using `minnumst.example`. Check that the OpenAPI title and description, HTML `<title>`, logger names (`minnumst-public`, …) and the `window.__MINNUMST_ENV__` key all follow one naming scheme.
-- [ ] Update the GitHub repository description and website field. Add the topics `monorepo` and `github-actions` once item 1 lands.
+- [x] Naming follows one scheme: `minnumst.org` is the real domain (the repository's website), inventories and examples use `minnumst.example` and the local stack `minnumst.local`; the OpenAPI title is "Minnumst API", page titles read `<page> | Minnumst`, the runtime-config key is `window.__MINNUMST_ENV__`, and services log as `minnumst-api`, `minnumst-admin` and `minnumst-public` (named for the Compose service, `public`, rather than the `minnumst-web` image).
+- [x] The GitHub repository description, website (`https://minnumst.org`) and topics, including `monorepo` and `github-actions`, are set.
 
 ## 4. Browser end-to-end tests and test quality gates
 
@@ -128,7 +122,7 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 - [x] axe audits in those flows; the first run found WCAG contrast failures in both frontends, now fixed to AA.
 - [x] 100% coverage gates: lines and branches for the API, and lines, statements, branches and functions for the frontends and shared packages. `make test` fails below them, and the README's coverage table is generated from the run (`make coverage-readme`; CI fails if it is stale).
 - [x] Return the `X-Request-ID` header on unhandled `500` responses too, with a generic JSON body.
-- [ ] Unhandled `500` responses still lack CORS headers (Starlette builds them outside `CORSMiddleware`), so a cross-origin client can't read their status or request ID.
+- [x] Unhandled `500` responses get the same CORS headers as every other response, so the admin desk can read their status and request ID.
 - [ ] Extend the browser tests to renaming, validation messages and keyboard navigation of the search suggestions.
 
 ## 5. Database migrations and roles

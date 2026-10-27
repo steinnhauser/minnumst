@@ -12,16 +12,21 @@ import {
 import {
   createPerson,
   currentRevision,
+  errorMessage,
   loadPeople,
   loadPersonRevisions,
   savePersonRevision,
   updatePersonName,
   type PersonPost,
+  type PostInput,
 } from "./api";
 import { appConfig } from "./config";
 import "./App.css";
 
 type EditorTab = "write" | "preview" | "history";
+
+const nameConflict = "A person with this normalized name already exists";
+const emptyDraft: PostInput = { title: "", excerpt: "", content: "" };
 
 function App() {
   const [posts, setPosts] = useState<PersonPost[]>([]);
@@ -37,7 +42,14 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [loadError, setLoadError] = useState("");
+  // The story as last loaded or saved; the editor has unsaved changes when
+  // its fields differ from it.
+  const [savedDraft, setSavedDraft] = useState<PostInput>(emptyDraft);
   const selectionRequest = useRef(0);
+  const hasUnsavedChanges =
+    title !== savedDraft.title ||
+    excerpt !== savedDraft.excerpt ||
+    content !== savedDraft.content;
 
   const selectedPost = posts.find((post) => post.id === selectedId) ?? null;
   const activeRevision = selectedPost ? currentRevision(selectedPost) : null;
@@ -59,9 +71,7 @@ function App() {
       })
       .catch((error: unknown) => {
         if (active) {
-          setLoadError(
-            error instanceof Error ? error.message : "Could not load people.",
-          );
+          setLoadError(errorMessage(error, "Could not load people."));
         }
       })
       .finally(() => {
@@ -73,25 +83,48 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasUnsavedChanges]);
+
+  function confirmDiscard() {
+    return (
+      !hasUnsavedChanges ||
+      window.confirm("Discard the unsaved changes to this story?")
+    );
+  }
+
+  function loadDraft(draft: PostInput) {
+    setTitle(draft.title);
+    setExcerpt(draft.excerpt);
+    setContent(draft.content);
+    setSavedDraft(draft);
+  }
+
   function startNewPage() {
+    if (!confirmDiscard()) return;
     selectionRequest.current += 1;
     setSelectedId(null);
     setPersonName("");
-    setTitle("");
-    setExcerpt("");
-    setContent("");
+    loadDraft(emptyDraft);
     setTab("write");
     setMessage("");
   }
 
   async function selectPost(post: PersonPost) {
+    if (!confirmDiscard()) return;
     const requestId = ++selectionRequest.current;
     const revision = currentRevision(post);
     setSelectedId(post.id);
     setPersonName(post.personName);
-    setTitle(revision?.title ?? post.blog?.title ?? "");
-    setExcerpt(revision?.excerpt ?? post.blog?.excerpt ?? "");
-    setContent(revision?.content ?? "");
+    loadDraft({
+      title: revision?.title ?? post.blog?.title ?? "",
+      excerpt: revision?.excerpt ?? post.blog?.excerpt ?? "",
+      content: revision?.content ?? "",
+    });
     setTab("write");
     setMessage("");
 
@@ -106,16 +139,16 @@ function App() {
           ),
         );
         const latest = revisions.at(-1);
-        setTitle(latest?.title ?? post.blog.title);
-        setExcerpt(latest?.excerpt ?? post.blog.excerpt);
-        setContent(latest?.content ?? "");
+        loadDraft({
+          title: latest?.title ?? post.blog.title,
+          excerpt: latest?.excerpt ?? post.blog.excerpt,
+          content: latest?.content ?? "",
+        });
         setMessage("");
       } catch (error) {
         if (selectionRequest.current === requestId) {
           setMessage(
-            error instanceof Error
-              ? error.message
-              : "Could not load this page's history.",
+            errorMessage(error, "Could not load this page's history."),
           );
           setMessageIsError(true);
         }
@@ -139,6 +172,7 @@ function App() {
       return;
     }
 
+    const draft = { title, excerpt, content };
     setIsSaving(true);
     try {
       let person = selectedPost;
@@ -149,11 +183,7 @@ function App() {
         setPersonName(person.personName);
       }
 
-      const saved = await savePersonRevision(person.id, {
-        title,
-        excerpt,
-        content,
-      });
+      const saved = await savePersonRevision(person.id, draft);
       const savedPost: PersonPost = {
         ...person,
         blog: {
@@ -171,17 +201,19 @@ function App() {
       );
       setSelectedId(savedPost.id);
       setPersonName(savedPost.personName);
+      // Edits made while the save was in flight stay unsaved.
+      setSavedDraft(draft);
       setMessage(
         `Saved to the shared archive as revision ${saved.revision.revisionNumber}.`,
       );
       setMessageIsError(false);
     } catch (error) {
-      const apiMessage =
-        error instanceof Error ? error.message : "The page could not be saved.";
       setMessage(
-        apiMessage === "A person with this normalized name already exists"
-          ? "A person with this name already exists. Select them from the pages list and save the story there."
-          : apiMessage,
+        errorMessage(error, "The page could not be saved.", (reason) =>
+          reason === nameConflict
+            ? "A person with this name already exists. Select them from the pages list and save the story there."
+            : reason,
+        ),
       );
       setMessageIsError(true);
     } finally {
@@ -209,14 +241,12 @@ function App() {
       setMessage("Person name updated in the shared archive.");
       setMessageIsError(false);
     } catch (error) {
-      const apiMessage =
-        error instanceof Error
-          ? error.message
-          : "The name could not be updated.";
       setMessage(
-        apiMessage === "A person with this normalized name already exists"
-          ? "Another person already uses this normalized name."
-          : apiMessage,
+        errorMessage(error, "The name could not be updated.", (reason) =>
+          reason === nameConflict
+            ? "Another person already uses this normalized name."
+            : reason,
+        ),
       );
       setMessageIsError(true);
     } finally {

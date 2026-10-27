@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createPerson,
+  errorMessage,
   loadPeople,
   loadPersonRevisions,
   savePersonRevision,
@@ -257,5 +258,24 @@ describe("admin API client", () => {
         }),
       }),
     );
+  });
+});
+
+describe("errorMessage", () => {
+  it("adds the request ID of an API error", () => {
+    const error = Object.assign(new Error("Person not found"), {
+      requestId: "req-1",
+    });
+    expect(errorMessage(error, "Failed.")).toBe(
+      "Person not found (request ID: req-1)",
+    );
+    expect(errorMessage(error, "Failed.", () => "Not there.")).toBe(
+      "Not there. (request ID: req-1)",
+    );
+  });
+
+  it("keeps other errors' messages and falls back for non-errors", () => {
+    expect(errorMessage(new Error("Broken"), "Failed.")).toBe("Broken");
+    expect(errorMessage("unreadable", "Failed.")).toBe("Failed.");
   });
 });

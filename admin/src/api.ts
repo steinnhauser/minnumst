@@ -1,4 +1,8 @@
-import { createRequest, type components } from "@minnumst/api-client";
+import {
+  createRequest,
+  type ApiError,
+  type components,
+} from "@minnumst/api-client";
 import { appConfig } from "./config";
 
 export type PostRevision = {
@@ -69,6 +73,20 @@ function mapRevision(revision: ApiRevision): PostRevision {
     excerpt: revision.excerpt,
     content: revision.content,
   };
+}
+
+// The API's reason for a failure, with the request ID it logged, so an editor
+// can report an error that matches a log line. Errors that aren't from the API
+// client carry no request ID, and anything that isn't an Error gets `fallback`.
+export function errorMessage(
+  error: unknown,
+  fallback: string,
+  rewrite: (message: string) => string = (message) => message,
+): string {
+  if (!(error instanceof Error)) return fallback;
+  const message = rewrite(error.message);
+  const { requestId } = error as Partial<ApiError>;
+  return requestId ? `${message} (request ID: ${requestId})` : message;
 }
 
 export function currentRevision(post: PersonPost) {

@@ -14,6 +14,8 @@ The client in [`src/api.ts`](src/api.ts) loads people with `GET /api/people` (pa
 
 The API has no image upload, revision restore or revision delete routes, so the desk doesn't offer them.
 
+When a call fails, the error message ends with the request's `X-Request-ID` (for example `(request ID: 3f2c…)`), which matches the API's log line, so editors can include it when reporting a problem. If the title, introduction or story has changed since it was last loaded or saved, the desk asks before another page is selected or a new page is started, and the browser warns before the tab is closed or reloaded.
+
 ## Configuration
 
 | Variable       | Purpose                                                                 |

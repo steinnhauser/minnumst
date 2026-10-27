@@ -277,7 +277,7 @@ describe("blog page editor", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Person not found",
+      /^Person not found \(request ID: [0-9a-f-]{36}\)$/,
     );
   });
 
@@ -322,13 +322,44 @@ describe("blog page editor", () => {
     );
   });
 
-  it("shows an error when people can't be loaded", async () => {
-    stubApi(() => new Response("Internal Server Error", { status: 500 }));
+  it("shows an error and its request ID when people can't be loaded", async () => {
+    stubApi(
+      () =>
+        new Response("Internal Server Error", {
+          status: 500,
+          headers: { "X-Request-ID": "req-500" },
+        }),
+    );
     render(<App />);
 
     expect(
-      await screen.findByText("The Minnumst API returned 500."),
+      await screen.findByText(
+        "The Minnumst API returned 500. (request ID: req-500)",
+      ),
     ).toBeInTheDocument();
+  });
+
+  it("shows the request ID the client sent when the API can't be reached", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed"));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    await screen.findByText(/^Could not reach the Minnumst API\./);
+    const sent = new Headers(fetchMock.mock.calls[0][1].headers);
+    expect(
+      screen.getByText(
+        `Could not reach the Minnumst API. Check that it is running. (request ID: ${sent.get("X-Request-ID")})`,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no request ID for an error the API client didn't raise", async () => {
+    // A successful response that isn't JSON fails while being parsed.
+    stubApi(() => new Response("not json"));
+    render(<App />);
+
+    const error = await screen.findByText(/JSON/);
+    expect(error).not.toHaveTextContent("request ID");
   });
 
   it("falls back to a generic message when people can't be read", async () => {
@@ -487,7 +518,7 @@ describe("blog page editor", () => {
     const renameResponses = [
       apiResponse(
         { detail: "A person with this normalized name already exists" },
-        { status: 409 },
+        { status: 409, headers: { "X-Request-ID": "req-rename" } },
       ),
       apiResponse(
         {
@@ -517,7 +548,7 @@ describe("blog page editor", () => {
     await user.click(screen.getByRole("button", { name: "Update name" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Another person already uses this normalized name.",
+      "Another person already uses this normalized name. (request ID: req-rename)",
     );
     expect(
       screen.getByRole("button", { name: /Ada Lovelace/ }),
@@ -699,7 +730,7 @@ describe("blog page editor", () => {
     const createResponses = [
       apiResponse(
         { detail: "A person with this normalized name already exists" },
-        { status: 409 },
+        { status: 409, headers: { "X-Request-ID": "req-409" } },
       ),
       apiResponse(
         {
@@ -728,7 +759,7 @@ describe("blog page editor", () => {
     await user.click(screen.getByRole("button", { name: "Save revision" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "A person with this name already exists. Select them from the pages list and save the story there.",
+      "A person with this name already exists. Select them from the pages list and save the story there. (request ID: req-409)",
     );
 
     await user.click(screen.getByRole("button", { name: "Save revision" }));
@@ -764,5 +795,150 @@ describe("blog page editor", () => {
     );
     expect(callsTo(fetchMock, "POST")).toHaveLength(0);
     expect(callsTo(fetchMock, "PUT")).toHaveLength(0);
+  });
+});
+
+describe("unsaved changes", () => {
+  function beforeUnloadIsBlocked() {
+    const event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  }
+
+  function stubPeopleWithHistory() {
+    return stubApi(({ method, path }) => {
+      if (method === "PUT")
+        return apiResponse(
+          blogResponse(
+            "person-1",
+            apiRevision(3, {
+              title: "A life in mathematics",
+              excerpt: "Numbers and engines",
+              content: "Third version",
+            }),
+          ),
+        );
+      return path === "/api/people/person-1/blog/revisions"
+        ? apiResponse(adaRevisions)
+        : apiResponse(peoplePage([adaWithStory, bjork]));
+    });
+  }
+
+  it("switches pages without asking while nothing has changed", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirm);
+    stubPeopleWithHistory();
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /Ada Lovelace/ }),
+    );
+    await screen.findByDisplayValue("Second version");
+    expect(beforeUnloadIsBlocked()).toBe(false);
+    // A name change is saved with "Update name", not with the story.
+    await user.type(screen.getByLabelText(/Person name/), " Byron");
+    await user.click(screen.getByRole("button", { name: /Björk/ }));
+    await user.click(screen.getByRole("button", { name: "New page" }));
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/Person name/)).toHaveValue("");
+  });
+
+  it("asks before discarding an edited story when another page is selected", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
+    vi.stubGlobal("confirm", confirm);
+    stubPeopleWithHistory();
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /Ada Lovelace/ }),
+    );
+    const story = await screen.findByDisplayValue("Second version");
+    await user.type(story, " with notes");
+    expect(beforeUnloadIsBlocked()).toBe(true);
+
+    // Cancelling keeps the edit and the selection.
+    await user.click(screen.getByRole("button", { name: /Björk/ }));
+    expect(confirm).toHaveBeenCalledWith(
+      "Discard the unsaved changes to this story?",
+    );
+    expect(story).toHaveValue("Second version with notes");
+    expect(screen.getByLabelText(/Person name/)).toHaveValue("Ada Lovelace");
+
+    await user.click(screen.getByRole("button", { name: /Björk/ }));
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText(/Person name/)).toHaveValue(
+      "Björk Guðmundsdóttir",
+    );
+    expect(screen.getByLabelText(/Story/)).toHaveValue("");
+    expect(beforeUnloadIsBlocked()).toBe(false);
+  });
+
+  it("asks before discarding a new page's story for another new page", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
+    vi.stubGlobal("confirm", confirm);
+    stubApi(() => apiResponse(peoplePage([])));
+    render(<App />);
+
+    await screen.findByText("No people have been added yet.");
+    await user.type(screen.getByLabelText(/Introduction/), "Letters home");
+    await user.click(screen.getByRole("button", { name: "New page" }));
+    expect(screen.getByLabelText(/Introduction/)).toHaveValue("Letters home");
+
+    await user.click(screen.getByRole("button", { name: "Create a new page" }));
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText(/Introduction/)).toHaveValue("");
+    expect(beforeUnloadIsBlocked()).toBe(false);
+  });
+
+  it("stops warning once the story is saved", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirm);
+    stubPeopleWithHistory();
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /Ada Lovelace/ }),
+    );
+    const story = await screen.findByDisplayValue("Second version");
+    await user.clear(story);
+    await user.type(story, "Third version");
+    expect(beforeUnloadIsBlocked()).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Save revision" }));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Saved to the shared archive as revision 3.",
+    );
+
+    expect(beforeUnloadIsBlocked()).toBe(false);
+    await user.click(screen.getByRole("button", { name: /Björk/ }));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/Person name/)).toHaveValue(
+      "Björk Guðmundsdóttir",
+    );
+  });
+
+  it("keeps warning after a failed save", async () => {
+    const user = userEvent.setup();
+    stubApi(({ method }) =>
+      method === "POST"
+        ? apiResponse({ detail: "Database unavailable" }, { status: 503 })
+        : apiResponse(peoplePage([])),
+    );
+    render(<App />);
+
+    await screen.findByText("No people have been added yet.");
+    await user.type(screen.getByLabelText(/Person name/), "Ada Lovelace");
+    await user.type(screen.getByLabelText(/Page title/), "A life in letters");
+    await user.type(screen.getByLabelText(/Story/), "First version");
+    await user.click(screen.getByRole("button", { name: "Save revision" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Database unavailable (request ID:",
+    );
+    expect(beforeUnloadIsBlocked()).toBe(true);
   });
 });

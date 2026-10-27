@@ -82,11 +82,8 @@ function App() {
         setSelectedPerson(person);
         document.title = `${person.name} | Minnumst`;
       } catch (error) {
-        setSearchMessage(
-          error instanceof Error
-            ? error.message
-            : "Could not load this person.",
-        );
+        // The API client only throws Errors carrying a reader-facing message.
+        setSearchMessage((error as Error).message);
       } finally {
         setIsLoadingPerson(false);
       }
@@ -138,9 +135,8 @@ function App() {
           : `Showing ${page.items.length} of ${page.total} people.`,
       );
     } catch (error) {
-      setSearchMessage(
-        error instanceof Error ? error.message : "The directory search failed.",
-      );
+      // The API client only throws Errors carrying a reader-facing message.
+      setSearchMessage((error as Error).message);
     } finally {
       setIsSearching(false);
     }

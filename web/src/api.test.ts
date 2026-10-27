@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getPersonBySlug, searchPeople } from "./api";
+import { adaProfile, pageOf, type ErrorResponse } from "./test/fixtures";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -9,7 +10,7 @@ afterEach(() => {
 
 describe("public API client", () => {
   it("searches people using the API paging contract", async () => {
-    const response = { items: [], total: 0, offset: 0, limit: 50 };
+    const response = pageOf([]);
     const fetchMock = vi.fn().mockResolvedValue(Response.json(response));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -28,11 +29,7 @@ describe("public API client", () => {
     });
     vi.resetModules();
     const { searchPeople: searchWithRuntimeConfig } = await import("./api");
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        Response.json({ items: [], total: 0, offset: 0, limit: 50 }),
-      );
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(pageOf([])));
     vi.stubGlobal("fetch", fetchMock);
 
     await searchWithRuntimeConfig("ada");
@@ -44,11 +41,12 @@ describe("public API client", () => {
   });
 
   it("loads a public person and current blog by slug", async () => {
-    const person = { id: "1", name: "Ásta", slug: "asta", current_blog: null };
-    const fetchMock = vi.fn().mockResolvedValue(Response.json(person));
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(adaProfile));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(getPersonBySlug("asta/jonsdottir")).resolves.toEqual(person);
+    await expect(getPersonBySlug("asta/jonsdottir")).resolves.toEqual(
+      adaProfile,
+    );
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/people/by-slug/asta%2Fjonsdottir",
@@ -62,7 +60,10 @@ describe("public API client", () => {
       vi
         .fn()
         .mockResolvedValue(
-          Response.json({ detail: "Person not found" }, { status: 404 }),
+          Response.json(
+            { detail: "Person not found" } satisfies ErrorResponse,
+            { status: 404 },
+          ),
         ),
     );
 
@@ -72,11 +73,7 @@ describe("public API client", () => {
   });
 
   it("allows the autocomplete to request a bounded result page", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        Response.json({ items: [], total: 0, offset: 0, limit: 8 }),
-      );
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(pageOf([], 8)));
     vi.stubGlobal("fetch", fetchMock);
 
     await searchPeople("ada", 8);

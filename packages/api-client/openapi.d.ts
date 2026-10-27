@@ -49,13 +49,16 @@ export interface paths {
             readonly path?: never;
             readonly cookie?: never;
         };
-        /** Read Person */
+        /**
+         * Read Person
+         * @description Read a person and their current story by ID. Neither frontend calls it (the public archive reads by slug, the editorial desk works from search results), but it is the canonical ID-based read: every mutation takes an ID, so integrations and the end-to-end test use it to check a write, and a deleted person reads as 404.
+         */
         readonly get: operations["read_person_api_people__person_id__get"];
         readonly put?: never;
         readonly post?: never;
         /**
          * Delete Person
-         * @description Delete a person who has no story. A person with a story returns 409 and is kept, because stories and their revisions are never deleted.
+         * @description Delete a person who has no story, to undo a mistaken create. A person with a story returns 409 and is kept, because stories and their revisions are never deleted: no route edits or deletes them. Like every write, it goes through Authentik at the edge. No frontend calls it.
          */
         readonly delete: operations["delete_person_api_people__person_id__delete"];
         readonly options?: never;
@@ -71,7 +74,10 @@ export interface paths {
             readonly path?: never;
             readonly cookie?: never;
         };
-        /** Read Blog */
+        /**
+         * Read Blog
+         * @description Read just the person's story: its current revision and how many revisions it has, without the person or the full history. No frontend calls it; it returns 404 for a person without a story.
+         */
         readonly get: operations["read_blog_api_people__person_id__blog_get"];
         /** Save Blog */
         readonly put: operations["save_blog_api_people__person_id__blog_put"];

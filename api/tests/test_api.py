@@ -433,6 +433,45 @@ def test_unhandled_errors_carry_the_generated_request_id(
     assert response.headers["X-Request-ID"] == failure.request_id
 
 
+def cors_headers(response: Response) -> dict[str, str]:
+    return {
+        key: value
+        for key, value in response.headers.items()
+        if key.startswith("access-control-") or key == "vary"
+    }
+
+
+@pytest.mark.parametrize(
+    ("origin", "allow_origin"),
+    [
+        ("https://admin.example", "https://admin.example"),
+        ("https://attacker.example", None),
+        (None, None),
+    ],
+)
+def test_unhandled_errors_get_the_same_cors_headers_as_other_responses(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    origin: str | None,
+    allow_origin: str | None,
+) -> None:
+    monkeypatch.setattr(settings, "cors_origins", "https://admin.example")
+    app = create_app(database_url=f"sqlite:///{tmp_path}/missing/minnumst.db")
+    headers = {"Origin": origin} if origin else {}
+
+    with TestClient(app, raise_server_exceptions=False) as test_client:
+        failure = test_client.get("/readyz", headers=headers)
+        success = test_client.get("/healthz", headers=headers)
+
+    assert failure.status_code == 500
+    assert failure.headers.get("access-control-allow-origin") == allow_origin
+    assert cors_headers(failure) == cors_headers(success)
+    if allow_origin:
+        assert failure.headers["access-control-allow-credentials"] == "true"
+        assert failure.headers["access-control-expose-headers"] == "X-Request-ID"
+    assert len(failure.headers["X-Request-ID"]) == 36
+
+
 def test_invalid_request_ids_are_replaced(client: TestClient) -> None:
     response = client.get("/healthz", headers={"X-Request-ID": "bad id\twith spaces"})
 

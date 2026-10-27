@@ -178,7 +178,18 @@ def get_person_by_slug(slug: str, session: SessionDep) -> PersonDetail:
     )
 
 
-@router.get("/people/{person_id}", response_model=PersonDetail, responses=NOT_FOUND)
+@router.get(
+    "/people/{person_id}",
+    response_model=PersonDetail,
+    responses=NOT_FOUND,
+    description=(
+        "Read a person and their current story by ID. Neither frontend calls "
+        "it (the public archive reads by slug, the editorial desk works from "
+        "search results), but it is the canonical ID-based read: every "
+        "mutation takes an ID, so integrations and the end-to-end test use it "
+        "to check a write, and a deleted person reads as 404."
+    ),
+)
 def read_person(person_id: UUID, session: SessionDep) -> PersonDetail:
     person = get_person(session, person_id)
     logger.debug("Person loaded person_id=%s", person.id)
@@ -230,7 +241,14 @@ def update_person(
 
 
 @router.get(
-    "/people/{person_id}/blog", response_model=BlogResponse, responses=NOT_FOUND
+    "/people/{person_id}/blog",
+    response_model=BlogResponse,
+    responses=NOT_FOUND,
+    description=(
+        "Read just the person's story: its current revision and how many "
+        "revisions it has, without the person or the full history. No "
+        "frontend calls it; it returns 404 for a person without a story."
+    ),
 )
 def read_blog(person_id: UUID, session: SessionDep) -> BlogResponse:
     person = get_person(session, person_id)
@@ -327,8 +345,11 @@ def list_blog_revisions(
     status_code=status.HTTP_204_NO_CONTENT,
     responses=NOT_FOUND | CONFLICT,
     description=(
-        "Delete a person who has no story. A person with a story returns 409 "
-        "and is kept, because stories and their revisions are never deleted."
+        "Delete a person who has no story, to undo a mistaken create. A person "
+        "with a story returns 409 and is kept, because stories and their "
+        "revisions are never deleted: no route edits or deletes them. Like "
+        "every write, it goes through Authentik at the edge. No frontend "
+        "calls it."
     ),
 )
 def delete_person(person_id: UUID, session: SessionDep) -> Response:

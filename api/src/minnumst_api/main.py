@@ -58,19 +58,22 @@ class RequestContextMiddleware:
             request_id_context.reset(context_token)
 
 
-async def internal_server_error(request: Request, _: Exception) -> JSONResponse:
+async def internal_server_error(request: Request, _: Exception) -> ASGIApp:
     """Answer an unhandled exception with a generic body and the request's ID.
 
     Starlette's ServerErrorMiddleware calls this from outside
-    RequestContextMiddleware, so the header is set here; the exception itself
-    has already been logged as "Request failed" and its details never reach
-    the client.
+    RequestContextMiddleware and CORSMiddleware, so the header is set here and
+    the response goes through the app's own CORS settings, letting an allowed
+    origin read the status and request ID. The exception itself has already
+    been logged as "Request failed" and its details never reach the client.
     """
-    return JSONResponse(
+    response = JSONResponse(
         {"detail": "Internal Server Error"},
         status_code=500,
         headers={"X-Request-ID": request.state.request_id},
     )
+    cors_options = request.app.state.cors_options
+    return CORSMiddleware(response, **cors_options) if cors_options else response
 
 
 def create_app(database_url: str | None = None) -> FastAPI:
@@ -144,17 +147,22 @@ def create_app(database_url: str | None = None) -> FastAPI:
         )
         return response
 
-    if settings.allowed_origins:
-        app.add_middleware(
-            CORSMiddleware,
-            # Explicit origins only; credentials carry the Authentik session
-            # cookie from the admin desk to the API's hostname.
-            allow_origins=settings.allowed_origins,
-            allow_credentials=True,
-            allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-            allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
-            expose_headers=["X-Request-ID"],
-        )
+    # Explicit origins only; credentials carry the Authentik session cookie
+    # from the admin desk to the API's hostname. internal_server_error reuses
+    # these settings for responses built outside the middleware.
+    app.state.cors_options = (
+        {
+            "allow_origins": settings.allowed_origins,
+            "allow_credentials": True,
+            "allow_methods": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+            "allow_headers": ["Authorization", "Content-Type", "X-Request-ID"],
+            "expose_headers": ["X-Request-ID"],
+        }
+        if settings.allowed_origins
+        else None
+    )
+    if app.state.cors_options:
+        app.add_middleware(CORSMiddleware, **app.state.cors_options)
 
     app.add_middleware(RequestContextMiddleware)
 

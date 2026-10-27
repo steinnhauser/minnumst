@@ -19,17 +19,21 @@ The checked-in contract is [`openapi.json`](openapi.json). `make openapi-check` 
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/people?query=&offset=0&limit=50`   | Search people by name (accent-insensitive), one page at a time                                                            |
 | `POST /api/people`                           | Create a person                                                                                                           |
-| `GET /api/people/{person_id}`                | Read a person with their current story                                                                                    |
+| `GET /api/people/{person_id}`                | Read a person with their current story by ID (see below)                                                                  |
 | `PATCH /api/people/{person_id}`              | Rename a person                                                                                                           |
-| `DELETE /api/people/{person_id}`             | Delete a person who has no story; `409` otherwise                                                                         |
+| `DELETE /api/people/{person_id}`             | Delete a person who has no story; `409` otherwise (see below)                                                             |
 | `GET /api/people/by-slug/{slug}`             | Read a person and their current story by public slug. Slugs are permanent: a rename keeps the slug, so links keep working |
-| `GET /api/people/{person_id}/blog`           | Read the story                                                                                                            |
+| `GET /api/people/{person_id}/blog`           | Read just the current story and its revision count (see below)                                                            |
 | `PUT /api/people/{person_id}/blog`           | Save a new revision (creates the story on first save)                                                                     |
 | `GET /api/people/{person_id}/blog/revisions` | The full revision history, newest first                                                                                   |
 | `GET /healthz`, `GET /readyz`                | Liveness, and readiness including the database                                                                            |
 
 - Names are unique after normalisation (accents and whitespace), enforced by a database constraint. Each person has at most one story.
 - Every save appends an immutable revision. There are no routes to edit, delete or restore revisions, and a person with a story can't be deleted.
+- Three routes have no caller in either frontend, and are kept on purpose:
+  - `GET /api/people/{person_id}` is the canonical read by ID. Every mutation takes an ID rather than a slug, so integrations and the end-to-end test use it to check a write.
+  - `GET /api/people/{person_id}/blog` returns just the current story and its revision count, without the person or the history.
+  - `DELETE /api/people/{person_id}` exists to undo a mistaken create. It removes only a person without a story and answers `409` otherwise; like every write it goes through Authentik. No route edits or deletes stories or revisions.
 - Writes rely on Traefik and Authentik in front of the API: `POST`, `PUT`, `PATCH` and `DELETE` are routed through forward-auth. The API itself has no login.
 
 ## Configuration

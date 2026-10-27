@@ -5,13 +5,20 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     projects: ["web", "admin", "packages/*"],
-    // `make test` fails if coverage drops below the current level.
+    // `make test` fails on any uncovered line, statement, branch or function.
     coverage: {
       provider: "v8",
-      reporter: ["text-summary"],
+      // json-summary feeds tools/scripts/coverage_report.py.
+      reporter: ["text-summary", "json-summary"],
+      reportsDirectory: "coverage/frontends",
       include: ["web/src/**", "admin/src/**", "packages/*/*.{ts,mjs}"],
       exclude: ["**/*.test.*", "**/test/**", "**/*.d.ts", "**/main.tsx"],
-      thresholds: { lines: 70, statements: 70, branches: 60, functions: 75 },
+      thresholds: {
+        lines: 100,
+        statements: 100,
+        branches: 100,
+        functions: 100,
+      },
     },
   },
 });

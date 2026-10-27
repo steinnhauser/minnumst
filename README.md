@@ -148,6 +148,23 @@ The archive is then on <http://127.0.0.1:5173>, the editorial desk on <http://12
 
 For quicker iteration, run the development servers instead, each in its own terminal: `make dev-api`, `make dev-web` and `make dev-admin`. They work without configuration. [CONTRIBUTING](CONTRIBUTING.md) has the details, and [`deploy/README.md`](deploy/README.md) covers production.
 
+## Test coverage
+
+`make test` runs pytest (SQLite) for the API and Vitest for the frontends and shared packages, and fails on any uncovered line or branch (and function, for TypeScript); the gates are in [`pyproject.toml`](pyproject.toml) and [`vitest.config.ts`](vitest.config.ts). The table comes from the last run: `make coverage-readme` updates it, and CI fails if it is out of date. The PostgreSQL-only tests, the stack's end-to-end tests and the browser tests run on top of this.
+
+<!-- prettier-ignore-start -->
+<!-- coverage:start -->
+
+| Component | Lines | Statements | Branches | Functions |
+| --- | --- | --- | --- | --- |
+| `api/` | 100.0% | 100.0% | 100.0% | — |
+| `web/` | 100.0% | 100.0% | 100.0% | 100.0% |
+| `admin/` | 100.0% | 100.0% | 100.0% | 100.0% |
+| `packages/` | 100.0% | 100.0% | 100.0% | 100.0% |
+
+<!-- coverage:end -->
+<!-- prettier-ignore-end -->
+
 ## CI and releases
 
 One workflow, [`ci.yml`](.github/workflows/ci.yml), runs on every push, pull request and release tag, using the same `make` targets:
@@ -156,7 +173,7 @@ One workflow, [`ci.yml`](.github/workflows/ci.yml), runs on every push, pull req
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `changes`  | Detects documentation-only changes, which skip the slower jobs below (tags, schedules and manual runs always run everything)        |
 | `checks`   | Ruff, Prettier, ESLint, ShellCheck, ansible-lint, playbook syntax, OpenAPI freshness, API wheel and frontend builds                 |
-| `tests`    | pytest on SQLite and on PostgreSQL (Testcontainers), Vitest                                                                         |
+| `tests`    | pytest on SQLite and on PostgreSQL (Testcontainers), Vitest, the 100% coverage gates and the README's coverage table                |
 | `e2e`      | Builds the images, runs the stack, then the API, edge, backup-restore and browser tests (CSP, axe), and scans the images with Trivy |
 | `host`     | Applies the host hardening to an Ubuntu 24.04 VM twice (the second run must change nothing) and scores it with Lynis                |
 | `codeql`   | CodeQL security-extended analysis of the Python, TypeScript and workflow code                                                       |

@@ -83,7 +83,7 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 ### 2.1 One source of truth for the contract
 
 - [x] Generate TypeScript types from `api/openapi.json` into `packages/api-client` (openapi-typescript, readonly). Both frontends compile against them, and `make openapi-check` fails when the spec or the types are stale.
-- [ ] Type the mocked responses in `web/src/api.test.ts` (and admin's) against the generated types, so a fixture can't describe a response shape the API doesn't return.
+- [x] Type the mocked responses in `web/src/api.test.ts` (and admin's) against the generated types, so a fixture can't describe a response shape the API doesn't return.
 - [x] Declare the error responses in the OpenAPI spec: every route documents its `404` and `409` with a shared `ErrorResponse` model.
 - [ ] Make a change to `api/openapi.json` count as a frontend change once path filters exist (item 1.3).
 
@@ -98,13 +98,13 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 
   Wire it into `make stack-test` and the CI `e2e` job, then add the same suite for admin's write calls.
 
-- [ ] Keep `tools/scripts/e2e_api.py` as the route-level test. Make sure it covers every route in the table above, including `GET /api/people/{id}/blog` and the `X-Request-ID` echo.
+- [x] Keep `tools/scripts/e2e_api.py` as the route-level test. It covers every route in the table above, including `GET /api/people/{id}/blog` and the `X-Request-ID` echo, and fails if a route in the live spec goes uncalled.
 
 ### 2.3 Fix the drift found so far
 
 - [x] **API version:** the spec reported a hard-coded `0.1.0`. It now reads the package version, and `make release` regenerates `openapi.json`.
 - [x] **Validation errors:** the shared client shows the first validation message instead of a bare status, and the web search input is capped at the API's 255 characters.
-- [ ] **Result limits:** `web` asks for 50 results and shows "Showing 50 of N people" without a way to see the rest. Either page through results with `offset`, or tell the reader to refine the search. Document the API's bounds (`limit` 1 to 100, empty `query` returns everyone in name order) in the route descriptions.
+- [ ] **Result limits:** `web` asks for 50 results and shows "Showing 50 of N people" without a way to see the rest. Either page through results with `offset`, or tell the reader to refine the search. The API's bounds (`limit` 1 to 100, empty `query` returns everyone in name order) are now in the route descriptions.
 - [x] **Slugs and profile URLs:** slugs are permanent public identifiers (a rename keeps the slug), and every profile has its own address, `/people/<slug>`, that works with links, bookmarks and the back and forward buttons; unit and browser tests cover it.
 - [ ] **Unused routes:** no client calls `GET /api/people/{id}`, `GET /api/people/{id}/blog` or `DELETE /api/people/{id}`. For each, either use it (for example, admin could load one person instead of paging through everyone) or document why it exists. `DELETE` only removes a person without a story, returns 409 otherwise, and goes through Authentik. Make sure the docs say this and that no UI implies stories or revisions can be deleted.
 - [x] **Request IDs:** every request carries an `X-Request-ID`, and client errors keep the ID (from the response) so a report can be matched to a log line. Still open: show it in the admin UI.
@@ -112,7 +112,7 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 
 ### 2.4 Process
 
-- [ ] Document the contract-change workflow in CONTRIBUTING: change the API, regenerate the spec, regenerate the client types, then update the clients and the contract tests, all in one PR.
+- [x] Document the contract-change workflow in CONTRIBUTING: change the API, regenerate the spec, regenerate the client types, then update the clients and the contract tests, all in one PR.
 
 **Done when:** every route has a client caller covered by a contract test against the real API, or a documented reason to exist; both frontends use generated types; and CI fails when the spec, the generated types or a client fall out of step.
 
@@ -126,7 +126,8 @@ Current routes and their callers (from `api/openapi.json`, `web/src/api.ts` and 
 
 - [x] Playwright tests against the running stack (`make browser`, in the CI `e2e` job), at desktop and phone widths: a reader searching and reading a story, an editor writing two revisions and seeing both in the history. Any browser console error, including a CSP violation, fails the test.
 - [x] axe audits in those flows; the first run found WCAG contrast failures in both frontends, now fixed to AA.
-- [x] Coverage thresholds at the current level: 85% for the API (88% today), and lines 70% / statements 70% / branches 60% / functions 75% for the frontends and shared packages. `make test` fails below them.
+- [x] 100% coverage gates: lines and branches for the API, and lines, statements, branches and functions for the frontends and shared packages. `make test` fails below them, and the README's coverage table is generated from the run (`make coverage-readme`; CI fails if it is stale).
+- [ ] Return the `X-Request-ID` header on unhandled `500` responses too: Starlette's error handler runs outside the request-context middleware, so today only the log line carries the ID.
 - [ ] Extend the browser tests to renaming, validation messages and keyboard navigation of the search suggestions.
 
 ## 5. Database migrations and roles

@@ -25,6 +25,7 @@ jobs:
   changes:
     name: changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     outputs:
@@ -57,6 +58,7 @@ jobs:
   checks:
     name: checks (format, lint, OpenAPI, build)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -79,6 +81,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -87,12 +90,18 @@ jobs:
           persist-credentials: false
       - uses: $/.github/actions/setup
       - run: make test test-postgres
+      - name: Summarise coverage and check the README's table
+        if: ${{ !cancelled() }}
+        run: |
+          { echo '### Test coverage'; echo; python3 tools/scripts/coverage_report.py; } >> "$GITHUB_STEP_SUMMARY"
+          python3 tools/scripts/coverage_report.py --check
 
   e2e:
     name: e2e (images, stack, edge, backups, browsers, image scan)
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     permissions:
       contents: read
       security-events: write
@@ -150,6 +159,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
@@ -174,6 +184,7 @@ jobs:
     name: dependency review
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -187,6 +198,7 @@ jobs:
     if: needs.changes.outputs.code == 'true'
     # Applies the host role to this runner: a real Ubuntu 24.04 VM.
     runs-on: ubuntu-24.04
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
@@ -239,6 +251,7 @@ jobs:
     name: pull request title
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions: {}
     steps:
       - name: Require a Conventional Commit title
@@ -254,6 +267,7 @@ jobs:
     needs:
       [changes, checks, tests, e2e, host, codeql, dependency-review, pr-title]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions: {}
     steps:
       - name: Require every job to succeed (skipped jobs are fine)
@@ -266,6 +280,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs: [checks, tests, e2e, codeql]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: write
       packages: write

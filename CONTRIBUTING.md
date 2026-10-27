@@ -23,20 +23,25 @@ Dependencies are managed at the root as well. Add a Python dependency with `uv a
 
 ## Checks
 
-| Command              | What it runs                                                                                                                                                |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `make format`        | Ruff (Python) and Prettier (TypeScript, JavaScript, CSS, Markdown, YAML, JSON)                                                                              |
-| `make lint`          | Ruff, ESLint, ShellCheck, zizmor, ansible-lint, the playbook syntax check, and `tofu fmt`/`validate` plus a Trivy scan of `infra/`                          |
-| `make test`          | pytest on SQLite and Vitest for both frontends and the shared packages, failing if coverage drops below the current level (API 85%, frontends 70% of lines) |
-| `make test-postgres` | The API tests against PostgreSQL in a disposable container (Testcontainers)                                                                                 |
-| `make openapi-check` | Fails if `api/openapi.json` is stale; regenerate it with `make openapi`                                                                                     |
-| `make build`         | The API wheel and both frontend production builds                                                                                                           |
-| `make validate`      | All of the above, as CI runs them                                                                                                                           |
-| `make stack-test`    | The full stack in containers with the end-to-end tests (see below)                                                                                          |
+| Command              | What it runs                                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `make format`        | Ruff (Python) and Prettier (TypeScript, JavaScript, CSS, Markdown, YAML, JSON)                                                                         |
+| `make lint`          | Ruff, ESLint, ShellCheck, zizmor, ansible-lint, the playbook syntax check, and `tofu fmt`/`validate` plus a Trivy scan of `infra/`                     |
+| `make test`          | pytest on SQLite and Vitest for both frontends and the shared packages, failing below 100% coverage (lines and branches, and functions for TypeScript) |
+| `make test-postgres` | The API tests against PostgreSQL in a disposable container (Testcontainers)                                                                            |
+| `make openapi-check` | Fails if `api/openapi.json` is stale; regenerate it with `make openapi`                                                                                |
+| `make build`         | The API wheel and both frontend production builds                                                                                                      |
+| `make validate`      | All of the above, as CI runs them                                                                                                                      |
+| `make stack-test`    | The full stack in containers with the end-to-end tests (see below)                                                                                     |
 
 Run `make validate` before opening a pull request, and `make stack-test` as well for changes that cross components, such as the API contract, images, ports or the Compose template.
 
-When an API route or schema changes, run `make openapi`. It regenerates `api/openapi.json` and the TypeScript types in `packages/api-client/`, which both frontends compile against, so a contract change that breaks a frontend fails its type check. Update the frontends in the same pull request; `make openapi-check` (in CI) fails if either generated file is stale.
+When an API route or schema changes, change the contract in one pull request, in this order:
+
+1. Change the API and its tests in `api/`.
+2. Run `make openapi`. It regenerates `api/openapi.json` and the TypeScript types in `packages/api-client/`; `make openapi-check` (in CI) fails if either generated file is stale.
+3. Update the clients in `web/` and `admin/`. Both compile against the generated types, and their test fixtures are typed against them too, so a contract change that breaks a client or a fixture fails its type check.
+4. Update the route-level tests in `tools/scripts/e2e_api.py` (every route has a case there), and run `make stack-test`.
 
 When a model changes, run `make migration MESSAGE="describe the change"`, review the generated file in `api/src/minnumst_api/migrations/versions/`, and grant any new table to the runtime role in the same migration. `make test` fails if the models and the migrations disagree.
 

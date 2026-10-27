@@ -13,7 +13,7 @@ VAULT_ARGS ?= --ask-vault-pass
 # Use the workspace's .venv even when another virtual environment is active.
 unexport VIRTUAL_ENV
 
-.PHONY: help install format format-check lint test test-api test-postgres test-frontends \
+.PHONY: help install format format-check lint test test-api test-postgres test-frontends coverage-readme \
 	openapi openapi-check migration build validate clean ci \
 	dev-api dev-web dev-admin \
 	stack-config up wait seed e2e edge backup-test browser stack-test ps logs down db-update db-clear db-reset \
@@ -26,7 +26,8 @@ help:
 	  '  format          Format all code (Ruff, Prettier)' \
 	  '  format-check    Check formatting without changing files' \
 	  '  lint            Ruff, ESLint, ShellCheck, zizmor (workflow security), ansible-lint, playbook syntax, old-name guard' \
-	  '  test            API tests on SQLite and the frontend tests' \
+	  '  test            API tests on SQLite and the frontend tests, with coverage gates' \
+	  '  coverage-readme Run the tests and update the coverage table in README.md' \
 	  '  test-postgres    API tests against PostgreSQL in a container (needs Docker)' \
 	  '  openapi         Regenerate api/openapi.json and the TypeScript types generated from it' \
 	  '  openapi-check   Fail if the spec or the generated types are out of date' \
@@ -96,13 +97,16 @@ lint: deploy-check infra-check
 test: test-api test-frontends
 
 test-api:
-	$(UV_RUN) pytest api/tests --cov
+	$(UV_RUN) pytest api/tests --cov --cov-report=term-missing:skip-covered --cov-report=json:coverage/api.json
 
 test-postgres:
 	RUN_POSTGRES_TESTS=1 $(UV_RUN) pytest api/tests/test_postgres.py
 
 test-frontends:
 	npm test -- --coverage
+
+coverage-readme: test
+	$(UV_RUN) python tools/scripts/coverage_report.py --readme
 
 openapi:
 	$(UV_RUN) python api/scripts/generate_openapi.py

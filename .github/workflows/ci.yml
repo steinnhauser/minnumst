@@ -112,7 +112,35 @@ jobs:
       - uses: $/.github/actions/setup
       - name: Install Chromium for the browser tests
         run: npx playwright install --with-deps chromium
-      - name: Build, start, seed and test the stack, Traefik included
+      - name: Render the local Compose file
+        run: make stack-config
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          version: v0.38.1
+          # The workflow also publishes releases, so it caches no tool binaries.
+          cache-binary: false
+      - name: Build the images, reusing unchanged layers from the Actions cache
+        uses: docker/bake-action@59cb1203cd42bcefd40a1b6d73b589e48c86040e # v7.5.0
+        env:
+          # The override's build contexts are relative to the rendered file.
+          BUILDX_BAKE_FILE_RELATIVE_PATHS: "1"
+        with:
+          source: .
+          files: |
+            tools/compose/.local/compose.yml
+            tools/compose/local.override.yml
+          targets: api,public,admin
+          load: true
+          set: |
+            api.cache-from=type=gha,scope=e2e-api
+            api.cache-to=type=gha,scope=e2e-api,mode=max
+            public.cache-from=type=gha,scope=e2e-public
+            public.cache-to=type=gha,scope=e2e-public,mode=max
+            admin.cache-from=type=gha,scope=e2e-admin
+            admin.cache-to=type=gha,scope=e2e-admin,mode=max
+      - name: Start, seed and test the stack, Traefik included
+        env:
+          STACK_PREBUILT: "1"
         run: make stack-test
       - name: Show service logs
         if: failure()

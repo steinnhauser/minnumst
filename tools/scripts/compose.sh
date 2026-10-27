@@ -52,7 +52,8 @@ case "$action" in
     printf 'Compose configuration is valid. Rendered file: %s\n' "$compose_file"
     ;;
   up)
-    "${compose[@]}" build api public admin
+    # CI builds the images beforehand with a layer cache (STACK_PREBUILT=1).
+    [[ ${STACK_PREBUILT:-} == 1 ]] || "${compose[@]}" build api public admin
     "${compose[@]}" up -d
     ;;
   wait)

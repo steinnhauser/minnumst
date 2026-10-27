@@ -10,10 +10,39 @@ from sqlalchemy import (
     MetaData,
     String,
     Text,
+    TypeDecorator,
     UniqueConstraint,
     Uuid,
 )
+from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+class UTCDateTime(TypeDecorator[datetime]):
+    """A timestamp stored and returned in UTC on every backend.
+
+    PostgreSQL's timestamptz returns aware values, but SQLite drops the zone,
+    so naive values read back (or written) are taken to be UTC.
+    """
+
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(
+        self, value: datetime | None, dialect: Dialect
+    ) -> datetime | None:
+        return None if value is None else as_utc(value)
+
+    def process_result_value(
+        self, value: datetime | None, dialect: Dialect
+    ) -> datetime | None:
+        return None if value is None else as_utc(value)
+
+
+def as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 class Base(DeclarativeBase):
@@ -40,10 +69,10 @@ class Person(Base):
     normalized_name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+        UTCDateTime(), default=lambda: datetime.now(UTC), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
         nullable=False,
@@ -62,7 +91,7 @@ class BlogPost(Base):
         ForeignKey("people.id", ondelete="RESTRICT"), nullable=False, unique=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+        UTCDateTime(), default=lambda: datetime.now(UTC), nullable=False
     )
 
     person: Mapped[Person] = relationship(back_populates="blog")
@@ -94,7 +123,7 @@ class BlogRevision(Base):
     excerpt: Mapped[str] = mapped_column(Text, nullable=False, default="")
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+        UTCDateTime(), default=lambda: datetime.now(UTC), nullable=False
     )
 
     blog: Mapped[BlogPost] = relationship(back_populates="revisions")

@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,7 @@ from minnumst_api.config import settings
 from minnumst_api.logging_config import configure_logging
 from minnumst_api.main import create_app
 from minnumst_api.migrate import upgrade
-from minnumst_api.models import BlogPost, Person
+from minnumst_api.models import BlogPost, Person, UTCDateTime
 
 
 def migrated_app() -> FastAPI:
@@ -97,6 +98,55 @@ def test_blog_save_appends_history_and_slug_read_returns_current(
     ]
     assert [item["revision_number"] for item in history.json()] == [2, 1]
     assert public_page.json()["current_blog"]["content"] == "Second version"
+
+
+def timestamps(document: object) -> list[tuple[str, str]]:
+    """Every (field, value) timestamp in a JSON document, however nested."""
+    if isinstance(document, list):
+        return [found for item in document for found in timestamps(item)]
+    if isinstance(document, dict):
+        return [
+            found
+            for key, value in document.items()
+            for found in ([(key, value)] if key.endswith("_at") else timestamps(value))
+        ]
+    return []
+
+
+def test_timestamps_read_back_from_the_database_are_explicitly_utc(
+    client: TestClient,
+) -> None:
+    person = create_person(client)
+    client.put(f"/api/people/{person['id']}/blog", json=STORY)
+    client.patch(f"/api/people/{person['id']}", json={"name": "Ásta Jóns"})
+
+    found = timestamps(
+        [
+            client.get("/api/people").json(),
+            client.get(f"/api/people/{person['id']}").json(),
+            client.get(f"/api/people/by-slug/{person['slug']}").json(),
+            client.get(f"/api/people/{person['id']}/blog").json(),
+            client.get(f"/api/people/{person['id']}/blog/revisions").json(),
+        ]
+    )
+
+    assert {field for field, _ in found} == {"created_at", "updated_at", "saved_at"}
+    for field, value in found:
+        assert value.endswith("Z"), (field, value)
+        assert datetime.fromisoformat(value).utcoffset() == timedelta(0)
+
+
+def test_utc_timestamps_are_normalised_on_write_and_read() -> None:
+    column = UTCDateTime()
+    naive = datetime(2026, 10, 27, 12, 0)
+    oslo = datetime(2026, 10, 27, 13, 0, tzinfo=timezone(timedelta(hours=1)))
+    utc = datetime(2026, 10, 27, 12, 0, tzinfo=UTC)
+
+    for convert in (column.process_bind_param, column.process_result_value):
+        assert convert(None, None) is None  # type: ignore[arg-type]
+        assert convert(naive, None) == utc  # type: ignore[arg-type]
+        assert convert(oslo, None).tzinfo is UTC  # type: ignore[arg-type,union-attr]
+        assert convert(oslo, None) == utc  # type: ignore[arg-type]
 
 
 def test_people_can_be_updated_but_blog_history_blocks_deletion(

@@ -32,6 +32,18 @@ export const adaProfile = {
 export function pageOf(
   items: readonly PersonResponse[],
   limit = 50,
+  offset = 0,
+  total = items.length,
 ): PersonPage {
-  return { items, total: items.length, offset: 0, limit };
+  return { items, total, offset, limit };
+}
+
+// `count` distinct people, for paging through more than one result page.
+export function peopleNamed(count: number): PersonResponse[] {
+  return Array.from({ length: count }, (_, index) => ({
+    ...ada,
+    id: `person-${index + 1}`,
+    name: `Person ${index + 1}`,
+    slug: `person-${index + 1}`,
+  }));
 }

@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +14,7 @@ import {
   ada,
   adaProfile,
   pageOf,
+  peopleNamed,
   type ErrorResponse,
   type PersonDetail,
   type PersonResponse,
@@ -34,7 +36,8 @@ afterEach(() => {
   document.title = defaultTitle;
 });
 
-// Answers profile requests with `profile` and searches with `people`.
+// Answers profile requests with `profile` and searches with the requested page
+// of `people`.
 function stubApi(
   people: readonly PersonResponse[] = [ada],
   profile: PersonDetail = adaProfile,
@@ -45,12 +48,23 @@ function stubApi(
       Response.json(
         url.pathname.startsWith("/api/people/by-slug/")
           ? profile
-          : pageOf(people, Number(url.searchParams.get("limit"))),
+          : pageFrom(people, url),
       ),
     );
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+}
+
+function pageFrom(people: readonly PersonResponse[], url: URL) {
+  const offset = Number(url.searchParams.get("offset"));
+  const limit = Number(url.searchParams.get("limit"));
+  return pageOf(
+    people.slice(offset, offset + limit),
+    limit,
+    offset,
+    people.length,
+  );
 }
 
 function searchbox() {
@@ -416,6 +430,199 @@ describe("search suggestions", () => {
 
       expect(screen.queryByRole("option")).not.toBeInTheDocument();
       expect(searchbox()).toHaveAttribute("aria-busy", "false");
+    },
+  );
+});
+
+describe("more search results", () => {
+  function results() {
+    return within(screen.getByLabelText("Search results")).getAllByRole(
+      "button",
+    );
+  }
+
+  function showMore() {
+    return screen.queryByRole("button", { name: "Show more people" });
+  }
+
+  async function search(name: string) {
+    fireEvent.change(searchbox(), { target: { value: name } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  }
+
+  it("pages through every match and announces the count", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubApi(peopleNamed(120));
+    render(<App />);
+
+    await search("Person");
+    expect(
+      await screen.findByText("Showing 50 of 120 people."),
+    ).toBeInTheDocument();
+    expect(results()).toHaveLength(50);
+
+    await user.click(showMore()!);
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Showing 100 of 120 people.",
+      ),
+    );
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "http://127.0.0.1:8000/api/people?query=Person&offset=50&limit=50",
+      expect.anything(),
+    );
+    expect(results()).toHaveLength(100);
+    expect(results()[50]).toHaveFocus();
+    expect(results()[50]).toHaveTextContent("Person 51");
+
+    await user.click(showMore()!);
+    await screen.findByText("Showing 120 of 120 people.");
+    expect(results()).toHaveLength(120);
+    expect(results()[100]).toHaveFocus();
+    expect(showMore()).not.toBeInTheDocument();
+  });
+
+  it("shows no button when every match fits on one page", async () => {
+    stubApi(peopleNamed(50));
+    render(<App />);
+
+    await search("Person");
+
+    await screen.findByText("Showing 50 of 50 people.");
+    expect(showMore()).not.toBeInTheDocument();
+  });
+
+  it("keeps the results and allows a retry when a page fails", async () => {
+    const user = userEvent.setup();
+    const people = peopleNamed(60);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        return url.searchParams.get("offset") === "50"
+          ? Promise.reject(new TypeError("offline"))
+          : Promise.resolve(Response.json(pageFrom(people, url)));
+      }),
+    );
+    render(<App />);
+    await search("Person");
+    await screen.findByText("Showing 50 of 60 people.");
+
+    await user.click(showMore()!);
+
+    expect(
+      await screen.findByText(
+        "Could not reach the Minnumst API. Check that it is running.",
+      ),
+    ).toBeInTheDocument();
+    expect(results()).toHaveLength(50);
+    expect(showMore()).toBeEnabled();
+  });
+
+  it("lists nobody twice when the archive changes between pages", async () => {
+    const user = userEvent.setup();
+    const people = peopleNamed(52);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        // A new match ahead of Person 50 pushes them onto the next page.
+        return Promise.resolve(
+          Response.json(
+            url.searchParams.get("offset") === "50"
+              ? pageOf([people[49], people[50]], 50, 50, 52)
+              : pageFrom(people, url),
+          ),
+        );
+      }),
+    );
+    render(<App />);
+    await search("Person");
+    await screen.findByText("Showing 50 of 52 people.");
+
+    await user.click(showMore()!);
+
+    await screen.findByText("Showing 51 of 52 people.");
+    expect(results()).toHaveLength(51);
+    expect(results()[50]).toHaveFocus();
+    expect(showMore()).not.toBeInTheDocument();
+  });
+
+  it("stops offering more when a page comes back empty", async () => {
+    const user = userEvent.setup();
+    const people = peopleNamed(60);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        return Promise.resolve(
+          Response.json(
+            url.searchParams.get("offset") === "50"
+              ? pageOf([], 50, 50, 60)
+              : pageFrom(people, url),
+          ),
+        );
+      }),
+    );
+    render(<App />);
+    await search("Person");
+    await screen.findByText("Showing 50 of 60 people.");
+
+    await user.click(showMore()!);
+
+    await waitFor(() => expect(showMore()).not.toBeInTheDocument());
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Showing 50 of 60 people.",
+    );
+    expect(results()).toHaveLength(50);
+  });
+
+  it.each([
+    ["search", "arrives", "0"],
+    ["search", "fails", "0"],
+    ["next page", "arrives", "50"],
+    ["next page", "fails", "50"],
+  ])(
+    "ignores a %s that %s after the search was edited",
+    async (_request, outcome, heldOffset) => {
+      const people = peopleNamed(60);
+      let settle = () => {};
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((input: RequestInfo | URL) => {
+          const url = new URL(String(input));
+          if (url.searchParams.get("offset") !== heldOffset) {
+            return Promise.resolve(Response.json(pageFrom(people, url)));
+          }
+          return new Promise<Response>((resolve, reject) => {
+            settle = () =>
+              outcome === "arrives"
+                ? resolve(Response.json(pageFrom(people, url)))
+                : reject(new TypeError("offline"));
+          });
+        }),
+      );
+      render(<App />);
+      await search("Person");
+      if (heldOffset === "50") {
+        await screen.findByText("Showing 50 of 60 people.");
+        fireEvent.click(showMore()!);
+        expect(showMore()).toBeDisabled();
+      }
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true"),
+      );
+
+      fireEvent.change(searchbox(), { target: { value: "Someone else" } });
+      await act(() => {
+        settle();
+        return new Promise((resolve) => setTimeout(resolve, 20));
+      });
+
+      expect(screen.queryByLabelText("Search results")).not.toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("");
+      expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "false");
+      expect(screen.getByRole("button", { name: "Search" })).toBeEnabled();
     },
   );
 });

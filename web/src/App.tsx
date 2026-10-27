@@ -16,6 +16,7 @@ import "./App.css";
 
 const DEFAULT_TITLE = document.title;
 const PROFILE_PATH = /^\/people\/([^/]+)\/?$/;
+const RESULTS_PAGE_SIZE = 50;
 
 // Profiles live at /people/<slug>. Slugs are permanent: a rename keeps the
 // slug, so links and bookmarks keep working.
@@ -31,12 +32,27 @@ function App() {
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [people, setPeople] = useState<readonly Person[]>([]);
+  // The submitted query, how many matches it has, and where its next page starts.
+  const [results, setResults] = useState({ query: "", total: 0, next: 0 });
   const [selectedPerson, setSelectedPerson] = useState<PersonDetail | null>(
     null,
   );
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingPerson, setIsLoadingPerson] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const suggestionRequest = useRef(0);
+  // Bumped by every new search and edit, so a page that arrives late is dropped.
+  const searchRequest = useRef(0);
+  const resultsList = useRef<HTMLDivElement>(null);
+  const focusResultIndex = useRef(-1);
+
+  // After "Show more", move focus to the first newly loaded person.
+  useEffect(() => {
+    if (focusResultIndex.current < 0) return;
+    const result = resultsList.current!.children[focusResultIndex.current];
+    focusResultIndex.current = -1;
+    (result as HTMLElement).focus();
+  }, [people]);
 
   useEffect(() => {
     const query = searchTerm.trim();
@@ -107,19 +123,31 @@ function App() {
     return () => window.removeEventListener("popstate", followLocation);
   }, [showProfile]);
 
+  function resetResults() {
+    searchRequest.current += 1;
+    setPeople([]);
+    setIsSearching(false);
+    setIsLoadingMore(false);
+  }
+
+  function showingMessage(shown: number, total: number) {
+    return `Showing ${shown} of ${total} people.`;
+  }
+
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     dismissSuggestions();
+    resetResults();
 
-    if (!searchTerm.trim()) {
-      setPeople([]);
+    const query = searchTerm.trim();
+    if (!query) {
       setSelectedPerson(null);
       setSearchMessage("Enter a name to search the directory.");
       return;
     }
 
+    const requestId = searchRequest.current;
     setIsSearching(true);
-    setPeople([]);
     setSelectedPerson(null);
     if (window.location.pathname !== "/") {
       window.history.pushState(null, "", "/");
@@ -127,18 +155,54 @@ function App() {
     }
     setSearchMessage("Searching the directory...");
     try {
-      const page = await searchPeople(searchTerm.trim());
+      const page = await searchPeople(query, RESULTS_PAGE_SIZE);
+      if (requestId !== searchRequest.current) return;
       setPeople(page.items);
+      setResults({ query, total: page.total, next: page.items.length });
       setSearchMessage(
         page.total === 0
           ? "No people found. Try another name."
-          : `Showing ${page.items.length} of ${page.total} people.`,
+          : showingMessage(page.items.length, page.total),
       );
     } catch (error) {
+      if (requestId !== searchRequest.current) return;
       // The API client only throws Errors carrying a reader-facing message.
       setSearchMessage((error as Error).message);
     } finally {
-      setIsSearching(false);
+      if (requestId === searchRequest.current) setIsSearching(false);
+    }
+  }
+
+  async function handleShowMore() {
+    const requestId = searchRequest.current;
+    setIsLoadingMore(true);
+    setSearchMessage("Loading more people...");
+    try {
+      const page = await searchPeople(
+        results.query,
+        RESULTS_PAGE_SIZE,
+        results.next,
+      );
+      if (requestId !== searchRequest.current) return;
+      // Skip anyone already listed, in case the archive changed between pages.
+      const listed = new Set(people.map((person) => person.id));
+      const added = page.items.filter((person) => !listed.has(person.id));
+      focusResultIndex.current = added.length ? people.length : -1;
+      setPeople([...people, ...added]);
+      setResults({
+        ...results,
+        total: page.total,
+        next: page.items.length ? results.next + page.items.length : page.total,
+      });
+      setSearchMessage(
+        showingMessage(people.length + added.length, page.total),
+      );
+    } catch (error) {
+      if (requestId !== searchRequest.current) return;
+      // The API client only throws Errors carrying a reader-facing message.
+      setSearchMessage((error as Error).message);
+    } finally {
+      if (requestId === searchRequest.current) setIsLoadingMore(false);
     }
   }
 
@@ -198,9 +262,9 @@ function App() {
                   value={searchTerm}
                   onChange={(event) => {
                     dismissSuggestions();
+                    resetResults();
                     setSearchTerm(event.target.value);
                     setSearchMessage("");
-                    setPeople([]);
                     setSelectedPerson(null);
                   }}
                   onKeyDown={(event) => {
@@ -272,14 +336,18 @@ function App() {
               className="search-message"
               role="status"
               aria-live="polite"
-              aria-busy={isSearching || isLoadingPerson}
+              aria-busy={isSearching || isLoadingPerson || isLoadingMore}
             >
               {searchMessage}
             </p>
           </form>
 
           {people.length > 0 && (
-            <div className="people-results" aria-label="Search results">
+            <div
+              className="people-results"
+              aria-label="Search results"
+              ref={resultsList}
+            >
               {people.map((person) => (
                 <button
                   className="person-result"
@@ -295,6 +363,17 @@ function App() {
                 </button>
               ))}
             </div>
+          )}
+
+          {people.length > 0 && results.next < results.total && (
+            <button
+              className="show-more-button"
+              type="button"
+              disabled={isLoadingMore}
+              onClick={() => void handleShowMore()}
+            >
+              Show more people
+            </button>
           )}
 
           {selectedPerson && (

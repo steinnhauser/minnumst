@@ -72,6 +72,20 @@ describe("public API client", () => {
     );
   });
 
+  it("requests a later page of results", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json(pageOf([], 50, 50, 120)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await searchPeople("ada", 50, 50);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/people?query=ada&offset=50&limit=50",
+      expect.anything(),
+    );
+  });
+
   it("allows the autocomplete to request a bounded result page", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json(pageOf([], 8)));
     vi.stubGlobal("fetch", fetchMock);

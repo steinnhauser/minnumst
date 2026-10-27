@@ -10,7 +10,7 @@ make dev-web          # http://127.0.0.1:5173
 
 ## API usage
 
-Search calls `GET /api/people?query=…&limit=…` (8 suggestions while typing, 50 results on submit). Selecting a person loads `GET /api/people/by-slug/{slug}`, shows the current revision of their story, and gives the profile its own address, `/people/<slug>`, which can be linked and bookmarked and works with the back and forward buttons. The client lives in [`src/api.ts`](src/api.ts).
+Search calls `GET /api/people?query=…&offset=…&limit=…`: 8 suggestions while typing, and 50 results on submit. When there are more matches, a "Show more people" button loads the next 50 with `offset`, appends them, moves focus to the first new result and updates the announced count ("Showing 100 of 120 people."); it disappears once everyone is listed. Editing the search drops any page still loading. Selecting a person loads `GET /api/people/by-slug/{slug}`, shows the current revision of their story, and gives the profile its own address, `/people/<slug>`, which can be linked and bookmarked and works with the back and forward buttons. The client lives in [`src/api.ts`](src/api.ts).
 
 ## Configuration
 

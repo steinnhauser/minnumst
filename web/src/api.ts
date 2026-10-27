@@ -15,10 +15,16 @@ const apiBaseUrl =
 
 const request = createRequest({ baseUrl: apiBaseUrl });
 
-export function searchPeople(query: string, limit = 50): Promise<PersonPage> {
+// The API accepts `limit` from 1 to 100 and any `offset` from 0; `total`
+// counts every match, so a caller can page through all of them.
+export function searchPeople(
+  query: string,
+  limit = 50,
+  offset = 0,
+): Promise<PersonPage> {
   const params = new URLSearchParams({
     query,
-    offset: "0",
+    offset: String(offset),
     limit: String(limit),
   });
   return request<PersonPage>(`/api/people?${params.toString()}`);

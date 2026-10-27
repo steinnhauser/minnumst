@@ -1,7 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // Browser tests against the local stack (`make up`): the public archive on
-// 127.0.0.1:5173 and the editorial desk on 127.0.0.1:5174. Run with `make browser`.
+// 127.0.0.1:5173 and the editorial desk on 127.0.0.1:5174. Run with `make browser`;
+// MINNUMST_ARCHIVE_URL and MINNUMST_DESK_URL point the tests at other servers.
 export default defineConfig({
   testDir: ".",
   forbidOnly: !!process.env.CI,

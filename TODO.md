@@ -181,6 +181,18 @@ OpenTofu with the `hetznercloud/hcloud` provider, one environment, no Terragrunt
 - [ ] DNS records as code, once the domain's DNS is hosted somewhere with a provider (Hetzner DNS or another).
 - [ ] TFLint with a ruleset for the hcloud provider, if one matures.
 
+## 12. Data sourcing: census import and source links
+
+Fill the archive from open sources while keeping to the [data protection rules](README.md#data-protection-and-sources). Every step enforces rule 1: only people who died more than five years ago, or, with no known date of death, people born at least 128 years before the current year.
+
+- [ ] Data model (Alembic migration, `openapi.json`, both frontends): optional birth and death dates or years, parent and partner relationships, and a `person_sources` table (URL, source, title, date, short summary in our own words, licence).
+- [ ] The API rejects creating or importing a person who fails rule 1, and the admin desk explains the rejection. Tests cover the boundary years.
+- [ ] Import script in `tools/` for [ICE-ID](https://huggingface.co/datasets/goldpotatoes/ice-id) (CC BY 4.0, with attribution): pinned dataset revision and checksum, idempotent, dry run by default. Only the 226,864 linked people are imported, rule 1 is applied, and relatives who fail it are left out. A report lists how many were imported and how many skipped, and why.
+- [ ] Source links on profiles: prefilled search links to timarit.is (name and patronym within the person's lifetime), manntal.is and gardur.is. Editors confirm each match in the admin desk; nothing is attached automatically.
+- [ ] Dates of death after 1920 from gardur.is or confirmed obituaries, so that people born after 1898 become eligible only when a death is recorded.
+- [ ] A removal and correction request route for relatives (contact address in the public archive, handled by editors).
+- [ ] Ask the National and University Library (timarit.is) and the National Archives (manntal.is, heimildir.is) about metadata or API access before building anything that fetches pages automatically. Respect robots.txt and the terms of use.
+
 ## Component backlog
 
 Smaller items, by component. Items that need an API change start in `api/` and are coordinated with both frontends.

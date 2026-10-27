@@ -127,6 +127,37 @@ The same job then restores a backup into a fresh database and runs Playwright br
 
 Report vulnerabilities privately as described in [`SECURITY.md`](.github/SECURITY.md).
 
+## Data protection and sources
+
+Minnumst holds the history of people who have died. It never holds data about living people. Every person record, story and source link, whether it comes from an editor or an import, has to meet these rules:
+
+1. **Only people who died more than five years ago.** Iceland's Data Protection Act, [Act No. 90/2018](https://www.althingi.is/lagas/nuna/2018090.html), applies to a deceased person's data for five years after death, and longer for information that would reasonably be kept confidential ([Persónuvernd summary](https://gamli.personuvernd.is/media/glaerukynningar-pv/Kynningarfundur_2018-Fyrirtaeki_og_stofnanir_VEL.pdf)). The GDPR itself doesn't cover deceased persons and leaves them to national law ([Recital 27](https://gdpr-info.eu/recitals/no-27/)). Minnumst stays outside that five-year window entirely. A person qualifies only if:
+   - a recorded date of death is more than five years ago, or
+   - when no date of death is known, they were born at least 128 years before the current year (the longest verified human lifespan of 122 years, plus the five years, plus one year because census records give only a birth year). In 2026 that means born in 1898 or earlier.
+
+   Anyone who doesn't meet one of these is left out. When in doubt, leave them out.
+
+2. **Nothing confidential, however old.** No health, cause-of-death, criminal, adoption or paternity details beyond what the cited public source itself states.
+3. **No living people inside the records.** Obituaries and census households name surviving relatives. Stories and source summaries don't name or describe living people, and no record is created for them.
+4. **Link, don't copy.** Newspaper pages, obituaries and archive records are referenced by URL with a short summary written in our own words. Their text and scans aren't copied, because most sources allow personal use only. Every imported record keeps its source and licence.
+5. **Removal on request.** A relative can ask for a person, story or link to be corrected or removed, and the request is handled with priority.
+
+### Sources
+
+| Source                                                                                                                                                   | Content                                                                                                               | Terms                                                                              | How Minnumst uses it                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| [ICE-ID](https://huggingface.co/datasets/goldpotatoes/ice-id) ([paper](https://arxiv.org/abs/2506.13792), [code](https://github.com/IIIM-IS/ICE-ID-2.0)) | 984,028 records from 16 Icelandic censuses (1703–1920), linked into 226,864 people with some parent and partner links | CC BY 4.0. Attribution required. The authors exclude re-identifying living people. | Bulk import of people who meet rule 1, with attribution |
+| [manntal.is](https://manntal.is/) (National Archives of Iceland)                                                                                         | The same censuses, searchable                                                                                         | Free to search. No download or API.                                                | Links per person                                        |
+| [heimildir.is](https://heimildir.is/) (National Archives of Iceland)                                                                                     | Scanned parish registers and parish censuses                                                                          | Free to view                                                                       | Links per person                                        |
+| [timarit.is](https://timarit.is/about) (National and University Library of Iceland)                                                                      | 7 million digitised newspaper and magazine pages, including Morgunblaðið since 1913 and its obituaries                | Personal use only. Copyright runs 70 years after the author's death. No API.       | Links to pages with our own summaries                   |
+| [gardur.is](https://gardur.is/) (Kirkjugarðasamband Íslands)                                                                                             | The national burial register: dates of birth and death, and the grave                                                 | Free public search                                                                 | Dates of death for rule 1, and links                    |
+| [Wikidata](https://www.wikidata.org/)                                                                                                                    | About 8,000 notable Icelanders                                                                                        | CC0                                                                                | Links and enrichment                                    |
+| [mbl.is](https://www.mbl.is/)                                                                                                                            | Morgunblaðið obituaries since 1989                                                                                    | Registration or subscription                                                       | Links only                                              |
+
+[Íslendingabók](https://www.islendingabok.is/english) is open only to people with an Icelandic ID number and has no export, so Minnumst doesn't use it. Commercial genealogy sites and the restricted part of the [Icelandic Gigaword Corpus](https://clarin.is/en/resources/gigaword/) aren't used either.
+
+**Status:** today people are added only by editors through the editorial desk, which sits behind authentication, and editors apply these rules. The import and the source links on profiles are planned in [`TODO.md`](TODO.md) item 12. The rule 1 check will be enforced by the import and the API rather than left to editors. All sample data in this repository is fictional.
+
 ## Development
 
 This is a monorepo with one toolchain per language: a [uv](https://docs.astral.sh/uv/) workspace for Python (`pyproject.toml`, `uv.lock`, Python version in `.python-version`) and an npm workspace for Node.js (`package.json`, `package-lock.json`, Node.js version in `.nvmrc`). The root [`Makefile`](Makefile) is the entry point; `make help` lists every target.

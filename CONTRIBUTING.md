@@ -6,6 +6,7 @@ Thanks for contributing to Minnumst. Please discuss substantial changes in an is
 
 - Keep each pull request focused, ideally on one component (`api/`, `web/`, `admin/`, `deploy/` or `tools/`). Describe the change and the checks you ran, and link related issues.
 - Never commit credentials, `.env` files, vault passwords, decrypted secrets, real inventories, or local databases. The root `.gitignore` covers the usual paths; check `git status` before committing anyway.
+- Follow the [data protection rules](README.md#data-protection-and-sources) in every change and every sample. Only people who died more than five years ago, no living people (including relatives named in obituaries), nothing confidential, and links with our own summaries instead of copied text. Test data and screenshots stay fictional.
 - Story history is immutable: every save appends a revision. Don't add routes or UI that overwrite or delete revisions.
 - Update documentation when behaviour, setup or operator steps change. Include screenshots for visual changes.
 

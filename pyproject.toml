@@ -31,11 +31,12 @@ known-first-party = ["minnumst_api"]
 indent-style = "space"
 quote-style = "double"
 
-# `make test` fails if API coverage drops below the current level.
+# `make test` fails unless the API tests cover every line and branch.
 [tool.coverage.run]
 source = ["minnumst_api"]
+branch = true
 
 [tool.coverage.report]
-fail_under = 85
+fail_under = 100
 show_missing = true
 skip_covered = true

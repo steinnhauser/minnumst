@@ -1,14 +1,18 @@
 import logging
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.testclient import TestClient
+from sqlalchemy import event
+from sqlalchemy.orm import Session
 
 from minnumst_api.config import settings
 from minnumst_api.logging_config import configure_logging
 from minnumst_api.main import create_app
 from minnumst_api.migrate import upgrade
+from minnumst_api.models import BlogPost, Person
 
 
 def migrated_app() -> FastAPI:
@@ -234,3 +238,204 @@ def test_request_logs_route_and_status_without_logging_search_text(
     api_records = [r for r in caplog.records if r.name.startswith("minnumst_api")]
     assert all(search_text not in record.getMessage() for record in api_records)
     configure_logging("INFO")
+
+
+STORY = {"title": "Story", "excerpt": "", "content": "Remembered"}
+MISSING_ID = "00000000-0000-4000-8000-000000000000"
+
+
+def completed_request_log(
+    caplog: pytest.LogCaptureFixture, route: str
+) -> logging.LogRecord:
+    return next(
+        record
+        for record in caplog.records
+        if record.getMessage() == "Request completed"
+        and getattr(record, "route", None) == route
+    )
+
+
+def test_people_are_listed_in_name_order_and_paged(client: TestClient) -> None:
+    for name in ("Þóra Ólafsdóttir", "Bjarni Árnason", "Anna Jónsdóttir"):
+        create_person(client, name)
+
+    everyone = client.get("/api/people", params={"query": "  "}).json()
+    second_page = client.get("/api/people", params={"offset": 1, "limit": 1}).json()
+
+    assert [item["name"] for item in everyone["items"]] == [
+        "Anna Jónsdóttir",
+        "Bjarni Árnason",
+        "Þóra Ólafsdóttir",
+    ]
+    assert everyone["total"] == 3
+    assert second_page["items"][0]["name"] == "Bjarni Árnason"
+    assert (second_page["total"], second_page["offset"], second_page["limit"]) == (
+        3,
+        1,
+        1,
+    )
+    for params in ({"limit": 0}, {"limit": 101}, {"offset": -1}):
+        assert client.get("/api/people", params=params).status_code == 422
+
+
+def test_blank_names_are_rejected(client: TestClient) -> None:
+    response = client.post("/api/people", json={"name": " \t "})
+
+    assert response.status_code == 422
+    assert "Name cannot be blank" in response.text
+
+
+def test_person_reads_by_id_and_slug_include_the_current_story(
+    client: TestClient,
+) -> None:
+    person = create_person(client)
+    before = client.get(f"/api/people/{person['id']}").json()
+    client.put(f"/api/people/{person['id']}/blog", json=STORY)
+
+    by_id = client.get(f"/api/people/{person['id']}").json()
+    by_slug = client.get(f"/api/people/by-slug/{person['slug']}").json()
+
+    assert before["blog"] is None
+    assert before["current_blog"] is None
+    assert by_id == by_slug
+    assert by_id["current_blog"]["content"] == "Remembered"
+    assert by_id["blog"]["revision_count"] == 1
+
+
+def test_unknown_slug_returns_not_found(client: TestClient) -> None:
+    response = client.get("/api/people/by-slug/nobody")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Person not found"}
+
+
+def test_blog_read_returns_the_current_revision(client: TestClient) -> None:
+    person = create_person(client)
+    client.put(f"/api/people/{person['id']}/blog", json=STORY)
+    client.put(f"/api/people/{person['id']}/blog", json={**STORY, "content": "More"})
+
+    blog = client.get(f"/api/people/{person['id']}/blog").json()
+
+    assert blog["person_id"] == person["id"]
+    assert blog["revision_count"] == 2
+    assert blog["current_revision"]["revision_number"] == 2
+    assert blog["current_revision"]["content"] == "More"
+
+
+def test_blog_routes_return_not_found_without_a_story(client: TestClient) -> None:
+    person = create_person(client)
+
+    for path in ("blog", "blog/revisions"):
+        response = client.get(f"/api/people/{person['id']}/{path}")
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Blog not found"}
+    assert client.get(f"/api/people/{MISSING_ID}/blog").status_code == 404
+    assert client.put(f"/api/people/{MISSING_ID}/blog", json=STORY).status_code == 404
+
+
+def test_a_story_without_revisions_is_treated_as_missing(client: TestClient) -> None:
+    # The API always saves a story together with its first revision, but the
+    # schema allows an empty story row, so reads must not fail on one.
+    person = create_person(client)
+    with client.app.state.session_factory() as session:
+        session.add(BlogPost(person_id=person["id"]))
+        session.commit()
+
+    detail = client.get(f"/api/people/{person['id']}").json()
+    blog = client.get(f"/api/people/{person['id']}/blog")
+
+    assert detail["blog"] is None
+    assert detail["current_blog"] is None
+    assert blog.status_code == 404
+    assert blog.json() == {"detail": "Blog has no revisions"}
+
+
+def test_rename_to_an_existing_normalized_name_conflicts(client: TestClient) -> None:
+    person = create_person(client)
+    create_person(client, "Björn Sigurðsson")
+
+    response = client.patch(
+        f"/api/people/{person['id']}", json={"name": "bjorn sigurdsson"}
+    )
+    missing = client.patch(f"/api/people/{MISSING_ID}", json={"name": "Anyone"})
+
+    assert response.status_code == 409
+    assert missing.status_code == 404
+
+
+def test_rename_racing_a_concurrent_create_conflicts(client: TestClient) -> None:
+    person = create_person(client)
+
+    # Another request creates the same normalized name between the conflict
+    # check and the commit; the unique constraint has the final say.
+    @event.listens_for(client.app.state.session_factory, "before_flush", once=True)
+    def concurrent_create(session: Session, *_: object) -> None:
+        session.add(
+            Person(name="Rival", normalized_name="bjorn sigurdsson", slug="rival")
+        )
+
+    response = client.patch(
+        f"/api/people/{person['id']}", json={"name": "Björn Sigurðsson"}
+    )
+    unchanged = client.get(f"/api/people/{person['id']}").json()
+
+    assert response.status_code == 409
+    assert response.json()["detail"].endswith("already exists")
+    assert unchanged["name"] == person["name"]
+
+
+def test_deleting_a_missing_person_returns_not_found(client: TestClient) -> None:
+    assert client.delete(f"/api/people/{MISSING_ID}").status_code == 404
+
+
+def test_readiness_checks_the_database(client: TestClient) -> None:
+    response = client.get("/readyz")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+
+
+def test_unreachable_database_fails_readiness_with_a_logged_request_id(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = create_app(database_url=f"sqlite:///{tmp_path}/missing/minnumst.db")
+
+    with TestClient(app, raise_server_exceptions=False) as test_client:
+        response = test_client.get("/readyz", headers={"X-Request-ID": "ready-1"})
+
+    failure = next(
+        record for record in caplog.records if record.getMessage() == "Request failed"
+    )
+    assert response.status_code == 500
+    assert failure.levelno == logging.ERROR
+    assert failure.route == "/readyz"
+    assert failure.request_id == "ready-1"
+    assert failure.exc_info is not None
+
+
+def test_invalid_request_ids_are_replaced(client: TestClient) -> None:
+    response = client.get("/healthz", headers={"X-Request-ID": "bad id\twith spaces"})
+
+    assert response.headers["X-Request-ID"] != "bad id\twith spaces"
+    assert len(response.headers["X-Request-ID"]) == 36
+
+
+def test_responses_are_logged_at_a_level_matching_their_status(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    @client.app.get("/unavailable")
+    def unavailable() -> Response:
+        return Response(status_code=503)
+
+    caplog.set_level(logging.DEBUG)
+    client.get("/unavailable")
+    client.get(f"/api/people/{MISSING_ID}")
+    client.get("/api/people")
+
+    assert completed_request_log(caplog, "/unavailable").levelno == logging.ERROR
+    assert (
+        completed_request_log(caplog, "/api/people/{person_id}").levelno
+        == logging.WARNING
+    )
+    assert completed_request_log(caplog, "/api/people").levelno == logging.INFO

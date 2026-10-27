@@ -1,11 +1,16 @@
 import json
 import logging
+import sys
 
 import pytest
 from pydantic import ValidationError
 
 from minnumst_api.config import Settings
-from minnumst_api.logging_config import JsonFormatter, configure_logging
+from minnumst_api.logging_config import (
+    JsonFormatter,
+    configure_logging,
+    request_id_context,
+)
 
 
 def test_log_level_defaults_to_info(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -63,3 +68,20 @@ def test_json_formatter_includes_trace_fields() -> None:
     assert payload["request_id"] == "request-123"
     assert payload["route"] == "/api/people/{person_id}"
     assert payload["status_code"] == 200
+
+
+def test_json_formatter_adds_the_context_request_id_and_exception() -> None:
+    try:
+        raise RuntimeError("boom")
+    except RuntimeError:
+        record = logging.makeLogRecord(
+            {"name": "minnumst_api", "msg": "failed", "exc_info": sys.exc_info()}
+        )
+    token = request_id_context.set("context-id")
+    try:
+        payload = json.loads(JsonFormatter().format(record))
+    finally:
+        request_id_context.reset(token)
+
+    assert payload["request_id"] == "context-id"
+    assert "RuntimeError: boom" in payload["exception"]

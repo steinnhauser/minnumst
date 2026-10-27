@@ -71,5 +71,5 @@ def main() -> None:
     logger.info("Database schema is up to date")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - entry point; tests call main()
     main()

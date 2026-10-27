@@ -33,6 +33,8 @@ describe("container logging", () => {
   it("keeps access logs from exposing query values or person slugs", () => {
     expect(safeRoute("/asta-jonsdottir?search=private")).toBe("/app/*");
     expect(safeRoute("/assets/index-123.js?cache=1")).toBe("/assets/*");
+    expect(safeRoute("/runtime-config.js?v=2")).toBe("/runtime-config.js");
+    expect(safeRoute(undefined)).toBe("/");
   });
 
   it("preserves safe request IDs and replaces unsafe values", () => {
@@ -42,5 +44,6 @@ describe("container logging", () => {
     expect(getRequestId({ "x-request-id": "bad id" })).toMatch(
       /^[0-9a-f-]{36}$/,
     );
+    expect(getRequestId({})).toMatch(/^[0-9a-f-]{36}$/);
   });
 });

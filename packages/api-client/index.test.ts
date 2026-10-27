@@ -68,4 +68,36 @@ describe("createRequest", () => {
       createRequest({ baseUrl: "https://api" })("/x", { method: "DELETE" }),
     ).resolves.toBeUndefined();
   });
+
+  it("explains when the API cannot be reached", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("failed")));
+    const error = (await createRequest({ baseUrl: "https://api" })("/x").catch(
+      (caught) => caught,
+    )) as ApiError;
+
+    expect(error.message).toBe(
+      "Could not reach the Minnumst API. Check that it is running.",
+    );
+    expect(error.requestId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(error.status).toBeUndefined();
+  });
+
+  it("falls back to the status and its own request ID without a usable detail", async () => {
+    const request = createRequest({ baseUrl: "https://api" });
+    for (const response of [
+      new Response("Bad Gateway", { status: 502 }),
+      Response.json({ detail: { code: 7 } }, { status: 502 }),
+      Response.json({ detail: [{ loc: ["body"] }] }, { status: 502 }),
+      Response.json({ detail: [] }, { status: 502 }),
+    ]) {
+      const fetchMock = stubFetch(response);
+      const error = (await request("/x").catch((caught) => caught)) as ApiError;
+
+      expect(error.message).toBe("The Minnumst API returned 502.");
+      expect(error.status).toBe(502);
+      expect(error.requestId).toBe(
+        fetchMock.mock.calls[0][1].headers.get("X-Request-ID"),
+      );
+    }
+  });
 });

@@ -41,6 +41,7 @@ assert published == ["traefik"], f"services publishing ports: {published}"
 assert list(services["postgres"]["networks"]) == ["backend"], "PostgreSQL must only be on backend"
 assert list(services["docker-socket-proxy"]["networks"]) == ["socket"]
 assert networks["backend"].get("internal") and networks["socket"].get("internal")
+assert networks["edge"].get("enable_ipv6"), "without the userland proxy, IPv6 clients need an IPv6 network"
 assert list(services["authentik-worker"]["networks"]) == ["backend"], "the Authentik worker needs no route out"
 def middlewares(service, router):
     return services[service]["labels"].get(f"traefik.http.routers.{router}.middlewares", "")

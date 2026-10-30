@@ -227,16 +227,3 @@ Covered by items 6, 7 and 9 above: backups, monitoring, Authentik with TOTP MFA,
 - [ ] Move the images, `.nvmrc` and `engines` to the next Node.js LTS line deliberately; Dependabot ignores Node major versions.
 
 Once these priorities are agreed, they can move to GitHub Issues with component labels and a milestone.
-
-## Manual TODOs
-
-Steps that need the repository owner, because they depend on account access or decisions outside the code.
-
-- [ ] **Branch protection level:** `main` blocks force pushes and deletion. Requiring pull requests and the `ci-ok` check as well would stop direct pushes to `main`; decide whether to turn that on.
-- [ ] **Coming soon page:** the `gh-pages` branch serves a static page at `minnumst.org` through GitHub Pages. Add the DNS records for it, verify the domain for Pages in the GitHub account settings (the `_github-pages-challenge` TXT record), and tick _Enforce HTTPS_ once the certificate is issued. At launch, point the records at the server and remove the custom domain from the Pages settings.
-- [ ] **Hetzner account:** a Cloud project with a read/write API token, and a state passphrase in your password manager (see [`infra/README.md`](infra/README.md)). Then `make infra-plan`, `make infra-apply` and `make infra-inventory` replace the host installation below.
-- [ ] **Install the host:** Ubuntu Server 24.04 LTS (minimal) with _Encrypt the LVM group with LUKS_, an administrator with an SSH key, and `dropbear-initramfs` to unlock the disk after a remote reboot. See [`deploy/README.md`](deploy/README.md#setting-up-the-host).
-- [ ] **Backup key and off-host storage:** run `age-keygen` on your own machine, keep the private key safe (a password manager or hardware key), and set the public key as `minnumst_backup_age_recipient`. Choose where encrypted dumps should be copied (object storage or another machine).
-- [ ] **Optional Ubuntu Pro:** attach a (free personal) token as `host_ubuntu_pro_token` in the vault for Livepatch and ESM.
-- [ ] **Production prerequisites (item 9):** the Authentik instance with TOTP MFA and its outpost URL, DNS records for the three hostnames, a monitored ACME e-mail address, and the encrypted `vault.yml`.
-- [ ] **This workstation:** remove the placeholder Docker proxy (`sudo rm /etc/systemd/system/docker.service.d/http-proxy.conf && sudo systemctl daemon-reload && sudo systemctl restart docker`) so `make stack-test` and `make test-postgres` can pull images locally.

@@ -11,7 +11,7 @@
 
 ## Security
 
-- **Encrypted state.** The state stays on your machine in `infra/terraform.tfstate`, ignored by Git. OpenTofu encrypts it and every saved plan with AES-GCM (key derived from `TF_VAR_state_passphrase` with PBKDF2), and refuses to read or write them unencrypted. Keep a copy somewhere safe: without it, each resource has to be imported again.
+- **Encrypted state.** The state stays on your machine in `infra/terraform.tfstate`, ignored by Git. OpenTofu encrypts it and every saved plan with AES-GCM (key derived from `TF_VAR_state_passphrase` with PBKDF2), and refuses to read or write them unencrypted. Run `make infra-backup` after every apply, and keep a copy off the machine too: without the state, each resource has to be imported again.
 - **No secrets in files.** The Hetzner API token (`HCLOUD_TOKEN`) and the state passphrase come from the environment. `terraform.tfvars` is ignored by Git; only its example is tracked.
 - **Data at rest.** Hetzner Cloud images can't be installed with LUKS, so the data lives on a separate volume that `deploy/` encrypts (NIST SP 800-53 SC-28). Its key is on the root disk, readable by root only, so the volume unlocks at boot: that protects the data when the volume is detached, snapshotted or retired, not against someone who already controls the running host.
 - **Defence in depth.** The Hetzner firewall drops everything but SSH, HTTP, HTTPS and ICMP before it reaches the host; nftables on the host does the same again. Restrict `ssh_source_ips` to known networks where you can.
@@ -27,6 +27,7 @@ export HCLOUD_TOKEN=… TF_VAR_state_passphrase=…
 
 make infra-plan        # review what will change
 make infra-apply       # apply exactly that plan
+make infra-backup      # copy the encrypted state to ~/.local/share/minnumst/infra-state
 make infra-inventory   # write deploy/inventory/hosts.ini, including the data volume
 ```
 

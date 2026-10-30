@@ -10,6 +10,8 @@ TOFU := tofu -chdir=infra
 INVENTORY ?= deploy/inventory/hosts.ini
 # Ask for the vault password only once there is a vault.
 VAULT_ARGS ?= $(if $(wildcard deploy/inventory/group_vars/all/vault.yml),--ask-vault-pass)
+# Where `make infra-backup` keeps its copies of the encrypted state.
+INFRA_BACKUP_DIR ?= $(HOME)/.local/share/minnumst/infra-state
 # The API that `make contract` tests; the local stack publishes it here.
 MINNUMST_API_URL ?= http://127.0.0.1:8000
 
@@ -20,7 +22,7 @@ unexport VIRTUAL_ENV
 	openapi openapi-check migration build validate clean ci \
 	dev-api dev-web dev-admin \
 	stack-config up wait seed e2e contract edge backup-test browser stack-test ps logs down db-update db-clear db-reset \
-	deploy-check deploy release infra-check infra-plan infra-apply infra-inventory
+	deploy-check deploy release infra-check infra-plan infra-apply infra-inventory infra-backup
 
 help:
 	@printf '%s\n' \
@@ -69,6 +71,7 @@ help:
 	  '  infra-plan      Plan changes to the server, firewall and volume (needs credentials)' \
 	  '  infra-apply     Apply the saved plan' \
 	  '  infra-inventory Write deploy/inventory/hosts.ini from the infrastructure outputs' \
+	  '  infra-backup    Copy the encrypted state to INFRA_BACKUP_DIR, with a timestamp' \
 	  '' \
 	  'Deployment' \
 	  '  deploy-check    ansible-lint and playbook syntax check' \
@@ -232,3 +235,9 @@ infra-apply:
 infra-inventory:
 	$(TOFU) output -raw ansible_inventory > deploy/inventory/hosts.ini
 	@echo "Wrote deploy/inventory/hosts.ini"
+
+infra-backup:
+	@test -f infra/terraform.tfstate || { echo 'Nothing to back up: infra/terraform.tfstate is missing.'; exit 1; }
+	@install -d -m 700 "$(INFRA_BACKUP_DIR)"
+	@install -m 600 infra/terraform.tfstate "$(INFRA_BACKUP_DIR)/terraform.tfstate.$$(date -u +%Y%m%dT%H%M%SZ)"
+	@echo "Copied the state to $(INFRA_BACKUP_DIR)"

@@ -42,6 +42,12 @@ assert list(services["postgres"]["networks"]) == ["backend"], "PostgreSQL must o
 assert list(services["docker-socket-proxy"]["networks"]) == ["socket"]
 assert networks["backend"].get("internal") and networks["socket"].get("internal")
 assert list(services["authentik-worker"]["networks"]) == ["backend"], "the Authentik worker needs no route out"
+def middlewares(service, router):
+    return services[service]["labels"].get(f"traefik.http.routers.{router}.middlewares", "")
+assert "authentik" not in middlewares("public", "minnumst-public"), "the public archive must not need a login"
+assert "authentik" not in middlewares("api", "minnumst-api-read"), "API reads must not need a login"
+assert "authentik" in middlewares("admin", "minnumst-admin"), "the editorial desk must need a login"
+assert "authentik" in middlewares("api", "minnumst-api-write"), "API writes must need a login"
 assert all(s.get("volumes") is None or "/var/run/docker.sock" not in str(s["volumes"])
            for name, s in services.items() if name != "docker-socket-proxy"), "socket mounted outside the proxy"
 for name, service in services.items():
@@ -54,6 +60,7 @@ assert database_role("api") != database_role("migrate"), "the API must not be th
 check "only Traefik publishes ports; PostgreSQL and the Docker API proxy sit on internal networks" "ok" "ok"
 check "every container: no-new-privileges, read-only, no capabilities" "ok" "ok"
 check "the API connects as a runtime role, not as the schema owner" "ok" "ok"
+check "only the editorial desk and API writes go through Authentik" "ok" "ok"
 
 for _ in $(seq 30); do
   [[ $(status "$web/") == 200 ]] && break
@@ -149,6 +156,14 @@ for _ in $(seq 60); do
   sleep 5
 done
 check "the real forward-auth endpoint sends an anonymous request to the login page" "302 https://$AUTH_HOST/*" "$answer"
+
+can_connect() { # <password variable> <user variable> <database variable>, as set in the postgres container
+  in_stack postgres sh -c "PGPASSWORD=\"\$$1\" psql --host 127.0.0.1 --username \"\$$2\" --dbname \"\$$3\" --tuples-only --command 'SELECT 1' >/dev/null 2>&1 && echo yes || echo no"
+}
+check "the API's role reaches the archive's database" yes "$(can_connect MINNUMST_APP_PASSWORD MINNUMST_APP_USER POSTGRES_DB)"
+check "Authentik's role reaches Authentik's database" yes "$(can_connect MINNUMST_AUTHENTIK_PASSWORD MINNUMST_AUTHENTIK_USER MINNUMST_AUTHENTIK_DATABASE)"
+check "the API's role can't reach Authentik's database" no "$(can_connect MINNUMST_APP_PASSWORD MINNUMST_APP_USER MINNUMST_AUTHENTIK_DATABASE)"
+check "Authentik's role can't reach the archive's database" no "$(can_connect MINNUMST_AUTHENTIK_PASSWORD MINNUMST_AUTHENTIK_USER POSTGRES_DB)"
 
 # 150 concurrent reads exceed the API's 20 requests/s average and burst of 50.
 codes=$(seq 150 | xargs -P 30 -I{} curl "${curl_args[@]}" --output /dev/null --write-out '%{http_code}\n' "$api/healthz")

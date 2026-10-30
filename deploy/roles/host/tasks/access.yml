@@ -6,7 +6,7 @@
 
 - name: Allow the Ansible user to log in over SSH
   ansible.builtin.user:
-    name: "{{ ansible_user | default(ansible_env.SUDO_USER) }}"
+    name: "{{ ansible_user | default(ansible_facts['env']['SUDO_USER']) }}"
     groups: ["{{ host_ssh_group }}"]
     append: true
 

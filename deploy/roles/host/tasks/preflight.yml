@@ -2,12 +2,12 @@
 - name: Require the supported Ubuntu LTS release
   ansible.builtin.assert:
     that:
-      - ansible_distribution == host_supported_distribution
-      - ansible_distribution_version == host_supported_version
+      - ansible_facts["distribution"] == host_supported_distribution
+      - ansible_facts["distribution_version"] == host_supported_version
     fail_msg: >-
       This playbook hardens {{ host_supported_distribution }} {{ host_supported_version }}
       LTS only (CIS benchmark and DISA STIG available). Found
-      {{ ansible_distribution }} {{ ansible_distribution_version }}.
+      {{ ansible_facts["distribution"] }} {{ ansible_facts["distribution_version"] }}.
 
 - name: Find the device behind the root filesystem
   ansible.builtin.command:

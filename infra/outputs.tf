@@ -8,6 +8,11 @@ output "ipv6_address" {
   value       = hcloud_server.host.ipv6_address
 }
 
+output "dns_nameservers" {
+  description = "Set these as the domain's nameservers at the registrar."
+  value       = try(hcloud_zone.main[0].authoritative_nameservers.assigned, [])
+}
+
 # `make infra-inventory` writes this to deploy/inventory/hosts.ini.
 output "ansible_inventory" {
   description = "The Ansible inventory for this server."

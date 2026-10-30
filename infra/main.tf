@@ -1,5 +1,12 @@
 locals {
   labels = { project = var.name, managed-by = "opentofu" }
+
+  # Every name that serves the stack points at the server, on both IP versions.
+  dns_records = merge(
+    var.dns_records,
+    { for host in var.dns_server_hosts : "${host}-a" => { name = host, type = "A", values = [hcloud_server.host.ipv4_address] } },
+    { for host in var.dns_server_hosts : "${host}-aaaa" => { name = host, type = "AAAA", values = [hcloud_server.host.ipv6_address] } },
+  )
 }
 
 resource "hcloud_ssh_key" "admin" {
@@ -92,4 +99,26 @@ resource "hcloud_volume_attachment" "data" {
   volume_id = hcloud_volume.data.id
   server_id = hcloud_server.host.id
   automount = false
+}
+
+# Answers for the domain once the registrar's nameservers point here; until
+# then, creating it changes nothing that anyone can see.
+resource "hcloud_zone" "main" {
+  count = var.dns_zone == "" ? 0 : 1
+
+  name              = var.dns_zone
+  mode              = "primary"
+  delete_protection = true
+  labels            = local.labels
+}
+
+resource "hcloud_zone_rrset" "main" {
+  for_each = var.dns_zone == "" ? {} : local.dns_records
+
+  zone    = hcloud_zone.main[0].name
+  name    = each.value.name
+  type    = each.value.type
+  ttl     = var.dns_ttl
+  records = [for value in each.value.values : { value = value }]
+  labels  = local.labels
 }

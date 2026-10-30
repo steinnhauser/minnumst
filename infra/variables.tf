@@ -60,3 +60,31 @@ variable "server_backups" {
   type        = bool
   default     = true
 }
+
+variable "dns_zone" {
+  description = "The domain to host on Hetzner DNS. Empty leaves DNS out."
+  type        = string
+  default     = ""
+}
+
+variable "dns_server_hosts" {
+  description = "Names in the zone that point at the server. Keep them in terraform.tfvars."
+  type        = list(string)
+  default     = []
+}
+
+variable "dns_records" {
+  description = "The zone's other records, keyed by any unique label. The apex is named @, and TXT values include their quotes."
+  type = map(object({
+    name   = string
+    type   = string
+    values = list(string)
+  }))
+  default = {}
+}
+
+variable "dns_ttl" {
+  description = "TTL in seconds for every record in the zone."
+  type        = number
+  default     = 3600
+}

@@ -179,7 +179,7 @@ OpenTofu with the `hetznercloud/hcloud` provider, one environment, no Terragrunt
 - [x] `make infra-inventory` writes the Ansible inventory, including the data volume, from `tofu output`.
 - [x] `make lint` (and CI) runs `tofu fmt -check`, `tofu validate` and Trivy's IaC scan; plans and applies stay manual (`make infra-plan`, `make infra-apply`).
 - [ ] Remote state in an S3-compatible bucket, once more than one machine or person needs it.
-- [ ] DNS records as code, once the domain's DNS is hosted somewhere with a provider (Hetzner DNS or another).
+- [x] DNS records as code: an optional `hcloud_zone`, with the real names and records kept in the ignored `terraform.tfvars`.
 - [ ] TFLint with a ruleset for the hcloud provider, if one matures.
 
 ## 12. Data sourcing: census import and source links

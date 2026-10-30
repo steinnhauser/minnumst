@@ -8,6 +8,7 @@
 | `hcloud_firewall` | Only SSH (from `ssh_source_ips`), HTTP, HTTPS and ICMP reach the server: a second layer in front of nftables |
 | `hcloud_volume`   | The data volume for Docker (PostgreSQL, certificates) and the backups; `deploy/` encrypts it with LUKS2      |
 | `hcloud_ssh_key`  | The administrator's key; cloud-init creates that user and nothing else                                       |
+| `hcloud_zone`     | Optional: the domain's DNS on Hetzner, with its names pointing at the server and its other records           |
 
 ## Security
 
@@ -39,6 +40,8 @@ tofu -chdir=infra import hcloud_ssh_key.admin "$(curl -s -H "Authorization: Bear
   'https://api.hetzner.cloud/v1/ssh_keys?name=minnumst-admin' | jq -r '.ssh_keys[0].id')"
 ```
 
-Point the A and AAAA records of the three hostnames at the addresses `tofu -chdir=infra output` prints, then continue with [`deploy/README.md`](../deploy/README.md). The generated inventory names the data volume, so `make deploy` encrypts it and keeps Docker's data and the backups there.
+Point the hostnames at the server, either by hand with the addresses `tofu -chdir=infra output` prints, or by setting the `dns_*` variables in `terraform.tfvars` (see the example). The zone has no effect until the registrar's nameservers change: first copy every existing record into `dns_records`, apply, compare the answers from a nameserver in the `dns_nameservers` output with the current ones, and only then set those nameservers at the registrar. Hostnames stay in `terraform.tfvars`, not in Git.
 
-To remove everything, first lift the deletion protection on the server and the volume in the Hetzner console. That step is deliberately manual.
+Then continue with [`deploy/README.md`](../deploy/README.md). The generated inventory names the data volume, so `make deploy` encrypts it and keeps Docker's data and the backups there.
+
+To remove everything, first lift the deletion protection on the server, the volume and the DNS zone in the Hetzner console. That step is deliberately manual.

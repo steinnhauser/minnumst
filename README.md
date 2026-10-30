@@ -127,6 +127,17 @@ The same job then restores a backup into a fresh database and runs Playwright br
 
 Report vulnerabilities privately as described in [`SECURITY.md`](.github/SECURITY.md).
 
+## What is public and what stays private
+
+This repository is open source, and it also describes a system that really runs. Those two facts pull against each other, so every change has to keep a balance: show how the system is built, without publishing a map of the running deployment.
+
+The design assumes an attacker has read all of this. Security rests on keys, patching and layered controls, never on the code being secret.
+
+- **Public:** the application, the Ansible roles, the OpenTofu configuration, the Compose template, the hardening baseline and its deliberate deviations, and CI.
+- **Never in Git:** credentials, vault contents, OpenTofu state and variables, inventories, server addresses, administrator and login hostnames, allowed SSH networks, provider account and resource IDs, backup locations, operator e-mail addresses, production logs and personal data. Tracked files use placeholders, and the real values live in ignored files on the operator's machine.
+- **Fixes come first.** A security fix reaches the running host before the commit that describes it is public, and an open weakness on the running system is reported privately rather than tracked here.
+- **CI never touches the running host.** Its logs are public, so it tests the same roles on disposable runners.
+
 ## Data protection and sources
 
 Minnumst holds the history of people who have died. It never holds data about living people. Every person record, story and source link, whether it comes from an editor or an import, has to meet these rules:

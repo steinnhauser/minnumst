@@ -251,10 +251,11 @@ jobs:
           printf '[minnumst]\nlocalhost ansible_connection=local\n' > "$RUNNER_TEMP/inventory"
           # The loop device stands in for the encrypted data volume. Upgrading every
           # package, removing snapd or scanning the runner's large filesystem for
-          # an AIDE baseline would only slow CI down.
+          # an AIDE baseline would only slow CI down, and the runner itself needs
+          # an executable /tmp.
           set -o pipefail
           overrides=$(jq -nc --arg device "$DATA_DEVICE" \
-            '{host_data_device: $device, host_upgrade_packages: false, host_remove_snapd: false, host_aide_baseline: false}')
+            '{host_data_device: $device, host_upgrade_packages: false, host_remove_snapd: false, host_aide_baseline: false, host_tmp_tmpfs: false}')
           for run in first second; do
             make deploy INVENTORY="$RUNNER_TEMP/inventory" VAULT_ARGS= ARGS="--tags host -e '$overrides'" \
               | tee "$RUNNER_TEMP/$run.log"
@@ -264,6 +265,11 @@ jobs:
         run: |
           sudo cryptsetup status minnumst-data | grep -E 'type: +LUKS2'
           findmnt --noheadings --output SOURCE /srv/minnumst | grep -x /dev/mapper/minnumst-data
+      - name: Check that the mail server only listens on loopback
+        run: |
+          ss -ltnH 'sport = :25' | awk '{print $4}' | tee "$RUNNER_TEMP/smtp.txt"
+          test -s "$RUNNER_TEMP/smtp.txt"
+          ! grep -vE '^(127\.0\.0\.1|\[::1\]):25$' "$RUNNER_TEMP/smtp.txt"
       - name: Score the hardened host
         run: |
           sudo lynis audit system --quick --no-colors > "$RUNNER_TEMP/lynis-after.txt"

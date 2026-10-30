@@ -25,6 +25,11 @@ host_automatic_reboot_time: "04:30"
 host_remove_snapd: true
 host_removed_packages: [ftp, ldap-utils, nis, rsh-client, talk, telnet, tnftp]
 
+# CIS 1.1.2: /tmp as a bounded tmpfs, without devices, setuid or executables. It
+# only uses memory for what it holds, and takes effect at the next reboot.
+host_tmp_tmpfs: true
+host_tmp_size: 1G
+
 # SSH (CIS 5.1, NIST AC-17, IA-2). Only members of host_ssh_group may log in, with a
 # key, never as root. The Ansible user is added to the group.
 host_ssh_port: 22

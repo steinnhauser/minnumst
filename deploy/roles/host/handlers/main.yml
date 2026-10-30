@@ -9,6 +9,21 @@
     argv: [mount, -o, "remount,nodev,nosuid,noexec", /dev/shm]
   changed_when: true
 
+# Mounting over /tmp would hide what running services keep there, so it waits
+# for the reboot unattended-upgrades performs in the maintenance window.
+- name: Require a reboot
+  ansible.builtin.file:
+    path: /var/run/reboot-required
+    state: touch
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Restart Postfix
+  ansible.builtin.service:
+    name: postfix
+    state: restarted
+
 # Ubuntu 24.04 starts sshd on demand; a restart applies the config whether or
 # not it is running, and keeps existing sessions.
 - name: Restart SSH

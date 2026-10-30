@@ -21,12 +21,21 @@
       - needrestart
       - nftables
       - openssh-server
+      - postfix
       - sudo
       - sysstat
       - unattended-upgrades
     state: present
     update_cache: true
     cache_valid_time: 3600
+
+# AIDE's daily reports need a local mail server; nothing else should reach it.
+- name: Keep the mail server local-only (CIS 2.1, NIST CM-7)
+  ansible.builtin.lineinfile:
+    path: /etc/postfix/main.cf
+    regexp: '^inet_interfaces\s*='
+    line: inet_interfaces = loopback-only
+  notify: Restart Postfix
 
 - name: Remove legacy network clients (CIS 2.2, NIST CM-7)
   ansible.builtin.apt:

@@ -47,6 +47,26 @@
     line: "tmpfs /dev/shm tmpfs defaults,nodev,nosuid,noexec 0 0"
   notify: Remount /dev/shm
 
+# Packages run their debconf scripts from a temporary directory; those can't
+# run from a noexec /tmp. /var/tmp stays executable for them.
+- name: Extract package configuration scripts outside /tmp
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/60minnumst-tempdir
+    content: |
+      APT::ExtractTemplates::TempDir "/var/tmp";
+    owner: root
+    group: root
+    mode: "0644"
+  when: host_tmp_tmpfs
+
+- name: Mount /tmp as tmpfs without devices, setuid or executables (CIS 1.1.2)
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^\S+\s+/tmp\s'
+    line: "tmpfs /tmp tmpfs defaults,nodev,nosuid,noexec,mode=1777,size={{ host_tmp_size }} 0 0"
+  when: host_tmp_tmpfs
+  notify: Require a reboot
+
 - name: Keep AppArmor enabled (CIS 1.3, NIST AC-3)
   ansible.builtin.service:
     name: apparmor

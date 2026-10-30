@@ -8,7 +8,7 @@
 > _Minnumst_ (Icelandic: "let us remember") is a shared written history of our ancestors, preserving people and their stories across generations.
 
 Minnumst has a public archive for reading stories, an editorial desk for writing them, and an API that keeps every story revision.
-It is self-hosted with Ansible and Docker Compose behind Traefik, with Authentik guarding everything that writes.
+It is self-hosted with OpenTofu, Ansible and Docker Compose behind Traefik, with Authentik guarding everything that writes, on a host hardened against the CIS and NIST security frameworks.
 
 <p align="center">
   <img src="docs/assets/screenshot-web.jpg" alt="Public archive on desktop: name search with a person's profile and story" width="72%">
@@ -19,6 +19,15 @@ It is self-hosted with Ansible and Docker Compose behind Traefik, with Authentik
   <img src="docs/assets/screenshot-admin.png" alt="Editorial desk: list of pages and the revision history of one story" width="95%">
 </p>
 <p align="center"><sub>The public archive (desktop and phone) and the editorial desk with a story's revision history. All people and stories shown are fictional sample data.</sub></p>
+
+## Project goals
+
+- **Preserve stories for generations.** History is append-only, so a story's earlier versions are never lost.
+- **Protect people.** The archive only ever holds people who died more than five years ago, under the rules in [Data protection and sources](#data-protection-and-sources).
+- **Build to recognised security frameworks.** The host follows the CIS Ubuntu Linux 24.04 LTS Benchmark and NIST SP 800-53 Rev. 5, and the containers the CIS Docker Benchmark and NIST SP 800-190. Controls cite their sections in the code, and each deviation is documented with its reason. These are the baselines the project follows, not a certification.
+- **Verify, don't just configure.** CI applies the hardening to a real Ubuntu VM, requires a second run to change nothing, and scores the result with Lynis. See [Security and networking](#security-and-networking).
+- **Stay secure in the open.** Well-built infrastructure shouldn't depend on its code being secret; the risk lies in the details of the running system, not the code. So the code is public and those details are not, as described in [What is public and what stays private](#what-is-public-and-what-stays-private).
+- **Everything as code.** The server, firewall, DNS and deployment are reproducible from this repository plus a small set of private values.
 
 ## Architecture
 
@@ -39,8 +48,8 @@ It is self-hosted with Ansible and Docker Compose behind Traefik, with Authentik
 | [`packages/static-server/`](packages/static-server/) | Static server, JSON request logs and runtime config shared by both frontend images                | Node.js, Pino                                                           |
 | [`packages/api-client/`](packages/api-client/)       | The frontends' API client: types generated from the OpenAPI contract and one shared fetch wrapper | TypeScript (openapi-typescript)                                         |
 | [`docker/`](docker/)                                 | Image definitions: one for the API, one for both frontends                                        | Docker                                                                  |
-| [`infra/`](infra/)                                   | Creates the Hetzner Cloud server, firewall and data volume, with encrypted state                  | OpenTofu, hcloud                                                        |
-| [`deploy/`](deploy/)                                 | Provisioning and deployment to Debian/Ubuntu hosts                                                | Ansible, Docker Compose, Traefik, Authentik forward-auth, ansible-vault |
+| [`infra/`](infra/)                                   | Creates the Hetzner Cloud server, firewall, data volume and DNS, with encrypted state             | OpenTofu, hcloud                                                        |
+| [`deploy/`](deploy/)                                 | Hardens an Ubuntu 24.04 host (CIS, NIST SP 800-53) and deploys the stack on it                    | Ansible, Docker Compose, Traefik, Authentik forward-auth, ansible-vault |
 | [`tools/`](tools/)                                   | Local stack from the deploy Compose template, sample data, end-to-end tests                       | Bash, Docker Compose                                                    |
 
 Each service ships as a non-root container image that logs structured JSON. The frontends read their API URL at runtime, so one image works in every environment.

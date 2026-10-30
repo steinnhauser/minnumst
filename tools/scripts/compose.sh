@@ -84,7 +84,7 @@ case "$action" in
     ;;
   edge)
     WEB_HOST=$(var minnumst_domain) ADMIN_HOST=$(var minnumst_admin_domain) API_HOST=$(var minnumst_api_domain) \
-      BASE_COMPOSE_FILE="$compose_file" bash "$tools_root/scripts/e2e_edge.sh"
+      AUTH_HOST=$(var authentik_domain) COMPOSE_PROJECT=minnumst-local BASE_COMPOSE_FILE="$compose_file" bash "$tools_root/scripts/e2e_edge.sh"
     ;;
   backup-test)
     # The production backup (pg_dump, custom format) restored into a scratch

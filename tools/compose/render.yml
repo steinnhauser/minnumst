@@ -13,11 +13,12 @@
         state: directory
         mode: "0700"
 
-    - name: Install the PostgreSQL role setup script
+    - name: Install the PostgreSQL role setup script and Authentik's blueprint
       ansible.builtin.copy:
-        src: "{{ playbook_dir }}/../../deploy/roles/minnumst/files/postgres-roles.sh"
-        dest: "{{ playbook_dir }}/.local/postgres-roles.sh"
+        src: "{{ playbook_dir }}/../../deploy/roles/minnumst/files/{{ item }}"
+        dest: "{{ playbook_dir }}/.local/{{ item }}"
         mode: "0644"
+      loop: [postgres-roles.sh, authentik-blueprint.yaml]
 
     - name: Render deployment Compose template
       ansible.builtin.template:

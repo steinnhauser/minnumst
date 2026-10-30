@@ -88,7 +88,7 @@ Every host setting in [`deploy/`](deploy/) cites the CIS section and NIST contro
 
 - **One public entry point.** Only Traefik publishes ports. The apps share the `edge` network with Traefik, and PostgreSQL sits alone with the API on `backend`, an internal network with no route in or out and no host port.
 - **TLS everywhere.** HTTP redirects to HTTPS, certificates come from Let's Encrypt, and HSTS (two years, including subdomains) tells browsers never to use plain HTTP again.
-- **Authenticated writes.** Authentik forward-auth guards the whole editorial desk and every `POST`, `PUT`, `PATCH` and `DELETE` on the API; reads stay public. Authentik, with TOTP MFA, runs outside this stack, and there is no in-app login to attack.
+- **Authenticated writes.** Authentik forward-auth guards the whole editorial desk and every `POST`, `PUT`, `PATCH` and `DELETE` on the API; reads stay public. Authentik runs in this stack with mandatory TOTP MFA, its configuration kept as code, and there is no in-app login to attack.
 - **Rate limiting.** The API allows 20 requests per second per client (bursts of 50) and answers floods with `429`.
 - **No Docker socket on the edge.** Traefik discovers services through a socket proxy that exposes only the read-only container listing, on its own internal network. The proxy is the only container that mounts the socket.
 

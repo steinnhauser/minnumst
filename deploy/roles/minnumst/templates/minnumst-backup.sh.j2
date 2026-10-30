@@ -1,19 +1,26 @@
 #!/bin/bash
-# Managed by Ansible (deploy/roles/minnumst). Nightly PostgreSQL backup, NIST CP-9.
+# Managed by Ansible (deploy/roles/minnumst). Nightly backup of the archive's and
+# Authentik's PostgreSQL databases, NIST CP-9.
 set -euo pipefail
 umask 077
 
 dir={{ minnumst_backup_dir | quote }}
-file="$dir/minnumst-$(date -u +%Y%m%dT%H%M%SZ).dump{{ '.age' if minnumst_backup_age_recipient else '' }}"
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
 
-docker compose --project-name {{ minnumst_compose_project | quote }} \
-  --file {{ (minnumst_deploy_dir ~ '/compose.yml') | quote }} \
-  exec -T postgres sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump --username postgres --format custom "$POSTGRES_DB"' \
+backup() { # <name in the file> <database>
+  local file="$dir/minnumst$1-$stamp.dump{{ '.age' if minnumst_backup_age_recipient else '' }}"
+  docker compose --project-name {{ minnumst_compose_project | quote }} \
+    --file {{ (minnumst_deploy_dir ~ '/compose.yml') | quote }} \
+    exec -T -e DATABASE="$2" postgres sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump --username postgres --format custom "$DATABASE"' \
 {% if minnumst_backup_age_recipient %}
-  | age --encrypt --recipient {{ minnumst_backup_age_recipient | quote }} \
+    | age --encrypt --recipient {{ minnumst_backup_age_recipient | quote }} \
 {% endif %}
-  > "$file.partial"
-mv "$file.partial" "$file"
+    > "$file.partial"
+  mv "$file.partial" "$file"
+  echo "Backed up to $file"
+}
 
-find "$dir" -name 'minnumst-*.dump*' -mtime +{{ minnumst_backup_retention_days }} -delete
-echo "Backed up to $file"
+backup "" {{ postgres_database | quote }}
+backup "-authentik" {{ authentik_database | quote }}
+
+find "$dir" -name 'minnumst*-*.dump*' -mtime +{{ minnumst_backup_retention_days }} -delete

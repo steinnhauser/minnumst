@@ -3,6 +3,7 @@
 # Networks: only Traefik publishes ports. `edge` connects Traefik to the three
 # apps, `backend` (internal, no route out) connects the API to PostgreSQL, and
 # `socket` (internal) connects Traefik to the read-only Docker API proxy.
+# Authentik's server is on `edge` and `backend`, and its worker on `backend` only.
 
 x-defaults: &defaults
   restart: unless-stopped
@@ -15,6 +16,35 @@ x-locked-down: &locked-down
   <<: *defaults
   read_only: true
   cap_drop: [ALL]
+
+# Authentik's server and worker run from one image with the same settings. It
+# reports nothing home, and its only outpost is the one built into the server,
+# so neither container needs the Docker socket or root as upstream's example has.
+x-authentik: &authentik
+  <<: *locked-down
+  image: {{ authentik_image | to_json }}
+  shm_size: 512mb
+  environment:
+    AUTHENTIK_SECRET_KEY: {{ authentik_secret_key | replace('$', '$$') | to_json }}
+    AUTHENTIK_POSTGRESQL__HOST: postgres
+    AUTHENTIK_POSTGRESQL__NAME: {{ authentik_database | to_json }}
+    AUTHENTIK_POSTGRESQL__USER: {{ authentik_database_user | to_json }}
+    AUTHENTIK_POSTGRESQL__PASSWORD: {{ authentik_database_password | to_json }}
+    AUTHENTIK_BOOTSTRAP_PASSWORD_HASH: {{ authentik_bootstrap_password_hash | replace('$', '$$') | to_json }}
+    AUTHENTIK_LOG_LEVEL: {{ minnumst_log_level | lower | to_json }}
+    AUTHENTIK_AVATARS: initials
+    AUTHENTIK_DISABLE_UPDATE_CHECK: "true"
+    AUTHENTIK_DISABLE_STARTUP_ANALYTICS: "true"
+    AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+    AUTHENTIK_WEB__WORKERS: "1"
+    MINNUMST_AUTHENTIK_HOST: {{ authentik_domain | to_json }}
+    MINNUMST_COOKIE_DOMAIN: {{ authentik_cookie_domain | to_json }}
+  tmpfs: [/tmp]
+  volumes:
+    - authentik_data:/data
+  depends_on:
+    postgres:
+      condition: service_healthy
 
 services:
   traefik:
@@ -150,6 +180,29 @@ services:
       traefik.http.middlewares.security-headers.headers.referrerPolicy: strict-origin-when-cross-origin
     networks: [edge, backend]
 
+  authentik-server:
+    <<: *authentik
+    command: server
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.authentik.rule: "Host(`{{ authentik_domain }}`)"
+      traefik.http.routers.authentik.entrypoints: websecure
+      traefik.http.routers.authentik.tls.certresolver: le
+      traefik.http.routers.authentik.middlewares: authentik-ratelimit@docker
+      traefik.http.services.authentik.loadbalancer.server.port: "9000"
+      # A login page loads many assets at once, so this burst is larger than the API's.
+      traefik.http.middlewares.authentik-ratelimit.ratelimit.average: "50"
+      traefik.http.middlewares.authentik-ratelimit.ratelimit.burst: "200"
+    networks: [edge, backend]
+
+  authentik-worker:
+    <<: *authentik
+    command: worker
+    configs:
+      - source: authentik-blueprint
+        target: /blueprints/custom/minnumst.yaml
+    networks: [backend]
+
   postgres:
     # Runs as the image's unprivileged postgres user (uid 70), so the entrypoint
     # needs no root and no capabilities. Every connection uses SCRAM-SHA-256.
@@ -165,6 +218,9 @@ services:
       MINNUMST_MIGRATION_PASSWORD: {{ postgres_migration_password | to_json }}
       MINNUMST_APP_USER: {{ postgres_user | to_json }}
       MINNUMST_APP_PASSWORD: {{ postgres_password | to_json }}
+      MINNUMST_AUTHENTIK_DATABASE: {{ authentik_database | to_json }}
+      MINNUMST_AUTHENTIK_USER: {{ authentik_database_user | to_json }}
+      MINNUMST_AUTHENTIK_PASSWORD: {{ authentik_database_password | to_json }}
     configs:
       - source: postgres-roles
         target: /docker-entrypoint-initdb.d/roles.sh
@@ -180,12 +236,16 @@ services:
     networks: [backend]
 
 # roles/minnumst/files/postgres-roles.sh, installed next to this file, creates
-# the migration and runtime roles when the data directory is first created.
+# the database roles when the data directory is first created. The blueprint
+# next to it holds Authentik's configuration.
 configs:
   postgres-roles:
     file: ./postgres-roles.sh
+  authentik-blueprint:
+    file: ./authentik-blueprint.yaml
 
 volumes:
+  authentik_data:
   postgres_data:
   traefik_acme:
 

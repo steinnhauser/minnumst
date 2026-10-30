@@ -160,6 +160,7 @@ PostgreSQL replaced MariaDB before the first deployment, for its SCRAM-SHA-256 a
 - [x] AIDE file integrity with a daily check (CIS 6.3), local account policy (CIS 5.3, 5.4), debsums, process accounting and sysstat.
 - [ ] Raise the Lynis index further (malware scanning, compiler restrictions) where it doesn't conflict with running containers.
 - [ ] Ship logs (journal, audit, containers) off the host so the rotated audit logs and container logs survive a compromise (with item 7).
+- [x] Authentik in the stack, configured by a blueprint (domain-level forward auth, mandatory TOTP, two allowed groups), on its own database and role, included in the backups, and tested in CI.
 - [x] Post-deploy smoke test in the `minnumst` role, run from the controller against the real hostnames: HTTPS with HSTS, public reads, authentication on the desk and on writes.
 - [x] Secret rotation (vault, PostgreSQL roles, SSH) and rollback (image pins, `migrate downgrade`) are documented in `deploy/README.md`.
 

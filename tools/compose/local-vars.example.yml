@@ -7,8 +7,15 @@ minnumst_log_level: INFO
 # No certificate authority locally: Traefik serves its default self-signed certificate.
 traefik_acme_email: developer@example.invalid
 traefik_acme_ca_server: https://127.0.0.1:1/directory
-# The auth-stub service in local.override.yml stands in for Authentik.
+# Authentik runs for real and its setup is tested (see e2e_edge.sh), but the edge's
+# forward-auth checks use the auth-stub service in local.override.yml, which needs
+# no login. The hash is of "local_only_authentik_password".
 authentik_forwardauth_address: http://auth-stub:9000/
+authentik_domain: auth.minnumst.local
+authentik_cookie_domain: minnumst.local
+authentik_secret_key: local_only_authentik_secret_key_not_used_anywhere_else_00000
+authentik_database_password: local_only_authentik_database_password
+authentik_bootstrap_password_hash: "pbkdf2_sha256$1000000$localonlysaltforcitest$JLWknX/4ti4FMKXV5QrTqzEinlM4pqLZWxzlAKS/Gxw="
 
 postgres_database: minnumst_local
 postgres_user: minnumst_local

@@ -8,14 +8,21 @@
       - minnumst_api_image | length > 0
       - minnumst_log_level in ["DEBUG", "INFO", "WARNING", "ERROR"]
       - authentik_forwardauth_address | length > 0
+      - authentik_domain | length > 0
+      - authentik_cookie_domain | length > 0
+      - authentik_image | length > 0
+      - authentik_secret_key is match('^[A-Za-z0-9_-]{50,}$')
+      - authentik_database_password is match('^[A-Za-z0-9_-]{32,}$')
+      - authentik_bootstrap_password_hash is match('^pbkdf2_sha256\\$')
       - traefik_acme_email | length > 0
       - postgres_superuser_password is match('^[A-Za-z0-9_-]{32,}$')
       - postgres_password is match('^[A-Za-z0-9_-]{32,}$')
       - postgres_migration_password is match('^[A-Za-z0-9_-]{32,}$')
-      - "'REPLACE' not in postgres_superuser_password + postgres_password + postgres_migration_password"
+      - "'REPLACE' not in postgres_superuser_password + postgres_password + postgres_migration_password + authentik_secret_key + authentik_database_password"
     fail_msg: >-
-      Set the image, domain, Authentik and ACME variables, and use random
-      URL-safe PostgreSQL passwords of at least 32 characters in the vault.
+      Set the image, domain, Authentik and ACME variables. In the vault, use random
+      URL-safe PostgreSQL passwords of at least 32 characters, an Authentik secret
+      key of at least 50, and a hash of Authentik's first administrator password.
   no_log: true
 
 - name: Create the deployment directory
@@ -26,13 +33,14 @@
     group: root
     mode: "0750"
 
-- name: Install the PostgreSQL role setup script
+- name: Install the PostgreSQL role setup script and Authentik's blueprint
   ansible.builtin.copy:
-    src: postgres-roles.sh
-    dest: "{{ minnumst_deploy_dir }}/postgres-roles.sh"
+    src: "{{ item }}"
+    dest: "{{ minnumst_deploy_dir }}/{{ item }}"
     owner: root
     group: root
     mode: "0644"
+  loop: [postgres-roles.sh, authentik-blueprint.yaml]
 
 - name: Render the Compose file, readable by root only (it holds secrets)
   ansible.builtin.template:
@@ -78,6 +86,16 @@
         url: "https://{{ minnumst_api_domain }}/api/people?limit=1"
         status_code: 200
 
+    - name: Authentik's login page answers
+      ansible.builtin.uri:
+        url: "https://{{ authentik_domain }}/-/health/ready/"
+        status_code: 200
+      register: minnumst_smoke_authentik
+      # Authentik migrates its database on the first start, which takes minutes.
+      retries: 60
+      delay: 10
+      until: minnumst_smoke_authentik.status == 200
+
     - name: The editorial desk and API writes refuse unauthenticated requests (NIST AC-3)
       ansible.builtin.uri:
         url: "{{ item.url }}"
@@ -85,6 +103,11 @@
         follow_redirects: none
         # Authentik answers with a redirect to its login page, or 401.
         status_code: [302, 401]
+      register: minnumst_smoke_auth
+      # The outpost picks up its provider shortly after Authentik is ready.
+      retries: 30
+      delay: 10
+      until: minnumst_smoke_auth.status in [302, 401]
       loop:
         - { url: "https://{{ minnumst_admin_domain }}/", method: GET }
         - { url: "https://{{ minnumst_api_domain }}/api/people", method: POST }

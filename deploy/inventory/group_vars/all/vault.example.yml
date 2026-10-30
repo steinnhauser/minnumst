@@ -5,5 +5,14 @@ postgres_superuser_password: REPLACE_WITH_RANDOM_URL_SAFE_SECRET
 postgres_password: REPLACE_WITH_DIFFERENT_RANDOM_URL_SAFE_SECRET
 # TODO: Replace with a third random URL-safe password, for the migration role.
 postgres_migration_password: REPLACE_WITH_A_THIRD_RANDOM_URL_SAFE_SECRET
+# TODO: Replace with a random URL-safe key of at least 50 characters for Authentik. Don't change it later.
+authentik_secret_key: REPLACE_WITH_A_LONG_RANDOM_URL_SAFE_SECRET
+# TODO: Replace with a fourth random URL-safe password, for Authentik's database role.
+authentik_database_password: REPLACE_WITH_A_FOURTH_RANDOM_URL_SAFE_SECRET
+# TODO: Replace with the hash of the first administrator's password (see deploy/README.md).
+authentik_bootstrap_password_hash: REPLACE_WITH_A_PBKDF2_SHA256_HASH
+# Real hostnames and addresses override the placeholders in vars.yml from here, so they
+# stay out of Git: minnumst_domain, minnumst_admin_domain, minnumst_api_domain,
+# authentik_domain, authentik_cookie_domain and traefik_acme_email.
 # Optional: an Ubuntu Pro token (free for personal use) enables Livepatch and ESM.
 host_ubuntu_pro_token: ""

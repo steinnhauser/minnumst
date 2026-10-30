@@ -17,13 +17,24 @@ minnumst_api_image: ghcr.io/steinnhauser/minnumst-api:0.3.0@sha256:c64a53838fc12
 
 # Third-party images stay on version tags so patch releases (security fixes)
 # arrive on the next deploy; Dependabot can't update digests in this file.
+# Authentik's exact version is below: update it deliberately, as it migrates its database.
 traefik_image: traefik:v3.7.16
 docker_socket_proxy_image: ghcr.io/tecnativa/docker-socket-proxy:v0.5.0
 # TODO: Set a monitored email address for Let's Encrypt certificate notices.
 traefik_acme_email: ops@example.com
 traefik_acme_ca_server: https://acme-v02.api.letsencrypt.org/directory
-# TODO: Set the reachable Authentik Traefik outpost URL for this deployment.
-authentik_forwardauth_address: https://auth.example.com/outpost.goauthentik.io/auth/traefik
+
+# Authentik. It serves its login page here; point this name's DNS record at the server.
+# TODO: Set the production Authentik hostname.
+authentik_domain: auth.minnumst.example
+# TODO: Set the domain shared by the admin, API and Authentik hostnames. The session
+# cookie is set on it, so the desk's login also authorises its calls to the API.
+authentik_cookie_domain: minnumst.example
+authentik_image: ghcr.io/goauthentik/server:2026.8.5
+authentik_database: authentik
+authentik_database_user: authentik
+# Traefik reaches the outpost built into Authentik's server over the edge network.
+authentik_forwardauth_address: http://authentik-server:9000/outpost.goauthentik.io/auth/traefik
 
 postgres_image: postgres:18-alpine
 postgres_database: minnumst

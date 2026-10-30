@@ -16,19 +16,24 @@ On Hetzner Cloud, [`infra/`](../infra/) does steps 1 and 2 for you: it creates t
 
 1. **Install with full-disk encryption** (NIST SC-28). In the Ubuntu Server installer, choose _Use an entire disk_ → _Set up this disk as an LVM group_ → _Encrypt the LVM group with LUKS_. The playbook checks that `/` is on a LUKS volume and refuses to continue otherwise. To unlock the disk after a remote reboot, install `dropbear-initramfs` with your SSH key in `/etc/dropbear/initramfs/authorized_keys`. If a provider can only offer its own disk encryption, set `host_require_disk_encryption: false` and record why.
 2. **Create an administrator** with `sudo` rights and an SSH key (Ed25519 or a hardware key), and log in with it once. The playbook disables password and root logins, and checks the key exists first, so it can't lock you out.
-3. **Point DNS** for the public, admin and API hostnames at the server, and make sure ports 22, 80 and 443 reach it.
-4. **Prepare Authentik** with TOTP multi-factor authentication and a proxy outpost that Traefik can reach (see [Edge](#edge)).
+3. **Point DNS** for the public, admin, API and Authentik hostnames at the server, and make sure ports 22, 80 and 443 reach it.
 
 Then configure Ansible:
 
 ```sh
 cp deploy/inventory/hosts.ini.example deploy/inventory/hosts.ini                          # host and admin user
 cp deploy/inventory/group_vars/all/vault.example.yml deploy/inventory/group_vars/all/vault.yml
-openssl rand -hex 32                                                                        # once per password
+openssl rand -hex 32                                                                        # once per secret
 uv run ansible-vault encrypt deploy/inventory/group_vars/all/vault.yml
 ```
 
-Set the hostnames, ACME e-mail, Authentik outpost URL and image versions in `deploy/inventory/group_vars/all/vars.yml`, and consider restricting SSH to known networks with `host_ssh_allowed_ipv4`/`host_ssh_allowed_ipv6`. `hosts.ini` and `vault.yml` are ignored by Git; keep the vault password outside the repository.
+`authentik_bootstrap_password_hash` is the hash of the first administrator's password, so the password itself is never stored. Generate a long password, keep it in a password manager, and hash it:
+
+```sh
+python3 -c 'import base64, getpass, hashlib, secrets; salt = secrets.token_urlsafe(16); print("pbkdf2_sha256$1000000$%s$%s" % (salt, base64.b64encode(hashlib.pbkdf2_hmac("sha256", getpass.getpass().encode(), salt.encode(), 1000000)).decode()))'
+```
+
+Set the hostnames, Authentik's cookie domain and the ACME e-mail in `vault.yml`, where they override the placeholders in the tracked `deploy/inventory/group_vars/all/vars.yml`, which also holds the image versions. Consider restricting SSH to known networks with `host_ssh_allowed_ipv4`/`host_ssh_allowed_ipv6`. `hosts.ini` and `vault.yml` are ignored by Git; keep the vault password outside the repository.
 
 ```sh
 make deploy                                  # harden the host, install Docker, start the stack
@@ -69,20 +74,26 @@ make deploy VAULT_ARGS="--vault-password-file ~/.config/ansible/vault-pass"
 
 ## Edge
 
-Traefik terminates TLS for all three hostnames with Let's Encrypt (HTTP challenge on port 80). The admin host and every API write method go through the Authentik forward-auth endpoint; reads of the public archive and the API stay public. Configure the Authentik proxy provider for the admin and API hostnames. Do not expose the deployment until Authentik is reachable and the login with MFA works.
+Traefik terminates TLS for all three hostnames with Let's Encrypt (HTTP challenge on port 80). The admin host and every API write method go through the Authentik forward-auth endpoint; reads of the public archive and the API stay public. Traefik terminates TLS for Authentik's hostname too.
+
+Authentik runs in the stack as a server and a worker, without root or the Docker socket, on its own PostgreSQL database and role. [`authentik-blueprint.yaml`](roles/minnumst/files/authentik-blueprint.yaml) keeps its configuration in code: a domain-level forward-auth provider, because the desk calls the API on another hostname and the session cookie has to reach both; mandatory TOTP on every login; and access for two groups only, `minnumst-editors` and `authentik Admins`. An editor's password and TOTP device are the only credentials in the system.
+
+**The first login.** Open `https://<authentik hostname>/` and sign in as `akadmin` with the password you hashed. Authentik requires you to set up a TOTP device before continuing. Then create a named account for daily editing, add it to `minnumst-editors`, and keep `akadmin` for administration. Do not put real editors on the deployment until this login works.
+
+**A lost TOTP device.** On the host, `sudo docker compose --project-name minnumst --file /opt/minnumst/compose.yml exec authentik-worker ak create_recovery_key 1 akadmin` prints a one-time login link, valid for one year at most; use it, then replace the device.
 
 The application images serve on port 8080 (frontends) and 8000 (API), and take their configuration from Compose at runtime: `VITE_API_URL` for both frontends, `DEBUG` for admin (`minnumst_admin_debug`), and `DATABASE_URL`, `CORS_ORIGINS` and `LOG_LEVEL` for the API. Release tags publish them as `ghcr.io/steinnhauser/minnumst-web`, `minnumst-admin` and `minnumst-api` (see [CONTRIBUTING](../CONTRIBUTING.md#releases)); pin exact versions in `vars.yml`, never `latest`.
 
-PostgreSQL data and Traefik's ACME state live in named volumes. PostgreSQL has no host port. On first start it creates two login roles, neither a superuser: a migration role that owns the database, and the API's runtime role, which can only connect. On every deploy a one-shot `migrate` service applies the migrations as the owner and grants the runtime role only what it needs (revisions are insert-only); the API starts after it succeeds. The vault holds three database passwords: the superuser's, the runtime role's and the migration role's.
+PostgreSQL data and Traefik's ACME state live in named volumes. PostgreSQL has no host port. On first start it creates three login roles, none a superuser: a migration role that owns the application database, the API's runtime role, which can only connect, and Authentik's role, which owns Authentik's database and can't reach the other. On every deploy a one-shot `migrate` service applies the migrations as the owner and grants the runtime role only what it needs (revisions are insert-only); the API starts after it succeeds. The vault holds three database passwords: the superuser's, the runtime role's and the migration role's.
 
 ## Operations
 
 - **Logs:** every service writes JSON lines. Use `sudo docker compose --project-name minnumst --file /opt/minnumst/compose.yml logs -f api` on the host. `LOG_LEVEL` comes from `minnumst_log_level`.
 - **Audit trail:** `sudo ausearch -k sshd`, `-k identity`, `-k docker` and so on, one key per rule group in [`roles/host/files/audit.rules`](roles/host/files/audit.rules).
-- **Backups** (NIST CP-9): a systemd timer runs `/usr/local/sbin/minnumst-backup` at 03:15. It writes a `pg_dump` to `/var/backups/minnumst` (root only, on the encrypted disk) and keeps 14 days. With `minnumst_backup_age_recipient` set to an [age](https://age-encryption.org) public key, every dump is encrypted to it, so the host can't read its own backups. Generate the key pair with `age-keygen` on your own machine and keep the private key there. Copy the dumps off the host as well; a server is not a backup of itself. CI restores a dump into a fresh database on every change (`make backup-test`).
+- **Backups** (NIST CP-9): a systemd timer runs `/usr/local/sbin/minnumst-backup` at 03:15. It writes a `pg_dump` of the archive and of Authentik to `/var/backups/minnumst` (root only, on the encrypted disk) and keeps 14 days. With `minnumst_backup_age_recipient` set to an [age](https://age-encryption.org) public key, every dump is encrypted to it, so the host can't read its own backups. Generate the key pair with `age-keygen` on your own machine and keep the private key there. Copy the dumps off the host as well; a server is not a backup of itself. CI restores a dump into a fresh database on every change (`make backup-test`).
 - **Restoring** (NIST CP-10): decrypt the dump where the key is (`age --decrypt --identity key.txt …`), copy it to the host, and run `sudo minnumst-restore minnumst.dump`. It asks for confirmation, stops the API, restores, and starts the API again.
 - **Rolling back** (NIST CP-10): set the previous release's `image@digest` in `vars.yml` and run `make deploy ARGS="--tags app"`. If the newer release changed the schema, roll the schema back first, with the image that contains the migration: `sudo docker compose --project-name minnumst --file /opt/minnumst/compose.yml run --rm migrate python -m minnumst_api.migrate downgrade <revision>`. Each release's notes say whether it includes a migration.
-- **Rotating secrets** (NIST IA-5): `uv run ansible-vault rekey deploy/inventory/group_vars/all/vault.yml` changes the vault password. To change a database password, set it in PostgreSQL first (`sudo docker compose … exec postgres psql --username postgres --command "ALTER ROLE minnumst PASSWORD '…'"`; the same for `minnumst_migrator` and `postgres`), then update `vault.yml` and run `make deploy ARGS="--tags app"`, which restarts the services with the new value. The environment variables only set passwords when the database is first created. SSH access changes by editing the administrator's `~/.ssh/authorized_keys`.
+- **Rotating secrets** (NIST IA-5): `uv run ansible-vault rekey deploy/inventory/group_vars/all/vault.yml` changes the vault password. To change a database password, set it in PostgreSQL first (`sudo docker compose … exec postgres psql --username postgres --command "ALTER ROLE minnumst PASSWORD '…'"`; the same for `minnumst_migrator`, `authentik` and `postgres`), then update `vault.yml` and run `make deploy ARGS="--tags app"`, which restarts the services with the new value. The environment variables only set passwords when the database is first created. SSH access changes by editing the administrator's `~/.ssh/authorized_keys`.
 - **Smoke test:** every `make deploy` ends by checking the live site from your machine: HTTPS with HSTS on the public archive, public API reads, and authentication on the editorial desk and on an API write. Set `minnumst_smoke_test: false` to skip it, for example before DNS is in place.
 - **Reboots:** unattended-upgrades reboots at 04:30 when an update needs it. A changed audit rule also marks the host for that reboot, because the rules are immutable until then.
 - **Checking the host:** `sudo lynis audit system`, and with Ubuntu Pro, `sudo usg audit cis_level1_server` for a CIS report.

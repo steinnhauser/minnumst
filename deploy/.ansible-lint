@@ -1,0 +1,4 @@
+---
+exclude_paths:
+  # An Authentik blueprint, not Ansible: its custom YAML tags are Authentik's own.
+  - roles/minnumst/files/authentik-blueprint.yaml

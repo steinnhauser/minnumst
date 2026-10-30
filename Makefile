@@ -222,7 +222,7 @@ infra-check:
 	trivy config --quiet --exit-code 1 --severity HIGH,CRITICAL infra
 
 infra-plan:
-	$(TOFU) init -input=false -backend-config=backend.hcl
+	$(TOFU) init -input=false
 	$(TOFU) plan -out=minnumst.tfplan
 
 infra-apply:

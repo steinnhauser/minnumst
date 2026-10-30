@@ -18,13 +18,13 @@ variable "name" {
 variable "location" {
   description = "Hetzner location (fsn1, nbg1, hel1, …)."
   type        = string
-  default     = "fsn1"
+  default     = "nbg1"
 }
 
 variable "server_type" {
   description = "Hetzner server type; 2 vCPUs and 4 GB of memory run the stack comfortably."
   type        = string
-  default     = "cx22"
+  default     = "cx23"
 }
 
 variable "admin_user" {

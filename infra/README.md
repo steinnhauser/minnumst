@@ -31,6 +31,14 @@ make infra-apply       # apply exactly that plan
 make infra-inventory   # write deploy/inventory/hosts.ini, including the data volume
 ```
 
+If the key is already registered in the Hetzner project as `minnumst-admin`, the first apply would fail because Hetzner rejects duplicate keys. Import it once before planning, using the same public key in `terraform.tfvars`:
+
+```sh
+tofu -chdir=infra init -input=false -backend-config=backend.hcl
+tofu -chdir=infra import hcloud_ssh_key.admin "$(curl -s -H "Authorization: Bearer $HCLOUD_TOKEN" \
+  'https://api.hetzner.cloud/v1/ssh_keys?name=minnumst-admin' | jq -r '.ssh_keys[0].id')"
+```
+
 Point the A and AAAA records of the three hostnames at the addresses `tofu -chdir=infra output` prints, then continue with [`deploy/README.md`](../deploy/README.md). The generated inventory names the data volume, so `make deploy` encrypts it and keeps Docker's data and the backups there.
 
 To remove everything, first lift the deletion protection on the server and the volume in the Hetzner console. That step is deliberately manual.

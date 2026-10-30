@@ -8,7 +8,8 @@ UV_RUN := uv run --locked --all-packages
 COMPOSE := bash tools/scripts/compose.sh
 TOFU := tofu -chdir=infra
 INVENTORY ?= deploy/inventory/hosts.ini
-VAULT_ARGS ?= --ask-vault-pass
+# Ask for the vault password only once there is a vault.
+VAULT_ARGS ?= $(if $(wildcard deploy/inventory/group_vars/all/vault.yml),--ask-vault-pass)
 # The API that `make contract` tests; the local stack publishes it here.
 MINNUMST_API_URL ?= http://127.0.0.1:8000
 

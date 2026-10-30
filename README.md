@@ -124,7 +124,7 @@ Every host setting in [`deploy/`](deploy/) cites the CIS section and NIST contro
 - **Hardened CI.** Jobs start with no token permissions and request only what they need; checkouts don't keep credentials. Only the release job can write packages and releases, and only for a tag on `main` that passed every check.
 - **Verifiable releases.** Release images are multi-arch and published with build provenance and an SBOM.
 
-**Verified, not just configured.** The CI `host` job applies the host hardening to a real Ubuntu 24.04 VM, requires a second run to change nothing, and reports the Lynis hardening index before and after (57 → 70 for the stock runner image). `make stack-test` (also the CI `e2e` job) runs the production Compose template with Traefik and a stand-in for Authentik, then [`tools/scripts/e2e_edge.sh`](tools/scripts/e2e_edge.sh) checks the edge from the outside:
+**Verified, not just configured.** The CI `host` job applies the host hardening to a real Ubuntu 24.04 VM, requires a second run to change nothing, and reports the Lynis hardening index before and after (57 → 75 for the stock runner image). `make stack-test` (also the CI `e2e` job) runs the production Compose template with Traefik and a stand-in for Authentik, then [`tools/scripts/e2e_edge.sh`](tools/scripts/e2e_edge.sh) checks the edge from the outside:
 
 - the HTTP redirect, HSTS and CSP;
 - that reads are public, while the editorial desk and every write method are refused without authentication;

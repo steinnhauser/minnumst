@@ -4,7 +4,7 @@ The single backlog for the repository. Items 1 to 10 are ordered by priority; th
 
 Context: Minnumst was previously **Eftirmál**, spread over four private repositories (`eftirmal-api`, `eftirmal`, `eftirmal-admin`, `eftirmal-deploy`). It is now a single public monorepo with one toolchain per language (a uv workspace and an npm workspace), one `Makefile`, one workflow, one `.gitignore` and one license. `minnumst` is the only target name for packages, images, hosts, paths and variables; the old names appear only in historical changelog entries and the README's History section.
 
-**Current focus: `api/`, `web/` and `admin/`** (items 1 to 4). Items that are mainly `deploy/` work (6, 7, 9 and 10) are deferred.
+**Current focus: the first production deployment** (item 9). Items 6 and 7 follow it.
 
 ## 1. Finish the move to a public monorepo: releases, the container registry and CI
 
@@ -156,10 +156,11 @@ PostgreSQL replaced MariaDB before the first deployment, for its SCRAM-SHA-256 a
 
 ## 9. First production deployment
 
-- [x] Host hardening: `deploy/` is three roles (`host`, `docker`, `minnumst`). The host role enforces the CIS Ubuntu 24.04 benchmark and NIST SP 800-53 controls on Ubuntu Server 24.04 LTS, and refuses to run without full-disk encryption. CI applies it to an Ubuntu 24.04 VM, checks idempotence and reports the Lynis index (57 → 70).
+- [x] Host hardening: `deploy/` is three roles (`host`, `docker`, `minnumst`). The host role enforces the CIS Ubuntu 24.04 benchmark and NIST SP 800-53 controls on Ubuntu Server 24.04 LTS, and refuses to run without full-disk encryption. CI applies it to an Ubuntu 24.04 VM, checks idempotence and reports the Lynis index (57 → 75).
 - [x] AIDE file integrity with a daily check (CIS 6.3), local account policy (CIS 5.3, 5.4), debsums, process accounting and sysstat.
 - [ ] Raise the Lynis index further (malware scanning, compiler restrictions) where it doesn't conflict with running containers.
 - [ ] Ship logs (journal, audit, containers) off the host so the rotated audit logs and container logs survive a compromise (with item 7).
+- [ ] Run the `docker` and `app` roles for the first time, and complete the first login with TOTP.
 - [x] Authentik in the stack, configured by a blueprint (domain-level forward auth, mandatory TOTP, two allowed groups), on its own database and role, included in the backups, and tested in CI.
 - [x] Post-deploy smoke test in the `minnumst` role, run from the controller against the real hostnames: HTTPS with HSTS, public reads, authentication on the desk and on writes.
 - [x] Secret rotation (vault, PostgreSQL roles, SSH) and rollback (image pins, `migrate downgrade`) are documented in `deploy/README.md`.
@@ -217,7 +218,7 @@ Smaller items, by component. Items that need an API change start in `api/` and a
 - [x] Warn before discarding an unsaved story when changing the selected person or starting another page.
 - [ ] Add portrait selection and upload once the API's media contract exists. Don't keep image bytes in browser state or imply the feature exists before then.
 
-### `deploy/` (deferred)
+### `deploy/`
 
 Covered by items 6, 7 and 9 above: backups, monitoring, Authentik with TOTP MFA, DNS and TLS smoke tests, secret rotation, firewall and rollback.
 
@@ -226,5 +227,13 @@ Covered by items 6, 7 and 9 above: backups, monitoring, Authentik with TOTP MFA,
 - [x] Upgrade to Vite 8 with `@vitejs/plugin-react` 6, jsdom 30 and `@eslint/js` 10.
 - [ ] TypeScript 7 (the native compiler) once `typescript-eslint` supports it.
 - [ ] Move the images, `.nvmrc` and `engines` to the next Node.js LTS line deliberately; Dependabot ignores Node major versions.
+
+### Tooling
+
+- [ ] Group the Makefile's commands as subcommands: `make infra plan`, `make infra apply`, `make infra help`, in place of `make infra-plan`.
+
+### Later: open contributions (parked)
+
+The public archive stays read-only, and only editors behind Authentik can change anything. A Wikipedia-style model, with public suggestions and trusted editors reviewing them, is a possible future direction. It needs answers first: how the rules on living people apply to unreviewed submissions, spam, whether contributors are anonymous, and recording who approved what.
 
 Once these priorities are agreed, they can move to GitHub Issues with component labels and a milestone.

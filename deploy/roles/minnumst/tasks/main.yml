@@ -66,6 +66,10 @@
   delegate_to: localhost
   become: false
   run_once: true
+  # These requests must be anonymous, so credentials on the controller stay out of them.
+  module_defaults:
+    ansible.builtin.uri:
+      use_netrc: false
   block:
     - name: The public archive answers over HTTPS with HSTS (NIST SC-8)
       ansible.builtin.uri:

@@ -11,7 +11,7 @@ minnumst_admin_debug: "false"
 minnumst_log_level: INFO
 
 # Exact versions pinned by digest, so a re-pushed tag can't change what runs.
-minnumst_public_image: ghcr.io/steinnhauser/minnumst-web:0.3.0@sha256:5255f1098a09fe6aecc7012c0877cbcc5ee970408170cb189d3e6d422df3a4b4
+minnumst_public_image: ghcr.io/steinnhauser/minnumst-web:0.4.0@sha256:bdc04b94f2dfba2513feb5bd5cfa836c484c43011e5dda29e2c2d4c41629ec25
 minnumst_admin_image: ghcr.io/steinnhauser/minnumst-admin:0.4.0@sha256:f16a46bf9ffdc154fb7fecc92ed823168544d3a01b5478d965e964770f4d84e6
 minnumst_api_image: ghcr.io/steinnhauser/minnumst-api:0.3.0@sha256:c64a53838fc12fd81b67cc9bca6a4445b0fc2c5613f02e86242c8f46b742e510
 

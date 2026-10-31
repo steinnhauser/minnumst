@@ -195,7 +195,7 @@ Fill the archive from open sources while keeping to the [data protection rules](
 - [ ] Import script in `tools/` for [ICE-ID](https://huggingface.co/datasets/goldpotatoes/ice-id) (CC BY 4.0, with attribution): pinned dataset revision and checksum, idempotent, dry run by default. Only the 226,864 linked people are imported, rule 1 is applied, and relatives who fail it are left out. A report lists how many were imported and how many skipped, and why.
 - [ ] Source links on profiles: prefilled search links to timarit.is (name and patronym within the person's lifetime), manntal.is and gardur.is. Editors confirm each match in the admin desk; nothing is attached automatically.
 - [ ] Dates of death after 1920 from gardur.is or confirmed obituaries, so that people born after 1898 become eligible only when a death is recorded.
-- [ ] A removal and correction request route for relatives (contact address in the public archive, handled by editors).
+- [ ] An edits feature, through which relatives can ask for a person, story or link to be corrected or removed, handled by editors. Revisions are append-only and public today, so it must also decide how removed content stops being served.
 - [ ] Ask the National and University Library (timarit.is) and the National Archives (manntal.is, heimildir.is) about metadata or API access before building anything that fetches pages automatically. Respect robots.txt and the terms of use.
 
 ## Component backlog

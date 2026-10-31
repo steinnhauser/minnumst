@@ -149,7 +149,7 @@ The design assumes an attacker has read all of this. Security rests on keys, pat
 
 ## Data protection and sources
 
-Minnumst holds the history of people who have died. It never holds data about living people. Every person record, story and source link, whether it comes from an editor or an import, has to meet these rules:
+Minnumst holds the history of people who have died. It never holds data about living people. Every person record and story has to meet these rules:
 
 1. **Only people who died more than five years ago.** Iceland's Data Protection Act, [Act No. 90/2018](https://www.althingi.is/lagas/nuna/2018090.html), applies to a deceased person's data for five years after death, and longer for information that would reasonably be kept confidential ([Persónuvernd summary](https://gamli.personuvernd.is/media/glaerukynningar-pv/Kynningarfundur_2018-Fyrirtaeki_og_stofnanir_VEL.pdf)). The GDPR itself doesn't cover deceased persons and leaves them to national law ([Recital 27](https://gdpr-info.eu/recitals/no-27/)). Minnumst stays outside that five-year window entirely. A person qualifies only if:
    - a recorded date of death is more than five years ago, or
@@ -158,11 +158,12 @@ Minnumst holds the history of people who have died. It never holds data about li
    Anyone who doesn't meet one of these is left out. When in doubt, leave them out.
 
 2. **Nothing confidential, however old.** No health, cause-of-death, criminal, adoption or paternity details beyond what the cited public source itself states.
-3. **No living people inside the records.** Obituaries and census households name surviving relatives. Stories and source summaries don't name or describe living people, and no record is created for them.
-4. **Link, don't copy.** Newspaper pages, obituaries and archive records are referenced by URL with a short summary written in our own words. Their text and scans aren't copied, because most sources allow personal use only. Every imported record keeps its source and licence.
-5. **Removal on request.** A relative can ask for a person, story or link to be corrected or removed, and the request is handled with priority.
+3. **No living people inside the records.** Obituaries and census households name surviving relatives. Stories don't name or describe living people, and no record is created for them.
+4. **Link, don't copy.** Newspaper pages, obituaries and archive records are referenced by URL with a short summary written in our own words. Their text and scans aren't copied, because most sources allow personal use only.
 
-### Sources
+### Planned sources
+
+None of these is imported or linked automatically yet.
 
 | Source                                                                                                                                                   | Content                                                                                                               | Terms                                                                              | How Minnumst uses it                                    |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------- |
@@ -176,7 +177,9 @@ Minnumst holds the history of people who have died. It never holds data about li
 
 [Íslendingabók](https://www.islendingabok.is/english) is open only to people with an Icelandic ID number and has no export, so Minnumst doesn't use it. Commercial genealogy sites and the restricted part of the [Icelandic Gigaword Corpus](https://clarin.is/en/resources/gigaword/) aren't used either.
 
-**Status:** today people are added only by editors through the editorial desk, which sits behind authentication, and editors apply these rules. The import and the source links on profiles are planned in [`TODO.md`](TODO.md) item 12. The rule 1 check will be enforced by the import and the API rather than left to editors. All sample data in this repository is fictional.
+**Status:** today people are added only by editors through the editorial desk, which sits behind authentication, and editors apply these rules. All sample data in this repository is fictional.
+
+**Planned** ([`TODO.md`](TODO.md) item 12): the import and source links on profiles, each keeping its source and licence; the rule 1 check enforced by the import and the API rather than left to editors; and an edits feature through which relatives can ask for a person, story or link to be corrected or removed.
 
 ## Development
 

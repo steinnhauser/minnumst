@@ -143,7 +143,7 @@ This repository is open source, and it also describes a system that really runs.
 The design assumes an attacker has read all of this. Security rests on keys, patching and layered controls, never on the code being secret.
 
 - **Public:** the application, the Ansible roles, the OpenTofu configuration, the Compose template, the hardening baseline and its deliberate deviations, and CI.
-- **Never in Git:** credentials, vault contents, OpenTofu state and variables, inventories, server addresses, administrator and login hostnames, allowed SSH networks, provider account and resource IDs, backup locations, operator e-mail addresses, production logs and personal data. Tracked files use placeholders, and the real values live in ignored files on the operator's machine.
+- **Never in Git:** credentials, vault contents, OpenTofu state and variables, inventories, server addresses, administrator and login hostnames, allowed SSH networks, provider account and resource IDs, backup locations, operator e-mail addresses (the public contact address aside), production logs and personal data. Tracked files use placeholders, and the real values live in ignored files on the operator's machine.
 - **Fixes come first.** A security fix reaches the running host before the commit that describes it is public, and an open weakness on the running system is reported privately rather than tracked here.
 - **CI never touches the running host.** Its logs are public, so it tests the same roles on disposable runners.
 
@@ -177,7 +177,7 @@ None of these is imported or linked automatically yet.
 
 [Íslendingabók](https://www.islendingabok.is/english) is open only to people with an Icelandic ID number and has no export, so Minnumst doesn't use it. Commercial genealogy sites and the restricted part of the [Icelandic Gigaword Corpus](https://clarin.is/en/resources/gigaword/) aren't used either.
 
-**Status:** today people are added only by editors through the editorial desk, which sits behind authentication, and editors apply these rules. All sample data in this repository is fictional.
+**Status:** today people are added only by editors through the editorial desk, which sits behind authentication, and editors apply these rules. All sample data in this repository is fictional. Questions about the archive go to [contact@minnumst.org](mailto:contact@minnumst.org).
 
 **Planned** ([`TODO.md`](TODO.md) item 12): the import and source links on profiles, each keeping its source and licence; the rule 1 check enforced by the import and the API rather than left to editors; and an edits feature through which relatives can ask for a person, story or link to be corrected or removed.
 

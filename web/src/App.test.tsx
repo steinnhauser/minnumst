@@ -279,6 +279,25 @@ describe("public people search", () => {
   });
 });
 
+describe("site footer", () => {
+  it("links to the source code, the license and the data protection rules", () => {
+    stubApi();
+    render(<App />);
+
+    const repository = "https://github.com/steinnhauser/minnumst";
+    expect(
+      screen.getByRole("link", { name: "Source code on GitHub" }),
+    ).toHaveAttribute("href", repository);
+    expect(
+      screen.getByRole("link", { name: "Code licensed under Apache-2.0" }),
+    ).toHaveAttribute("href", `${repository}/blob/main/LICENSE`);
+    expect(
+      screen.getByRole("link", { name: "Data protection and sources" }),
+    ).toHaveAttribute("href", `${repository}#data-protection-and-sources`);
+    expect(screen.getByText(/© 2026/)).toBeInTheDocument();
+  });
+});
+
 describe("search suggestions", () => {
   it("debounces suggestions and selects them from the keyboard", async () => {
     const user = userEvent.setup();

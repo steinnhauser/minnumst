@@ -81,3 +81,21 @@ test("a reader picks a search suggestion with the keyboard", async ({
   await expect(page).toHaveURL(/\/people\/[a-z0-9-]+$/);
   await audit();
 });
+
+test("the about section and footer aren't hidden behind the photo", async ({
+  page,
+  audit,
+}) => {
+  await page.goto(archive);
+
+  // A trial click fails if something else would receive the click.
+  for (const target of [
+    page.getByText("A growing collection"),
+    page.getByRole("link", { name: "Source code on GitHub" }),
+    page.getByRole("link", { name: "Data protection and sources" }),
+  ]) {
+    await target.scrollIntoViewIfNeeded();
+    await target.click({ trial: true });
+  }
+  await audit();
+});

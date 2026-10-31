@@ -15,6 +15,7 @@ import {
 import "./App.css";
 
 const REPOSITORY = "https://github.com/steinnhauser/minnumst";
+const CONTACT = "contact@minnumst.org";
 
 const DEFAULT_TITLE = document.title;
 const PROFILE_PATH = /^\/people\/([^/]+)\/?$/;
@@ -453,6 +454,7 @@ function App() {
           <p className="eyebrow">MINNUMST</p>
           <p>© 2026 Steinn Hauser Magnússon</p>
           <p>Stories remain with their authors and sources.</p>
+          <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
         </div>
         <nav aria-label="Project">
           <p className="eyebrow">OPEN SOURCE</p>

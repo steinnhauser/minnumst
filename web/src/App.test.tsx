@@ -296,6 +296,15 @@ describe("site footer", () => {
     ).toHaveAttribute("href", `${repository}#data-protection-and-sources`);
     expect(screen.getByText(/© 2026/)).toBeInTheDocument();
   });
+
+  it("gives the contact address", () => {
+    stubApi();
+    render(<App />);
+
+    expect(
+      screen.getByRole("link", { name: "contact@minnumst.org" }),
+    ).toHaveAttribute("href", "mailto:contact@minnumst.org");
+  });
 });
 
 describe("search suggestions", () => {

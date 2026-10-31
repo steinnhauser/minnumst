@@ -70,6 +70,7 @@ make deploy VAULT_ARGS="--vault-password-file ~/.config/ansible/vault-pass"
 - **squashfs stays loadable** (CIS 1.1.1) because Ubuntu's kernel and recovery tooling can rely on it.
 - **Audit logs rotate** instead of `keep_logs` (CIS 6.2.2): on a single host, a full disk is a bigger risk than losing the oldest of ten 50 MB logs. Shipping them off the host is TODO item 7.
 - **`/var`, `/var/log`, `/var/tmp` and `/home` are not separate partitions** (CIS 1.1.2): partitioning belongs to the installation, and cloud images have a single root partition. `/var/tmp` also stays executable, because package configuration scripts run from it now that `/tmp` is `noexec`.
+- **Traefik and the Docker API proxy run as root inside their containers**, with no capabilities, a read-only filesystem and `no-new-privileges`: their upstream images expect it, and the proxy needs the Docker socket.
 - **The administrator uses `sudo` without a password** (CIS 5.2.4) on the `infra/` host, because that account has no password to give: access rests on the SSH key, so protect it with a passphrase.
 
 ## Edge

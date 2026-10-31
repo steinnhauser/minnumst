@@ -113,7 +113,7 @@ Every host setting in [`deploy/`](deploy/) cites the CIS section and NIST contro
 
 **Containers**
 
-- **Least privilege.** Every image runs as a non-root user with its code owned by root, so a compromised process can't change it. At runtime every container, the database included, runs with `no-new-privileges`, a read-only root filesystem and no Linux capabilities.
+- **Least privilege.** Every application image runs as a non-root user with its code owned by root, so a compromised process can't change it. At runtime every container, the database included, runs with `no-new-privileges`, a read-only root filesystem and no Linux capabilities.
 - **Minimal images.** All three images are built on Alpine, pinned by digest: far fewer packages, and so far fewer vulnerabilities, than a Debian base (moving the API image from Debian took Trivy's count from 254 to none). They drop the package managers they never use (npm, Yarn, Corepack, pip), apply the latest OS security fixes, and carry health checks.
 - **Secrets stay out of Git.** Production secrets live only in an encrypted ansible-vault file; the rendered Compose file is written with mode `0600`.
 

@@ -159,6 +159,8 @@ PostgreSQL replaced MariaDB before the first deployment, for its SCRAM-SHA-256 a
 - [x] Host hardening: `deploy/` is three roles (`host`, `docker`, `minnumst`). The host role enforces the CIS Ubuntu 24.04 benchmark and NIST SP 800-53 controls on Ubuntu Server 24.04 LTS, and refuses to run without full-disk encryption. CI applies it to an Ubuntu 24.04 VM, checks idempotence and reports the Lynis index (57 → 75).
 - [x] AIDE file integrity with a daily check (CIS 6.3), local account policy (CIS 5.3, 5.4), debsums, process accounting and sysstat.
 - [ ] Raise the Lynis index further (malware scanning, compiler restrictions) where it doesn't conflict with running containers.
+- [ ] Define Traefik's shared middlewares somewhere that doesn't depend on the API container, so restarting the API can't take the public archive down with it.
+- [ ] Run Traefik and the Docker API proxy as non-root users where their images allow it.
 - [ ] Ship logs (journal, audit, containers) off the host so the rotated audit logs and container logs survive a compromise (with item 7).
 - [ ] Run the `docker` and `app` roles for the first time, and complete the first login with TOTP.
 - [x] Authentik in the stack, configured by a blueprint (domain-level forward auth, mandatory TOTP, two allowed groups), on its own database and role, included in the backups, and tested in CI.

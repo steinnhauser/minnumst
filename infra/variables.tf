@@ -44,9 +44,9 @@ variable "admin_ssh_public_key" {
 }
 
 variable "ssh_source_ips" {
-  description = "Networks allowed to reach SSH, for example a VPN or office address."
+  description = "Networks allowed to reach SSH. Empty closes the port; `make ssh open` sets it for one machine."
   type        = list(string)
-  default     = ["0.0.0.0/0", "::/0"]
+  default     = []
 }
 
 variable "data_volume_size" {

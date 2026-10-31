@@ -180,6 +180,7 @@ OpenTofu with the `hetznercloud/hcloud` provider, one environment, no Terragrunt
 - [x] `infra/` creates the Ubuntu 24.04 server (IPv4 and IPv6, Hetzner snapshots, deletion and rebuild protection), the admin SSH key, a Hetzner firewall allowing only 22 (from `ssh_source_ips`), 80, 443 and ICMP, and an unformatted data volume.
 - [x] Data at rest: the `host` role encrypts the data volume with LUKS2, mounts it at `/srv/minnumst`, and moves Docker's data and the backups onto it; Docker won't start without it. The encryption check accepts it in place of an encrypted root. CI tests this on a loop device.
 - [x] Minimal cloud-init (the administrator only), local state with OpenTofu's enforced state and plan encryption, credentials only in the environment.
+- [x] SSH closed by default in the Hetzner firewall: `make ssh open`, `make ssh close`, and `make deploy` opens it for its own run, for this machine's address only.
 - [x] `make infra-inventory` writes the Ansible inventory, including the data volume, from `tofu output`.
 - [x] `make lint` (and CI) runs `tofu fmt -check`, `tofu validate` and Trivy's IaC scan; plans and applies stay manual (`make infra-plan`, `make infra-apply`).
 - [ ] Remote state in an S3-compatible bucket, once more than one machine or person needs it.

@@ -21,12 +21,16 @@ resource "hcloud_firewall" "host" {
   name   = var.name
   labels = local.labels
 
-  rule {
-    description = "SSH from the allowed networks"
-    direction   = "in"
-    protocol    = "tcp"
-    port        = "22"
-    source_ips  = var.ssh_source_ips
+  # Closed unless `make ssh open` or `make deploy` passes this machine's address.
+  dynamic "rule" {
+    for_each = length(var.ssh_source_ips) > 0 ? [var.ssh_source_ips] : []
+    content {
+      description = "SSH from the allowed networks"
+      direction   = "in"
+      protocol    = "tcp"
+      port        = "22"
+      source_ips  = rule.value
+    }
   }
 
   rule {

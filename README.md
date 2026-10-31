@@ -106,7 +106,7 @@ Every host setting in [`deploy/`](deploy/) cites the CIS section and NIST contro
 - **Provisioned as code.** [`infra/`](infra/) creates the server with OpenTofu: a Hetzner firewall in front of the host's own, deletion protection, and state that is encrypted before it leaves the operator's machine.
 - **One supported OS, encrypted.** Ubuntu Server 24.04 LTS; the playbook refuses to deploy unless the data is on LUKS, either the whole disk or a data volume it encrypts itself (the `infra/` setup).
 - **Always patched.** Security, Ubuntu and Docker updates install unattended, with an automatic reboot window and service restarts after library updates; Ubuntu Pro Livepatch is optional.
-- **Locked-down access.** SSH by key only, never as root, for one allow-listed group, with modern algorithms only; an nftables default-deny firewall with rate-limited SSH; `sudo` with its own log.
+- **Locked-down access.** SSH by key only, never as root, for one allow-listed group, with modern algorithms only; the SSH port closed in the provider firewall except while an operator opens it for their own address; an nftables default-deny firewall that rate limits SSH per source; `sudo` with its own log.
 - **A hardened kernel and minimal surface.** Kernel and network sysctls, unused filesystems and protocols disabled, no core dumps, AppArmor enforced, snapd and legacy clients removed.
 - **A tamper-evident trail.** auditd rules for identity, privilege, SSH, network, kernel module and Docker changes, immutable until reboot; a persistent journal and synchronised time.
 - **Encrypted backups.** A nightly `pg_dump`, encrypted with age to a key that never touches the server, and a restore script. CI restores a backup into a fresh database on every change.

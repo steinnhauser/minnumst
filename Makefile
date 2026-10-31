@@ -7,6 +7,9 @@
 UV_RUN := uv run --locked --all-packages
 COMPOSE := bash tools/scripts/compose.sh
 TOFU := tofu -chdir=infra
+SSH_ACCESS := bash tools/scripts/ssh_access.sh
+# Where infra/ manages the firewall, `make deploy` opens SSH for its own run.
+DEPLOY_WRAPPER := $(if $(wildcard infra/terraform.tfstate),$(SSH_ACCESS) run)
 INVENTORY ?= deploy/inventory/hosts.ini
 # Ask for the vault password only once there is a vault.
 VAULT_ARGS ?= $(if $(wildcard deploy/inventory/group_vars/all/vault.yml),--ask-vault-pass)
@@ -22,7 +25,7 @@ unexport VIRTUAL_ENV
 	openapi openapi-check migration build validate clean ci \
 	dev-api dev-web dev-admin \
 	stack-config up wait seed e2e contract edge backup-test browser stack-test ps logs down db-update db-clear db-reset \
-	deploy-check deploy release infra-check infra-plan infra-apply infra-inventory infra-backup
+	deploy-check deploy release infra-check infra-plan infra-apply infra-inventory infra-backup ssh
 
 help:
 	@printf '%s\n' \
@@ -72,6 +75,7 @@ help:
 	  '  infra-apply     Apply the saved plan' \
 	  '  infra-inventory Write deploy/inventory/hosts.ini from the infrastructure outputs' \
 	  '  infra-backup    Copy the encrypted state to INFRA_BACKUP_DIR, with a timestamp' \
+	  '  ssh open        Open SSH in the Hetzner firewall for this machine only (also: ssh close, ssh status)' \
 	  '' \
 	  'Deployment' \
 	  '  deploy-check    ansible-lint and playbook syntax check' \
@@ -213,7 +217,7 @@ deploy-check:
 	cd deploy && $(UV_RUN) ansible-playbook -i inventory/hosts.ini.example site.yml --syntax-check
 
 deploy:
-	cd deploy && $(UV_RUN) ansible-playbook -i $(abspath $(INVENTORY)) $(VAULT_ARGS) site.yml $(ARGS)
+	$(DEPLOY_WRAPPER) env -C deploy $(UV_RUN) ansible-playbook -i $(abspath $(INVENTORY)) $(VAULT_ARGS) site.yml $(ARGS)
 
 release:
 	@test -n "$(COMPONENT)" || { echo 'Usage: make release COMPONENT=api|web|admin|deploy [INCREMENT=…] [DRY_RUN=1]'; exit 2; }
@@ -235,6 +239,15 @@ infra-apply:
 infra-inventory:
 	$(TOFU) output -raw ansible_inventory > deploy/inventory/hosts.ini
 	@echo "Wrote deploy/inventory/hosts.ini"
+
+# `make ssh open`: the word after `ssh` is its subcommand, not another target.
+ifeq (ssh,$(firstword $(MAKECMDGOALS)))
+open close status:
+	@:
+endif
+
+ssh:
+	@$(SSH_ACCESS) $(filter-out ssh,$(MAKECMDGOALS))
 
 infra-backup:
 	@test -f infra/terraform.tfstate || { echo 'Nothing to back up: infra/terraform.tfstate is missing.'; exit 1; }

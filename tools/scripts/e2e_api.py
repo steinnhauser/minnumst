@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from minnumst_api.config import settings
 from minnumst_api.database import make_engine
-from minnumst_api.models import BlogPost, BlogRevision, Person
+from minnumst_api.models import BlogPost, BlogRevision, Person, PersonSource, Suggestion
 
 API_URL = os.environ.get("MINNUMST_E2E_API_URL", "http://127.0.0.1:8000").rstrip("/")
 # Every (method, path) this run called, to check that no route goes untested.
@@ -111,6 +111,10 @@ def cleanup(person_ids: list[str]) -> None:
     engine = make_engine()
     blog_ids = select(BlogPost.id).where(BlogPost.person_id.in_(person_ids))
     with Session(engine) as session:
+        session.execute(delete(Suggestion).where(Suggestion.person_id.in_(person_ids)))
+        session.execute(
+            delete(PersonSource).where(PersonSource.person_id.in_(person_ids))
+        )
         session.execute(delete(BlogRevision).where(BlogRevision.blog_id.in_(blog_ids)))
         session.execute(delete(BlogPost).where(BlogPost.person_id.in_(person_ids)))
         session.execute(delete(Person).where(Person.id.in_(person_ids)))
@@ -167,27 +171,35 @@ def main() -> None:
         page = expect_status("GET", f"/api/people?{params}", 200)
         assert page["total"] == 0, page
 
-        expect_status("POST", "/api/people", 422, {"name": "   "})
-        person = expect_status("POST", "/api/people", 201, {"name": original_name})
+        expect_status("POST", "/api/people", 422, {"name": "   ", "birth_date": "1850"})
+        expect_status("POST", "/api/people", 422, {"name": original_name})
+        expect_status(
+            "POST", "/api/people", 422, {"name": original_name, "birth_date": "1950"}
+        )
+        person = expect_status(
+            "POST", "/api/people", 201, {"name": original_name, "birth_date": "1850"}
+        )
         person_ids.append(person["id"])
         assert person["name"] == original_name
         assert person["slug"]
         print("PASS person creation and input validation")
 
         duplicate = f"  {query.lower()}   ancestor  "
-        expect_status("POST", "/api/people", 409, {"name": duplicate})
+        expect_status(
+            "POST", "/api/people", 409, {"name": duplicate, "birth_date": "1850"}
+        )
         detail = expect_status("GET", f"/api/people/{person['id']}", 200)
         assert detail["id"] == person["id"]
         assert detail["current_blog"] is None
         expect_status("GET", f"/api/people/{person['id']}/blog", 404)
-        expect_status("GET", f"/api/people/{person['id']}/blog/revisions", 404)
+        expect_status("GET", f"/api/admin/people/{person['id']}/blog/revisions", 404)
         print("PASS normalized duplicate rejection, person read and no story yet")
 
         updated = expect_status(
             "PATCH",
             f"/api/people/{person['id']}",
             200,
-            {"name": renamed_name},
+            {"name": renamed_name, "birth_date": "1850", "death_date": "1901"},
         )
         assert updated["name"] == renamed_name
         assert updated["slug"] == person["slug"]
@@ -218,7 +230,7 @@ def main() -> None:
         blog = expect_status("GET", f"/api/people/{person['id']}/blog", 200)
         assert blog["current_revision"]["content"] == second["content"]
         history = expect_status(
-            "GET", f"/api/people/{person['id']}/blog/revisions", 200
+            "GET", f"/api/admin/people/{person['id']}/blog/revisions", 200
         )
         assert [item["revision_number"] for item in history] == [2, 1]
         assert [item["content"] for item in history] == [
@@ -235,9 +247,37 @@ def main() -> None:
             "and delete protection"
         )
 
+        suggestions = f"/api/people/{person['id']}/suggestions"
+        edit = {"kind": "edit", "title": "Suggested", "content": "Suggested body."}
+        accepted = expect_status("POST", suggestions, 201, edit)
+        rejected = expect_status(
+            "POST", suggestions, 201, {"kind": "request", "note": "Please check this."}
+        )
+        expect_status("POST", suggestions, 422, {"kind": "request"})
+        queue = expect_status("GET", "/api/admin/suggestions", 200)
+        assert {accepted["id"], rejected["id"]} <= {i["id"] for i in queue["items"]}
+        expect_status(
+            "POST", f"/api/admin/suggestions/{accepted['id']}/accept", 200, {}
+        )
+        expect_status("POST", f"/api/admin/suggestions/{rejected['id']}/reject", 200)
+        public_profile = expect_status(
+            "GET", f"/api/people/by-slug/{person['slug']}", 200
+        )
+        assert public_profile["current_blog"]["content"] == edit["content"]
+        print("PASS suggestions wait for review, then accept and reject")
+
+        visibility = f"/api/admin/people/{person['id']}/visibility"
+        expect_status("PUT", visibility, 200, {"hidden": True})
+        expect_status("GET", f"/api/people/by-slug/{person['slug']}", 404)
+        hidden = expect_status("GET", "/api/admin/people/hidden", 200)
+        assert person["id"] in {item["id"] for item in hidden}
+        expect_status("PUT", visibility, 200, {"hidden": False})
+        expect_status("GET", f"/api/people/by-slug/{person['slug']}", 200)
+        print("PASS hiding a person from public reads")
+
         disposable_name = f"{query} Disposable"
         disposable = expect_status(
-            "POST", "/api/people", 201, {"name": disposable_name}
+            "POST", "/api/people", 201, {"name": disposable_name, "birth_date": "1850"}
         )
         person_ids.append(disposable["id"])
         expect_status("DELETE", f"/api/people/{disposable['id']}", 204)

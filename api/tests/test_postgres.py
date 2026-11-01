@@ -12,6 +12,7 @@ from minnumst_api.config import settings
 from minnumst_api.database import make_engine
 from minnumst_api.main import create_app
 from minnumst_api.migrate import downgrade, upgrade
+from minnumst_api.seed import import_batch, remove_batch
 
 RUNTIME_ROLE = "minnumst_runtime"
 INSUFFICIENT_PRIVILEGE = "42501"
@@ -60,7 +61,9 @@ def postgres_client(
 def test_runtime_role_cannot_rewrite_history_or_the_schema(
     postgres_client: TestClient, database_urls: tuple[str, str]
 ) -> None:
-    person = postgres_client.post("/api/people", json={"name": "Jón Jónsson"}).json()
+    person = postgres_client.post(
+        "/api/people", json={"name": "Jón Jónsson", "birth_date": "1850"}
+    ).json()
     saved = postgres_client.put(
         f"/api/people/{person['id']}/blog",
         json={"title": "A story", "content": "The first version."},
@@ -80,7 +83,7 @@ def test_runtime_role_cannot_rewrite_history_or_the_schema(
         assert error.value.orig.sqlstate == INSUFFICIENT_PRIVILEGE, statement
     runtime.dispose()
 
-    history = postgres_client.get(f"/api/people/{person['id']}/blog/revisions")
+    history = postgres_client.get(f"/api/admin/people/{person['id']}/blog/revisions")
     assert [revision["content"] for revision in history.json()] == [
         "The first version."
     ]
@@ -89,7 +92,9 @@ def test_runtime_role_cannot_rewrite_history_or_the_schema(
 def test_admin_writes_persist_and_public_reads_return_current_data(
     postgres_client: TestClient,
 ) -> None:
-    created = postgres_client.post("/api/people", json={"name": "Sigríður Jónsdóttir"})
+    created = postgres_client.post(
+        "/api/people", json={"name": "Sigríður Jónsdóttir", "birth_date": "1820"}
+    )
     assert created.status_code == 201
     person = created.json()
 
@@ -116,7 +121,7 @@ def test_admin_writes_persist_and_public_reads_return_current_data(
 
     search = postgres_client.get("/api/people", params={"query": "sigridur"})
     public_page = postgres_client.get(f"/api/people/by-slug/{person['slug']}")
-    history = postgres_client.get(f"/api/people/{person['id']}/blog/revisions")
+    history = postgres_client.get(f"/api/admin/people/{person['id']}/blog/revisions")
 
     assert search.status_code == 200
     assert search.json()["total"] == 1
@@ -133,9 +138,67 @@ def test_admin_writes_persist_and_public_reads_return_current_data(
 
     update = postgres_client.patch(
         f"/api/people/{person['id']}",
-        json={"name": "Sigríður Jónsdóttir, 1920-2001"},
+        json={"name": "Sigríður Jónsdóttir, 1820-1901", "death_date": "1901"},
     )
     read_after_update = postgres_client.get(f"/api/people/{person['id']}")
 
     assert update.status_code == 200
-    assert read_after_update.json()["name"] == "Sigríður Jónsdóttir, 1920-2001"
+    assert read_after_update.json()["name"] == "Sigríður Jónsdóttir, 1820-1901"
+
+
+def test_runtime_role_can_import_and_remove_a_batch(
+    postgres_client: TestClient, database_urls: tuple[str, str]
+) -> None:
+    batch = [
+        {
+            "name": "Jón Sigurðsson",
+            "birth_date": "1811",
+            "death_date": "1879",
+            "sources": [
+                {
+                    "source": "wikidata",
+                    "external_id": "Q1",
+                    "title": "Wikidata",
+                    "url": "https://www.wikidata.org/wiki/Q1",
+                }
+            ],
+        }
+    ]
+    runtime = make_engine(database_urls[1])
+
+    assert import_batch(runtime, batch, apply=True) == {"imported": 1}
+    profile = postgres_client.get("/api/people/by-slug/jon-sigurdsson").json()
+    assert profile["sources"][0]["title"] == "Wikidata"
+    postgres_client.post(
+        f"/api/people/{profile['id']}/suggestions",
+        json={"kind": "request", "note": "Please check this."},
+    )
+    assert remove_batch(runtime, batch) == {"removed": 1}
+    runtime.dispose()
+
+    assert postgres_client.get("/api/people").json()["total"] == 0
+
+
+def test_runtime_role_can_review_suggestions(
+    postgres_client: TestClient,
+) -> None:
+    person = postgres_client.post(
+        "/api/people", json={"name": "Guðrún Ósvífursdóttir", "birth_date": "1850"}
+    ).json()
+    received = postgres_client.post(
+        f"/api/people/{person['id']}/suggestions",
+        json={"kind": "edit", "title": "A title", "content": "A proposal."},
+    )
+    assert received.status_code == 201
+
+    accepted = postgres_client.post(
+        f"/api/admin/suggestions/{received.json()['id']}/accept", json={}
+    )
+
+    assert accepted.status_code == 200
+    assert accepted.json()["current_revision"]["content"] == "A proposal."
+    hidden = postgres_client.put(
+        f"/api/admin/people/{person['id']}/visibility", json={"hidden": True}
+    )
+    assert hidden.status_code == 200
+    assert postgres_client.get(f"/api/people/{person['id']}").status_code == 404

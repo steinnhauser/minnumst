@@ -152,6 +152,32 @@
       },
       "PersonCreate": {
         "properties": {
+          "birth_date": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "YYYY or YYYY-MM-DD",
+            "title": "Birth Date"
+          },
+          "death_date": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "YYYY or YYYY-MM-DD",
+            "title": "Death Date"
+          },
           "name": {
             "maxLength": 255,
             "minLength": 1,
@@ -167,6 +193,17 @@
       },
       "PersonDetail": {
         "properties": {
+          "birth_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Date"
+          },
           "blog": {
             "anyOf": [
               {
@@ -192,6 +229,17 @@
               }
             ]
           },
+          "death_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Death Date"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -203,6 +251,14 @@
           "slug": {
             "title": "Slug",
             "type": "string"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PersonSourceResponse"
+            },
+            "title": "Sources",
+            "type": "array"
           },
           "updated_at": {
             "format": "date-time",
@@ -253,6 +309,17 @@
       },
       "PersonResponse": {
         "properties": {
+          "birth_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Date"
+          },
           "blog": {
             "anyOf": [
               {
@@ -267,6 +334,17 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "death_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Death Date"
           },
           "id": {
             "title": "Id",
@@ -296,8 +374,53 @@
         "title": "PersonResponse",
         "type": "object"
       },
-      "PersonUpdate": {
+      "PersonSourceResponse": {
         "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "url"
+        ],
+        "title": "PersonSourceResponse",
+        "type": "object"
+      },
+      "PersonUpdate": {
+        "description": "The person's full details: dates left out are cleared.",
+        "properties": {
+          "birth_date": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "YYYY or YYYY-MM-DD",
+            "title": "Birth Date"
+          },
+          "death_date": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "YYYY or YYYY-MM-DD",
+            "title": "Death Date"
+          },
           "name": {
             "maxLength": 255,
             "minLength": 1,
@@ -309,6 +432,327 @@
           "name"
         ],
         "title": "PersonUpdate",
+        "type": "object"
+      },
+      "PersonVisibility": {
+        "properties": {
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "hidden"
+        ],
+        "title": "PersonVisibility",
+        "type": "object"
+      },
+      "SuggestionAcceptance": {
+        "description": "The story as the editor wants it; omitted, the visitor's text is used.",
+        "properties": {
+          "story": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BlogRevisionInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "SuggestionAcceptance",
+        "type": "object"
+      },
+      "SuggestionCreate": {
+        "description": "A visitor's proposal: new story text, or a request in their own words.",
+        "properties": {
+          "base_revision_number": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Revision Number"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "maxLength": 50000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "excerpt": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excerpt"
+          },
+          "kind": {
+            "enum": [
+              "edit",
+              "request"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "SuggestionCreate",
+        "type": "object"
+      },
+      "SuggestionPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SuggestionResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "SuggestionPage",
+        "type": "object"
+      },
+      "SuggestionReceipt": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "SuggestionReceipt",
+        "type": "object"
+      },
+      "SuggestionResponse": {
+        "properties": {
+          "base_revision_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Revision Number"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "current_revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BlogRevisionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "excerpt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excerpt"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "person_id": {
+            "title": "Person Id",
+            "type": "string"
+          },
+          "person_name": {
+            "title": "Person Name",
+            "type": "string"
+          },
+          "person_slug": {
+            "title": "Person Slug",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "person_name",
+          "person_slug",
+          "kind",
+          "status",
+          "base_revision_number",
+          "current_revision",
+          "title",
+          "excerpt",
+          "content",
+          "note",
+          "source_url",
+          "created_at",
+          "reviewed_at",
+          "reviewed_by"
+        ],
+        "title": "SuggestionResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -359,6 +803,362 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/people/hidden": {
+      "get": {
+        "operationId": "list_hidden_people_api_admin_people_hidden_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PersonResponse"
+                  },
+                  "title": "Response List Hidden People Api Admin People Hidden Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Hidden People"
+      }
+    },
+    "/api/admin/people/{person_id}/blog/revisions": {
+      "get": {
+        "description": "The full revision history, newest first. For editors only: the public sees just the current revision, so text an editor removes from a story stops being public while the record of it is kept.",
+        "operationId": "list_blog_revisions_api_admin_people__person_id__blog_revisions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "person_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Person Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BlogRevisionResponse"
+                  },
+                  "title": "Response List Blog Revisions Api Admin People  Person Id  Blog Revisions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Person or story not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Blog Revisions"
+      }
+    },
+    "/api/admin/people/{person_id}/visibility": {
+      "put": {
+        "description": "Hide a person from everything the public can read, or show them again. Their record and history are kept for the editors.",
+        "operationId": "set_person_visibility_api_admin_people__person_id__visibility_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "person_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Person Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonVisibility"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Person or story not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Person Visibility"
+      }
+    },
+    "/api/admin/suggestions": {
+      "get": {
+        "operationId": "list_suggestions_api_admin_suggestions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "pending",
+              "pattern": "^(pending|accepted|rejected)$",
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestionPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Suggestions"
+      }
+    },
+    "/api/admin/suggestions/{suggestion_id}/accept": {
+      "post": {
+        "description": "Accept a suggestion. An edit becomes a new revision, with the editor's changes if `story` is given. A request is marked as handled, because the editor acts on it separately.",
+        "operationId": "accept_suggestion_api_admin_suggestions__suggestion_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "suggestion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Suggestion Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Authentik-Username",
+            "required": false,
+            "schema": {
+              "default": "unknown",
+              "maxLength": 255,
+              "title": "X-Authentik-Username",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestionAcceptance"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Person or story not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflicts with stored data"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Suggestion"
+      }
+    },
+    "/api/admin/suggestions/{suggestion_id}/reject": {
+      "post": {
+        "description": "Reject a suggestion. Its text is deleted straight away.",
+        "operationId": "reject_suggestion_api_admin_suggestions__suggestion_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "suggestion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Suggestion Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Authentik-Username",
+            "required": false,
+            "schema": {
+              "default": "unknown",
+              "maxLength": 255,
+              "title": "X-Authentik-Username",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Person or story not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflicts with stored data"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Suggestion"
+      }
+    },
     "/api/people": {
       "get": {
         "description": "Search people by name, ordered by name. The search ignores case, accents and repeated spaces and matches any part of the name. An empty or missing `query` returns everyone. Results come in pages of `limit` people (1 to 100, default 50) starting at `offset` (0 or more); `total` counts every match, so clients can page through them with `offset`.",
@@ -811,9 +1611,10 @@
         "summary": "Save Blog"
       }
     },
-    "/api/people/{person_id}/blog/revisions": {
-      "get": {
-        "operationId": "list_blog_revisions_api_people__person_id__blog_revisions_get",
+    "/api/people/{person_id}/suggestions": {
+      "post": {
+        "description": "Propose a change to a person's page: `edit` carries new story text and `request` describes a correction or removal in the visitor's own words. The only write open to the public, and it needs no login: nothing is published until an editor accepts it, and nothing about the visitor is stored.",
+        "operationId": "create_suggestion_api_people__person_id__suggestions_post",
         "parameters": [
           {
             "in": "path",
@@ -826,16 +1627,22 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestionCreate"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/BlogRevisionResponse"
-                  },
-                  "title": "Response List Blog Revisions Api People  Person Id  Blog Revisions Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/SuggestionReceipt"
                 }
               }
             },
@@ -860,9 +1667,19 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The review queue is full"
           }
         },
-        "summary": "List Blog Revisions"
+        "summary": "Create Suggestion"
       }
     },
     "/healthz": {

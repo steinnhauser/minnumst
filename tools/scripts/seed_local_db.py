@@ -14,11 +14,17 @@ from minnumst_api.config import settings
 from minnumst_api.database import make_engine
 from minnumst_api.migrate import downgrade, upgrade
 from minnumst_api.models import BlogPost, BlogRevision, Person
-from minnumst_api.names import normalized_person_name, unique_person_slug
+from minnumst_api.names import (
+    normalized_person_name,
+    person_identity,
+    unique_person_slug,
+)
 
 SAMPLE_RECORDS = (
     {
         "name": "Sample Person - Alex Morgan",
+        "birth_date": "1820",
+        "death_date": "1891",
         "title": "A life shaped by the coast",
         "excerpt": "A sample archive entry for local development.",
         "content": (
@@ -33,6 +39,7 @@ SAMPLE_RECORDS = (
     },
     {
         "name": "Sample Person - Casey River",
+        "birth_date": "1845-06-17",
         "title": "Notes from a working life",
         "excerpt": "Another fictional entry for search and revision testing.",
         "content": (
@@ -47,6 +54,8 @@ SAMPLE_RECORDS = (
     {
         # A non-ASCII name for the accent-insensitive search (`make contract`).
         "name": "Sólveig Þorgrímsdóttir",
+        "birth_date": "1802",
+        "death_date": "1877-03-02",
         "title": "A farm under the glacier",
         "excerpt": "A fictional entry with an Icelandic name.",
         "content": (
@@ -86,6 +95,11 @@ def populate(session: Session) -> tuple[int, int, int]:
             person = Person(
                 name=record["name"],
                 normalized_name=normalized_name,
+                birth_date=record["birth_date"],
+                death_date=record.get("death_date"),
+                identity=person_identity(
+                    record["name"], record["birth_date"], record.get("death_date")
+                ),
                 slug=unique_person_slug(session, record["name"]),
             )
             session.add(person)

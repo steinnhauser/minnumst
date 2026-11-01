@@ -24,11 +24,26 @@ def person_slug(name: str) -> str:
     return re.sub(r"^-|-$", "", re.sub(r"[^a-z0-9]+", "-", ascii_folded(name)))
 
 
-def unique_person_slug(session: Session, name: str) -> str:
-    base_slug = person_slug(name) or "person"
+def person_identity(name: str, birth_date: str | None, death_date: str | None) -> str:
+    """What must be unique: many people share a name, but rarely with their dates."""
+    return "|".join((normalized_person_name(name), birth_date or "", death_date or ""))
+
+
+def unique_person_slug(
+    session: Session, name: str, birth_date: str | None = None
+) -> str:
+    """The name's slug; if that's taken, with the birth year, then with a number."""
+
+    def taken(slug: str) -> bool:
+        return session.scalar(select(Person.id).where(Person.slug == slug)) is not None
+
+    name_slug = person_slug(name) or "person"
+    if not taken(name_slug):
+        return name_slug
+    base_slug = f"{name_slug}-{birth_date[:4]}" if birth_date else name_slug
     slug = base_slug
     suffix = 2
-    while session.scalar(select(Person.id).where(Person.slug == slug)) is not None:
+    while taken(slug):
         slug = f"{base_slug}-{suffix}"
         suffix += 1
     return slug

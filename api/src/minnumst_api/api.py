@@ -8,9 +8,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from minnumst_api.database import get_session
-from minnumst_api.models import BlogPost, BlogRevision, Person
+from minnumst_api.models import BlogPost, BlogRevision, Person, Suggestion
 from minnumst_api.names import (
     normalized_person_name,
+    person_identity,
     unique_person_slug,
 )
 from minnumst_api.schemas import (
@@ -23,7 +24,10 @@ from minnumst_api.schemas import (
     PersonDetail,
     PersonPage,
     PersonResponse,
+    PersonSourceResponse,
     PersonUpdate,
+    SuggestionCreate,
+    SuggestionReceipt,
 )
 
 router = APIRouter(prefix="/api")
@@ -33,6 +37,9 @@ NOT_FOUND = {404: {"model": ErrorResponse, "description": "Person or story not f
 CONFLICT = {409: {"model": ErrorResponse, "description": "Conflicts with stored data"}}
 SessionDep = Annotated[Session, Depends(get_session)]
 logger = logging.getLogger(__name__)
+# Keeps a flood of suggestions from filling the disk or burying the queue.
+MAX_PENDING_SUGGESTIONS = 500
+IDENTITY_CONFLICT = "A person with this name and these dates already exists"
 
 
 def latest_revision(blog: BlogPost) -> BlogRevision | None:
@@ -58,7 +65,20 @@ def person_response(person: Person) -> PersonResponse:
         slug=person.slug,
         created_at=person.created_at,
         updated_at=person.updated_at,
+        birth_date=person.birth_date,
+        death_date=person.death_date,
         blog=blog_summary,
+    )
+
+
+def person_detail(person: Person) -> PersonDetail:
+    current = latest_revision(person.blog) if person.blog else None
+    return PersonDetail(
+        **person_response(person).model_dump(),
+        current_blog=(
+            BlogRevisionResponse.model_validate(current) if current else None
+        ),
+        sources=[PersonSourceResponse.model_validate(item) for item in person.sources],
     )
 
 
@@ -79,13 +99,54 @@ def blog_response(blog: BlogPost) -> BlogResponse:
 def get_person(session: Session, person_id: UUID) -> Person:
     person = session.scalar(
         select(Person)
-        .options(selectinload(Person.blog).selectinload(BlogPost.revisions))
+        .options(
+            selectinload(Person.blog).selectinload(BlogPost.revisions),
+            selectinload(Person.sources),
+        )
         .where(Person.id == str(person_id))
     )
     if person is None:
         logger.warning("Person lookup failed")
         raise HTTPException(status_code=404, detail="Person not found")
     return person
+
+
+def get_public_person(session: Session, person_id: UUID) -> Person:
+    """A person the public may see: to them, a hidden person doesn't exist."""
+    person = get_person(session, person_id)
+    if person.hidden_at is not None:
+        logger.warning("Public lookup of a hidden person failed")
+        raise HTTPException(status_code=404, detail="Person not found")
+    return person
+
+
+def append_revision(
+    session: Session, person: Person, payload: BlogRevisionInput
+) -> BlogRevision:
+    """Add a revision to the person's story, creating the story on the first save."""
+    blog = session.scalar(
+        select(BlogPost).where(BlogPost.person_id == person.id).with_for_update()
+    )
+    if blog is None:
+        blog = BlogPost(id=str(uuid4()), person_id=person.id)
+        session.add(blog)
+        session.flush()
+    latest_number = session.scalar(
+        select(func.max(BlogRevision.revision_number)).where(
+            BlogRevision.blog_id == blog.id
+        )
+    )
+    revision = BlogRevision(
+        id=str(uuid4()),
+        blog_id=blog.id,
+        revision_number=(latest_number or 0) + 1,
+        title=payload.title,
+        excerpt=payload.excerpt,
+        content=payload.content,
+    )
+    session.add(revision)
+    session.flush()
+    return revision
 
 
 @router.get(
@@ -108,8 +169,8 @@ def list_people(
     offset: Annotated[int, Query(ge=0, description="Number of matches to skip")] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Page size, 1 to 100")] = 50,
 ) -> PersonPage:
-    statement = select(Person)
-    count_statement = select(func.count(Person.id))
+    statement = select(Person).where(Person.hidden_at.is_(None))
+    count_statement = select(func.count(Person.id)).where(Person.hidden_at.is_(None))
     if query and query.strip():
         search = f"%{normalized_person_name(query)}%"
         statement = statement.where(Person.normalized_name.ilike(search))
@@ -141,17 +202,19 @@ def create_person(payload: PersonCreate, session: SessionDep) -> PersonResponse:
         id=str(uuid4()),
         name=payload.name,
         normalized_name=normalized_person_name(payload.name),
-        slug=unique_person_slug(session, payload.name),
+        birth_date=payload.birth_date,
+        death_date=payload.death_date,
+        identity=person_identity(payload.name, payload.birth_date, payload.death_date),
+        slug=unique_person_slug(session, payload.name, payload.birth_date),
     )
     session.add(person)
     try:
         session.commit()
     except IntegrityError as error:
         session.rollback()
-        logger.warning("Person creation rejected because the normalized name exists")
+        logger.warning("Person creation rejected because the identity exists")
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A person with this normalized name already exists",
+            status_code=status.HTTP_409_CONFLICT, detail=IDENTITY_CONFLICT
         ) from error
     session.refresh(person)
     logger.info("Person created person_id=%s", person.id)
@@ -162,20 +225,17 @@ def create_person(payload: PersonCreate, session: SessionDep) -> PersonResponse:
 def get_person_by_slug(slug: str, session: SessionDep) -> PersonDetail:
     person = session.scalar(
         select(Person)
-        .options(selectinload(Person.blog).selectinload(BlogPost.revisions))
-        .where(Person.slug == slug)
+        .options(
+            selectinload(Person.blog).selectinload(BlogPost.revisions),
+            selectinload(Person.sources),
+        )
+        .where(Person.slug == slug, Person.hidden_at.is_(None))
     )
     if person is None:
         logger.warning("Public person lookup failed route=by-slug")
         raise HTTPException(status_code=404, detail="Person not found")
     logger.debug("Public person loaded person_id=%s", person.id)
-    current = latest_revision(person.blog) if person.blog else None
-    return PersonDetail(
-        **person_response(person).model_dump(),
-        current_blog=(
-            BlogRevisionResponse.model_validate(current) if current else None
-        ),
-    )
+    return person_detail(person)
 
 
 @router.get(
@@ -191,15 +251,9 @@ def get_person_by_slug(slug: str, session: SessionDep) -> PersonDetail:
     ),
 )
 def read_person(person_id: UUID, session: SessionDep) -> PersonDetail:
-    person = get_person(session, person_id)
+    person = get_public_person(session, person_id)
     logger.debug("Person loaded person_id=%s", person.id)
-    current = latest_revision(person.blog) if person.blog else None
-    return PersonDetail(
-        **person_response(person).model_dump(),
-        current_blog=(
-            BlogRevisionResponse.model_validate(current) if current else None
-        ),
-    )
+    return person_detail(person)
 
 
 @router.patch(
@@ -211,29 +265,27 @@ def update_person(
     person_id: UUID, payload: PersonUpdate, session: SessionDep
 ) -> PersonResponse:
     person = get_person(session, person_id)
-    normalized_name = normalized_person_name(payload.name)
+    identity = person_identity(payload.name, payload.birth_date, payload.death_date)
     conflict = session.scalar(
-        select(Person.id).where(
-            Person.normalized_name == normalized_name,
-            Person.id != person.id,
-        )
+        select(Person.id).where(Person.identity == identity, Person.id != person.id)
     )
     if conflict:
-        logger.warning("Person update rejected due to normalized-name conflict")
+        logger.warning("Person update rejected due to identity conflict")
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A person with this normalized name already exists",
+            status_code=status.HTTP_409_CONFLICT, detail=IDENTITY_CONFLICT
         )
     person.name = payload.name
-    person.normalized_name = normalized_name
+    person.normalized_name = normalized_person_name(payload.name)
+    person.birth_date = payload.birth_date
+    person.death_date = payload.death_date
+    person.identity = identity
     try:
         session.commit()
     except IntegrityError as error:
         session.rollback()
-        logger.warning("Person update rejected because the normalized name exists")
+        logger.warning("Person update rejected because the identity exists")
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A person with this normalized name already exists",
+            status_code=status.HTTP_409_CONFLICT, detail=IDENTITY_CONFLICT
         ) from error
     updated_person = get_person(session, person.id)
     logger.info("Person updated person_id=%s", updated_person.id)
@@ -251,7 +303,7 @@ def update_person(
     ),
 )
 def read_blog(person_id: UUID, session: SessionDep) -> BlogResponse:
-    person = get_person(session, person_id)
+    person = get_public_person(session, person_id)
     if person.blog is None:
         logger.warning(
             "Blog read failed because no blog exists person_id=%s", person.id
@@ -272,72 +324,66 @@ def save_blog(
     person_id: UUID, payload: BlogRevisionInput, session: SessionDep
 ) -> BlogResponse:
     person = get_person(session, person_id)
-    blog = session.scalar(
-        select(BlogPost).where(BlogPost.person_id == person.id).with_for_update()
-    )
-    if blog is None:
-        blog = BlogPost(id=str(uuid4()), person_id=person.id)
-        session.add(blog)
-        session.flush()
-    latest_number = session.scalar(
-        select(func.max(BlogRevision.revision_number)).where(
-            BlogRevision.blog_id == blog.id
-        )
-    )
-    revision = BlogRevision(
-        id=str(uuid4()),
-        blog_id=blog.id,
-        revision_number=(latest_number or 0) + 1,
-        title=payload.title,
-        excerpt=payload.excerpt,
-        content=payload.content,
-    )
-    session.add(revision)
+    revision = append_revision(session, person, payload)
+    blog_id = revision.blog_id
     session.commit()
-    session.refresh(blog)
     saved_blog = session.scalar(
         select(BlogPost)
         .options(selectinload(BlogPost.revisions))
-        .where(BlogPost.id == blog.id)
+        .where(BlogPost.id == blog_id)
+        .execution_options(populate_existing=True)
     )
     logger.info(
         "Blog revision saved person_id=%s blog_id=%s revision_number=%d",
         person.id,
-        blog.id,
+        blog_id,
         revision.revision_number,
     )
     return blog_response(saved_blog)
 
 
-@router.get(
-    "/people/{person_id}/blog/revisions",
-    response_model=list[BlogRevisionResponse],
-    responses=NOT_FOUND,
+@router.post(
+    "/people/{person_id}/suggestions",
+    response_model=SuggestionReceipt,
+    status_code=status.HTTP_201_CREATED,
+    responses=NOT_FOUND
+    | {429: {"model": ErrorResponse, "description": "The review queue is full"}},
+    description=(
+        "Propose a change to a person's page: `edit` carries new story text and "
+        "`request` describes a correction or removal in the visitor's own words. "
+        "The only write open to the public, and it needs no login: nothing is "
+        "published until an editor accepts it, and nothing about the visitor is "
+        "stored."
+    ),
 )
-def list_blog_revisions(
-    person_id: UUID, session: SessionDep
-) -> list[BlogRevisionResponse]:
-    person = get_person(session, person_id)
-    if person.blog is None:
-        logger.warning(
-            "Blog history read failed because no blog exists person_id=%s",
-            person.id,
-        )
-        raise HTTPException(status_code=404, detail="Blog not found")
-    revisions = [
-        BlogRevisionResponse.model_validate(revision)
-        for revision in sorted(
-            person.blog.revisions,
-            key=lambda item: item.revision_number,
-            reverse=True,
-        )
-    ]
-    logger.debug(
-        "Blog history loaded person_id=%s revision_count=%d",
-        person.id,
-        len(revisions),
+def create_suggestion(
+    person_id: UUID, payload: SuggestionCreate, session: SessionDep
+) -> SuggestionReceipt:
+    person = get_public_person(session, person_id)
+    pending = session.scalar(
+        select(func.count(Suggestion.id)).where(Suggestion.status == "pending")
     )
-    return revisions
+    if (pending or 0) >= MAX_PENDING_SUGGESTIONS:
+        logger.warning("Suggestion rejected because the review queue is full")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many suggestions are waiting for review; try again later",
+        )
+    suggestion = Suggestion(
+        id=str(uuid4()),
+        person_id=person.id,
+        kind=payload.kind,
+        base_revision_number=payload.base_revision_number,
+        title=payload.title,
+        excerpt=payload.excerpt,
+        content=payload.content,
+        note=payload.note,
+        source_url=payload.source_url,
+    )
+    session.add(suggestion)
+    session.commit()
+    logger.info("Suggestion received suggestion_id=%s", suggestion.id)
+    return SuggestionReceipt(id=suggestion.id, status=suggestion.status)
 
 
 @router.delete(

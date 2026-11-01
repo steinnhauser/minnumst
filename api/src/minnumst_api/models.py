@@ -60,14 +60,21 @@ class Base(DeclarativeBase):
 
 class Person(Base):
     __tablename__ = "people"
-    __table_args__ = (UniqueConstraint("normalized_name"),)
+    __table_args__ = (UniqueConstraint("identity"),)
 
     id: Mapped[str] = mapped_column(
         Uuid(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     normalized_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Partial ISO 8601 dates, YYYY or YYYY-MM-DD: old records often give a year.
+    birth_date: Mapped[str | None] = mapped_column(String(10))
+    death_date: Mapped[str | None] = mapped_column(String(10))
+    # Many people share a name, so the name and dates together identify a person.
+    identity: Mapped[str] = mapped_column(String(300), nullable=False)
     slug: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    # A hidden person is left out of everything the public can read.
+    hidden_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=lambda: datetime.now(UTC), nullable=False
     )
@@ -79,6 +86,34 @@ class Person(Base):
     )
 
     blog: Mapped[BlogPost | None] = relationship(back_populates="person", uselist=False)
+    sources: Mapped[list[PersonSource]] = relationship(
+        back_populates="person",
+        cascade="all, delete-orphan",
+        order_by="PersonSource.title",
+    )
+    suggestions: Mapped[list[Suggestion]] = relationship(
+        back_populates="person", cascade="all, delete-orphan"
+    )
+
+
+class PersonSource(Base):
+    """A link to where a person's details came from; never copied source text."""
+
+    __tablename__ = "person_sources"
+    __table_args__ = (UniqueConstraint("source", "external_id"),)
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
+    )
+    person_id: Mapped[str] = mapped_column(
+        ForeignKey("people.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    source: Mapped[str] = mapped_column(String(50), nullable=False)
+    external_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    url: Mapped[str] = mapped_column(String(2048), nullable=False)
+
+    person: Mapped[Person] = relationship(back_populates="sources")
 
 
 class BlogPost(Base):
@@ -127,3 +162,48 @@ class BlogRevision(Base):
     )
 
     blog: Mapped[BlogPost] = relationship(back_populates="revisions")
+
+
+class Suggestion(Base):
+    """A visitor's proposed change, waiting for an editor's decision.
+
+    Visitors are anonymous, so nothing here identifies them. A decision clears
+    the proposed text: accepted text lives on as a revision, and rejected text
+    may be exactly what shouldn't be kept. Only who decided, and when, remains.
+    """
+
+    __tablename__ = "suggestions"
+    __table_args__ = (
+        CheckConstraint("kind IN ('edit', 'request')", name="kind_known"),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'rejected')", name="status_known"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
+    )
+    person_id: Mapped[str] = mapped_column(
+        ForeignKey("people.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="pending", index=True
+    )
+    # The revision the visitor was reading, so an editor can see if it has moved on.
+    base_revision_number: Mapped[int | None] = mapped_column()
+    title: Mapped[str | None] = mapped_column(String(255))
+    excerpt: Mapped[str | None] = mapped_column(Text)
+    content: Mapped[str | None] = mapped_column(Text)
+    note: Mapped[str | None] = mapped_column(Text)
+    source_url: Mapped[str | None] = mapped_column(String(2048))
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), default=lambda: datetime.now(UTC), nullable=False
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    reviewed_by: Mapped[str | None] = mapped_column(String(255))
+    revision_id: Mapped[str | None] = mapped_column(
+        ForeignKey("blog_revisions.id", ondelete="RESTRICT")
+    )
+
+    person: Mapped[Person] = relationship(back_populates="suggestions")

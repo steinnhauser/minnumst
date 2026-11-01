@@ -4,6 +4,120 @@
  */
 
 export interface paths {
+    readonly "/api/admin/people/hidden": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** List Hidden People */
+        readonly get: operations["list_hidden_people_api_admin_people_hidden_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/admin/people/{person_id}/blog/revisions": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /**
+         * List Blog Revisions
+         * @description The full revision history, newest first. For editors only: the public sees just the current revision, so text an editor removes from a story stops being public while the record of it is kept.
+         */
+        readonly get: operations["list_blog_revisions_api_admin_people__person_id__blog_revisions_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/admin/people/{person_id}/visibility": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        /**
+         * Set Person Visibility
+         * @description Hide a person from everything the public can read, or show them again. Their record and history are kept for the editors.
+         */
+        readonly put: operations["set_person_visibility_api_admin_people__person_id__visibility_put"];
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/admin/suggestions": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        /** List Suggestions */
+        readonly get: operations["list_suggestions_api_admin_suggestions_get"];
+        readonly put?: never;
+        readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/admin/suggestions/{suggestion_id}/accept": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /**
+         * Accept Suggestion
+         * @description Accept a suggestion. An edit becomes a new revision, with the editor's changes if `story` is given. A request is marked as handled, because the editor acts on it separately.
+         */
+        readonly post: operations["accept_suggestion_api_admin_suggestions__suggestion_id__accept_post"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/admin/suggestions/{suggestion_id}/reject": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /**
+         * Reject Suggestion
+         * @description Reject a suggestion. Its text is deleted straight away.
+         */
+        readonly post: operations["reject_suggestion_api_admin_suggestions__suggestion_id__reject_post"];
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
     readonly "/api/people": {
         readonly parameters: {
             readonly query?: never;
@@ -88,17 +202,20 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
-    readonly "/api/people/{person_id}/blog/revisions": {
+    readonly "/api/people/{person_id}/suggestions": {
         readonly parameters: {
             readonly query?: never;
             readonly header?: never;
             readonly path?: never;
             readonly cookie?: never;
         };
-        /** List Blog Revisions */
-        readonly get: operations["list_blog_revisions_api_people__person_id__blog_revisions_get"];
+        readonly get?: never;
         readonly put?: never;
-        readonly post?: never;
+        /**
+         * Create Suggestion
+         * @description Propose a change to a person's page: `edit` carries new story text and `request` describes a correction or removal in the visitor's own words. The only write open to the public, and it needs no login: nothing is published until an editor accepts it, and nothing about the visitor is stored.
+         */
+        readonly post: operations["create_suggestion_api_people__person_id__suggestions_post"];
         readonly delete?: never;
         readonly options?: never;
         readonly head?: never;
@@ -212,11 +329,23 @@ export interface components {
         };
         /** PersonCreate */
         readonly PersonCreate: {
+            /**
+             * Birth Date
+             * @description YYYY or YYYY-MM-DD
+             */
+            readonly birth_date?: string | null;
+            /**
+             * Death Date
+             * @description YYYY or YYYY-MM-DD
+             */
+            readonly death_date?: string | null;
             /** Name */
             readonly name: string;
         };
         /** PersonDetail */
         readonly PersonDetail: {
+            /** Birth Date */
+            readonly birth_date?: string | null;
             readonly blog?: components["schemas"]["BlogSummary"] | null;
             /**
              * Created At
@@ -224,12 +353,19 @@ export interface components {
              */
             readonly created_at: string;
             readonly current_blog?: components["schemas"]["BlogRevisionResponse"] | null;
+            /** Death Date */
+            readonly death_date?: string | null;
             /** Id */
             readonly id: string;
             /** Name */
             readonly name: string;
             /** Slug */
             readonly slug: string;
+            /**
+             * Sources
+             * @default []
+             */
+            readonly sources: readonly components["schemas"]["PersonSourceResponse"][];
             /**
              * Updated At
              * Format: date-time
@@ -249,12 +385,16 @@ export interface components {
         };
         /** PersonResponse */
         readonly PersonResponse: {
+            /** Birth Date */
+            readonly birth_date?: string | null;
             readonly blog?: components["schemas"]["BlogSummary"] | null;
             /**
              * Created At
              * Format: date-time
              */
             readonly created_at: string;
+            /** Death Date */
+            readonly death_date?: string | null;
             /** Id */
             readonly id: string;
             /** Name */
@@ -267,10 +407,120 @@ export interface components {
              */
             readonly updated_at: string;
         };
-        /** PersonUpdate */
+        /** PersonSourceResponse */
+        readonly PersonSourceResponse: {
+            /** Title */
+            readonly title: string;
+            /** Url */
+            readonly url: string;
+        };
+        /**
+         * PersonUpdate
+         * @description The person's full details: dates left out are cleared.
+         */
         readonly PersonUpdate: {
+            /**
+             * Birth Date
+             * @description YYYY or YYYY-MM-DD
+             */
+            readonly birth_date?: string | null;
+            /**
+             * Death Date
+             * @description YYYY or YYYY-MM-DD
+             */
+            readonly death_date?: string | null;
             /** Name */
             readonly name: string;
+        };
+        /** PersonVisibility */
+        readonly PersonVisibility: {
+            /** Hidden */
+            readonly hidden: boolean;
+        };
+        /**
+         * SuggestionAcceptance
+         * @description The story as the editor wants it; omitted, the visitor's text is used.
+         */
+        readonly SuggestionAcceptance: {
+            readonly story?: components["schemas"]["BlogRevisionInput"] | null;
+        };
+        /**
+         * SuggestionCreate
+         * @description A visitor's proposal: new story text, or a request in their own words.
+         */
+        readonly SuggestionCreate: {
+            /** Base Revision Number */
+            readonly base_revision_number?: number | null;
+            /** Content */
+            readonly content?: string | null;
+            /** Excerpt */
+            readonly excerpt?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            readonly kind: "edit" | "request";
+            /** Note */
+            readonly note?: string | null;
+            /** Source Url */
+            readonly source_url?: string | null;
+            /** Title */
+            readonly title?: string | null;
+        };
+        /** SuggestionPage */
+        readonly SuggestionPage: {
+            /** Items */
+            readonly items: readonly components["schemas"]["SuggestionResponse"][];
+            /** Limit */
+            readonly limit: number;
+            /** Offset */
+            readonly offset: number;
+            /** Total */
+            readonly total: number;
+        };
+        /** SuggestionReceipt */
+        readonly SuggestionReceipt: {
+            /** Id */
+            readonly id: string;
+            /** Status */
+            readonly status: string;
+        };
+        /** SuggestionResponse */
+        readonly SuggestionResponse: {
+            /** Base Revision Number */
+            readonly base_revision_number: number | null;
+            /** Content */
+            readonly content: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            readonly created_at: string;
+            readonly current_revision: components["schemas"]["BlogRevisionResponse"] | null;
+            /** Excerpt */
+            readonly excerpt: string | null;
+            /** Id */
+            readonly id: string;
+            /** Kind */
+            readonly kind: string;
+            /** Note */
+            readonly note: string | null;
+            /** Person Id */
+            readonly person_id: string;
+            /** Person Name */
+            readonly person_name: string;
+            /** Person Slug */
+            readonly person_slug: string;
+            /** Reviewed At */
+            readonly reviewed_at: string | null;
+            /** Reviewed By */
+            readonly reviewed_by: string | null;
+            /** Source Url */
+            readonly source_url: string | null;
+            /** Status */
+            readonly status: string;
+            /** Title */
+            readonly title: string | null;
         };
         /** ValidationError */
         readonly ValidationError: {
@@ -294,6 +544,249 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    readonly list_hidden_people_api_admin_people_hidden_get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": readonly components["schemas"]["PersonResponse"][];
+                };
+            };
+        };
+    };
+    readonly list_blog_revisions_api_admin_people__person_id__blog_revisions_get: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly person_id: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": readonly components["schemas"]["BlogRevisionResponse"][];
+                };
+            };
+            /** @description Person or story not found */
+            readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly set_person_visibility_api_admin_people__person_id__visibility_put: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path: {
+                readonly person_id: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["PersonVisibility"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["PersonResponse"];
+                };
+            };
+            /** @description Person or story not found */
+            readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly list_suggestions_api_admin_suggestions_get: {
+        readonly parameters: {
+            readonly query?: {
+                readonly status?: string;
+                readonly offset?: number;
+                readonly limit?: number;
+            };
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["SuggestionPage"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly accept_suggestion_api_admin_suggestions__suggestion_id__accept_post: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: {
+                readonly "X-Authentik-Username"?: string;
+            };
+            readonly path: {
+                readonly suggestion_id: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["SuggestionAcceptance"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["SuggestionResponse"];
+                };
+            };
+            /** @description Person or story not found */
+            readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflicts with stored data */
+            readonly 409: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly reject_suggestion_api_admin_suggestions__suggestion_id__reject_post: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: {
+                readonly "X-Authentik-Username"?: string;
+            };
+            readonly path: {
+                readonly suggestion_id: string;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody?: never;
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["SuggestionResponse"];
+                };
+            };
+            /** @description Person or story not found */
+            readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflicts with stored data */
+            readonly 409: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     readonly list_people_api_people_get: {
         readonly parameters: {
             readonly query?: {
@@ -636,7 +1129,7 @@ export interface operations {
             };
         };
     };
-    readonly list_blog_revisions_api_people__person_id__blog_revisions_get: {
+    readonly create_suggestion_api_people__person_id__suggestions_post: {
         readonly parameters: {
             readonly query?: never;
             readonly header?: never;
@@ -645,15 +1138,19 @@ export interface operations {
             };
             readonly cookie?: never;
         };
-        readonly requestBody?: never;
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["SuggestionCreate"];
+            };
+        };
         readonly responses: {
             /** @description Successful Response */
-            readonly 200: {
+            readonly 201: {
                 headers: {
                     readonly [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/json": readonly components["schemas"]["BlogRevisionResponse"][];
+                    readonly "application/json": components["schemas"]["SuggestionReceipt"];
                 };
             };
             /** @description Person or story not found */
@@ -672,6 +1169,15 @@ export interface operations {
                 };
                 content: {
                     readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description The review queue is full */
+            readonly 429: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

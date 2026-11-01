@@ -56,7 +56,7 @@ async function errorFromResponse(
     if (typeof detail === "string") message = detail;
     // Validation errors (422) list each problem; the first is the most useful.
     else if (Array.isArray(detail) && typeof detail[0]?.msg === "string") {
-      message = detail[0].msg;
+      message = detail[0].msg.replace(/^Value error, /, "");
     }
   } catch {
     // Not JSON: keep the status message.

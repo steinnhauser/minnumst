@@ -70,15 +70,19 @@ def test_migrations_downgrade_to_an_empty_database_and_back(engine: Engine) -> N
 
     assert set(inspect(engine).get_table_names()) <= {"alembic_version"}
     upgrade(engine)
-    assert {"people", "blog_posts", "blog_revisions"} <= set(
-        inspect(engine).get_table_names()
-    )
+    assert {
+        "people",
+        "blog_posts",
+        "blog_revisions",
+        "suggestions",
+        "person_sources",
+    } <= set(inspect(engine).get_table_names())
 
 
 def test_cli_upgrades_by_default_and_downgrades_to_a_revision(
     cli_engines: list[Engine], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    tables = {"people", "blog_posts", "blog_revisions"}
+    tables = {"people", "blog_posts", "blog_revisions", "suggestions", "person_sources"}
 
     run_cli(monkeypatch)
     assert tables <= table_names(settings.database_url)

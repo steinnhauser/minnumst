@@ -29,43 +29,54 @@ def client() -> Iterator[TestClient]:
 
 
 def create_person(client: TestClient, name: str = "Ásta Jónsdóttir") -> dict:
-    response = client.post("/api/people", json={"name": name})
+    response = client.post("/api/people", json={"name": name, "birth_date": "1850"})
     assert response.status_code == 201
     return response.json()
 
 
-def test_people_search_and_normalized_duplicate_protection(client: TestClient) -> None:
+def test_people_search_and_duplicate_protection(client: TestClient) -> None:
     person = create_person(client)
 
     results = client.get("/api/people", params={"query": "asta"})
-    duplicate = client.post("/api/people", json={"name": "asta   jonsdottir"})
+    duplicate = client.post(
+        "/api/people", json={"name": "asta   jonsdottir", "birth_date": "1850"}
+    )
+    namesake = client.post(
+        "/api/people", json={"name": "Ásta Jónsdóttir", "birth_date": "1790"}
+    )
 
     assert results.status_code == 200
     assert results.json()["total"] == 1
     assert results.json()["items"][0]["id"] == person["id"]
     assert person["slug"] == "asta-jonsdottir"
     assert duplicate.status_code == 409
+    assert namesake.status_code == 201
+    assert namesake.json()["slug"] == "asta-jonsdottir-1790"
 
 
 def test_search_folds_icelandic_letters_independently_of_the_database(
     client: TestClient,
 ) -> None:
-    person = client.post("/api/people", json={"name": "Sólveig Þorgrímsdóttir"}).json()
+    person = create_person(client, "Sólveig Þorgrímsdóttir")
 
     for query in ("solveig", "Þorgríms", "thorgrimsdottir", "SOLVEIG THORG"):
         page = client.get("/api/people", params={"query": query}).json()
         assert [item["id"] for item in page["items"]] == [person["id"]], query
     assert person["slug"] == "solveig-thorgrimsdottir"
-    duplicate = client.post("/api/people", json={"name": "Solveig Thorgrimsdottir"})
+    duplicate = client.post(
+        "/api/people", json={"name": "Solveig Thorgrimsdottir", "birth_date": "1850"}
+    )
     assert duplicate.status_code == 409
 
 
 def test_person_slug_collisions_get_a_unique_suffix(client: TestClient) -> None:
     first = create_person(client, "Ada Lovelace")
     second = create_person(client, "Ada-Lovelace")
+    third = create_person(client, "Ada, Lovelace")
 
     assert first["slug"] == "ada-lovelace"
-    assert second["slug"] == "ada-lovelace-2"
+    assert second["slug"] == "ada-lovelace-1850"
+    assert third["slug"] == "ada-lovelace-1850-2"
 
 
 def test_blog_save_appends_history_and_slug_read_returns_current(
@@ -85,7 +96,7 @@ def test_blog_save_appends_history_and_slug_read_returns_current(
 
     first_save = client.put(f"/api/people/{person['id']}/blog", json=first)
     second_save = client.put(f"/api/people/{person['id']}/blog", json=second)
-    history = client.get(f"/api/people/{person['id']}/blog/revisions")
+    history = client.get(f"/api/admin/people/{person['id']}/blog/revisions")
     public_page = client.get(f"/api/people/by-slug/{person['slug']}")
 
     assert first_save.status_code == 200
@@ -118,7 +129,9 @@ def test_timestamps_read_back_from_the_database_are_explicitly_utc(
 ) -> None:
     person = create_person(client)
     client.put(f"/api/people/{person['id']}/blog", json=STORY)
-    client.patch(f"/api/people/{person['id']}", json={"name": "Ásta Jóns"})
+    client.patch(
+        f"/api/people/{person['id']}", json={"name": "Ásta Jóns", "birth_date": "1850"}
+    )
 
     found = timestamps(
         [
@@ -126,7 +139,7 @@ def test_timestamps_read_back_from_the_database_are_explicitly_utc(
             client.get(f"/api/people/{person['id']}").json(),
             client.get(f"/api/people/by-slug/{person['slug']}").json(),
             client.get(f"/api/people/{person['id']}/blog").json(),
-            client.get(f"/api/people/{person['id']}/blog/revisions").json(),
+            client.get(f"/api/admin/people/{person['id']}/blog/revisions").json(),
         ]
     )
 
@@ -154,7 +167,8 @@ def test_people_can_be_updated_but_blog_history_blocks_deletion(
 ) -> None:
     person = create_person(client)
     updated = client.patch(
-        f"/api/people/{person['id']}", json={"name": "Ásta Jónsdóttir, 1920-2001"}
+        f"/api/people/{person['id']}",
+        json={"name": "Ásta Jónsdóttir, 1820-1901", "death_date": "1901"},
     )
     client.put(
         f"/api/people/{person['id']}/blog",
@@ -163,7 +177,9 @@ def test_people_can_be_updated_but_blog_history_blocks_deletion(
     deleted = client.delete(f"/api/people/{person['id']}")
 
     assert updated.status_code == 200
-    assert updated.json()["name"] == "Ásta Jónsdóttir, 1920-2001"
+    assert updated.json()["name"] == "Ásta Jónsdóttir, 1820-1901"
+    assert updated.json()["birth_date"] is None
+    assert updated.json()["death_date"] == "1901"
     assert deleted.status_code == 409
     assert "preserve revisions" in deleted.json()["detail"]
 
@@ -329,7 +345,7 @@ def test_people_are_listed_in_name_order_and_paged(client: TestClient) -> None:
 
 
 def test_blank_names_are_rejected(client: TestClient) -> None:
-    response = client.post("/api/people", json={"name": " \t "})
+    response = client.post("/api/people", json={"name": " \t ", "birth_date": "1850"})
 
     assert response.status_code == 422
     assert "Name cannot be blank" in response.text
@@ -375,12 +391,18 @@ def test_blog_read_returns_the_current_revision(client: TestClient) -> None:
 def test_blog_routes_return_not_found_without_a_story(client: TestClient) -> None:
     person = create_person(client)
 
-    for path in ("blog", "blog/revisions"):
-        response = client.get(f"/api/people/{person['id']}/{path}")
+    for path in (
+        f"/api/people/{person['id']}/blog",
+        f"/api/admin/people/{person['id']}/blog/revisions",
+    ):
+        response = client.get(path)
         assert response.status_code == 404
         assert response.json() == {"detail": "Blog not found"}
     assert client.get(f"/api/people/{MISSING_ID}/blog").status_code == 404
     assert client.put(f"/api/people/{MISSING_ID}/blog", json=STORY).status_code == 404
+    assert (
+        client.get(f"/api/admin/people/{MISSING_ID}/blog/revisions").status_code == 404
+    )
 
 
 def test_a_story_without_revisions_is_treated_as_missing(client: TestClient) -> None:
@@ -400,14 +422,17 @@ def test_a_story_without_revisions_is_treated_as_missing(client: TestClient) -> 
     assert blog.json() == {"detail": "Blog has no revisions"}
 
 
-def test_rename_to_an_existing_normalized_name_conflicts(client: TestClient) -> None:
+def test_rename_to_an_existing_identity_conflicts(client: TestClient) -> None:
     person = create_person(client)
     create_person(client, "Björn Sigurðsson")
 
     response = client.patch(
-        f"/api/people/{person['id']}", json={"name": "bjorn sigurdsson"}
+        f"/api/people/{person['id']}",
+        json={"name": "bjorn sigurdsson", "birth_date": "1850"},
     )
-    missing = client.patch(f"/api/people/{MISSING_ID}", json={"name": "Anyone"})
+    missing = client.patch(
+        f"/api/people/{MISSING_ID}", json={"name": "Anyone", "birth_date": "1850"}
+    )
 
     assert response.status_code == 409
     assert missing.status_code == 404
@@ -421,11 +446,17 @@ def test_rename_racing_a_concurrent_create_conflicts(client: TestClient) -> None
     @event.listens_for(client.app.state.session_factory, "before_flush", once=True)
     def concurrent_create(session: Session, *_: object) -> None:
         session.add(
-            Person(name="Rival", normalized_name="bjorn sigurdsson", slug="rival")
+            Person(
+                name="Rival",
+                normalized_name="bjorn sigurdsson",
+                identity="bjorn sigurdsson|1850|",
+                slug="rival",
+            )
         )
 
     response = client.patch(
-        f"/api/people/{person['id']}", json={"name": "Björn Sigurðsson"}
+        f"/api/people/{person['id']}",
+        json={"name": "Björn Sigurðsson", "birth_date": "1850"},
     )
     unchanged = client.get(f"/api/people/{person['id']}").json()
 

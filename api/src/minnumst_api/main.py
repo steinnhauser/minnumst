@@ -16,6 +16,7 @@ from minnumst_api.api import router
 from minnumst_api.config import settings
 from minnumst_api.database import make_engine, make_session_factory
 from minnumst_api.logging_config import configure_logging, request_id_context
+from minnumst_api.review import admin_router
 
 logger = logging.getLogger(__name__)
 REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
@@ -100,6 +101,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.include_router(router)
+    app.include_router(admin_router)
 
     @app.middleware("http")
     async def log_request(request: Request, call_next):

@@ -1,0 +1,50 @@
+"""Who the archive may hold: only people dead for more than five years.
+
+Iceland's Act 90/2018 covers the dead for five years. A person qualifies through
+a recorded date of death more than five years ago or, without one, through being
+born at least 128 years before the current year. Every way in (the API and the
+import) goes through this one rule, and doubtful dates count against a person.
+"""
+
+import re
+from datetime import UTC, date, datetime
+
+PARTIAL_DATE = re.compile(r"^\d{4}(-\d{2}-\d{2})?$")
+YEARS_DEAD = 5
+YEARS_SINCE_BIRTH = 128
+
+
+def valid_partial_date(value: str) -> bool:
+    if not PARTIAL_DATE.match(value):
+        return False
+    try:
+        date.fromisoformat(value if len(value) > 4 else f"{value}-01-01")
+    except ValueError:
+        return False
+    return True
+
+
+def _latest_day(value: str) -> date:
+    """The last day a partial date could mean: a bare year may be December 31."""
+    return date.fromisoformat(value if len(value) > 4 else f"{value}-12-31")
+
+
+def is_eligible(
+    birth_date: str | None, death_date: str | None, today: date | None = None
+) -> bool:
+    today = today or datetime.now(UTC).date()
+    if death_date:
+        # Five years before today; February 29 falls back to February 28.
+        day = 28 if (today.month, today.day) == (2, 29) else today.day
+        return _latest_day(death_date) < today.replace(
+            year=today.year - YEARS_DEAD, day=day
+        )
+    if birth_date:
+        return int(birth_date[:4]) <= today.year - YEARS_SINCE_BIRTH
+    return False
+
+
+INELIGIBLE = (
+    "The archive only holds people with a recorded death more than five years ago "
+    f"or, without one, born at least {YEARS_SINCE_BIRTH} years before this year"
+)

@@ -7,11 +7,13 @@ function AppLink({
   to,
   resultsPath,
   className,
+  label,
   children,
 }: {
   to: string;
   resultsPath?: string;
   className?: string;
+  label?: string;
   children: ReactNode;
 }) {
   const navigate = useNavigate();
@@ -24,7 +26,7 @@ function AppLink({
   }
 
   return (
-    <a className={className} href={to} onClick={handleClick}>
+    <a className={className} href={to} aria-label={label} onClick={handleClick}>
       {children}
     </a>
   );

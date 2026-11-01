@@ -4,7 +4,7 @@ import { searchPeople, type PersonPage } from "./api";
 import AppLink from "./AppLink";
 import { personDetail } from "./dates";
 import { failureMessage, LanguageContext, useTranslations } from "./i18n";
-import { isLongEnough, profilePath, searchPath } from "./routes";
+import { isLongEnough, pageNumbers, profilePath, searchPath } from "./routes";
 import SearchBox from "./SearchBox";
 
 const PAGE_SIZE = 25;
@@ -98,20 +98,30 @@ function SearchResults({ query, page }: { query: string; page: number }) {
       )}
       {items.length > 0 && lastPage > 1 && (
         <nav className="pagination" aria-label={t.paginationLabel}>
-          {page > 1 ? (
-            <AppLink to={searchPath(language, query, page - 1)}>
-              {t.previous}
-            </AppLink>
-          ) : (
-            <span />
-          )}
-          <span>{t.pageOf(page, lastPage)}</span>
-          {page < lastPage ? (
-            <AppLink to={searchPath(language, query, page + 1)}>
-              {t.next}
-            </AppLink>
-          ) : (
-            <span />
+          {pageNumbers(page, lastPage).map((number, index) =>
+            number === null ? (
+              <span className="pagination-gap" key={`gap-${index}`}>
+                …
+              </span>
+            ) : number === page ? (
+              <span
+                className="pagination-page"
+                aria-current="page"
+                key={number}
+              >
+                <span className="visually-hidden">{t.pageLabel(number)}</span>
+                <span aria-hidden="true">{number}</span>
+              </span>
+            ) : (
+              <AppLink
+                className="pagination-page"
+                key={number}
+                label={t.pageLabel(number)}
+                to={searchPath(language, query, number)}
+              >
+                {number}
+              </AppLink>
+            ),
           )}
         </nav>
       )}

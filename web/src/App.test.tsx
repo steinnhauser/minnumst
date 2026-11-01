@@ -17,7 +17,7 @@ import {
   translations,
   withoutLanguage,
 } from "./i18n";
-import { isLongEnough, parseRoute, searchPath } from "./routes";
+import { isLongEnough, pageNumbers, parseRoute, searchPath } from "./routes";
 import {
   ada,
   adaProfile,
@@ -323,7 +323,15 @@ describe("pages of results", () => {
     return screen.getByRole("navigation", { name: "Pages of results" });
   }
 
-  it("moves through the pages a few people at a time", async () => {
+  function currentPage() {
+    return pagination().querySelector('[aria-current="page"]');
+  }
+
+  function pageLink(page: number) {
+    return within(pagination()).getByRole("link", { name: `Page ${page}` });
+  }
+
+  it("moves through the pages by number", async () => {
     goTo("/en/search?q=Person");
     const user = userEvent.setup();
     const fetchMock = stubApi(peopleNamed(60));
@@ -331,52 +339,51 @@ describe("pages of results", () => {
 
     await screen.findByText("Showing 1–25 of 60 people.");
     expect(results()).toHaveLength(25);
-    expect(pagination()).toHaveTextContent("Page 1 of 3");
+    expect(currentPage()).toHaveTextContent("Page 1");
+    expect(currentPage()?.tagName).toBe("SPAN");
     expect(
-      within(pagination()).queryByRole("link", { name: /Previous/ }),
-    ).toBeNull();
+      within(pagination())
+        .getAllByRole("link")
+        .map((link) => link.textContent),
+    ).toEqual(["2", "3"]);
 
-    await user.click(within(pagination()).getByRole("link", { name: /Next/ }));
+    await user.click(pageLink(2));
 
     await screen.findByText("Showing 26–50 of 60 people.");
     expect(window.location.search).toBe("?q=Person&page=2");
     expect(searchRequests(fetchMock).at(-1)).toContain("offset=25&limit=25");
     expect(results()[0]).toHaveTextContent("Person 26");
-    expect(pagination()).toHaveTextContent("Page 2 of 3");
+    expect(currentPage()).toHaveTextContent("Page 2");
     expect(searchbox()).toHaveValue("Person");
     expect(
       screen.getByRole("heading", { name: "Results for “Person”" }),
     ).toHaveFocus();
 
-    await user.click(within(pagination()).getByRole("link", { name: /Next/ }));
+    await user.click(pageLink(3));
 
     await screen.findByText("Showing 51–60 of 60 people.");
     expect(results()).toHaveLength(10);
-    expect(
-      within(pagination()).queryByRole("link", { name: /Next/ }),
-    ).toBeNull();
 
-    await user.click(
-      within(pagination()).getByRole("link", { name: /Previous/ }),
-    );
+    await user.click(pageLink(1));
 
-    await screen.findByText("Showing 26–50 of 60 people.");
-    expect(window.location.search).toBe("?q=Person&page=2");
+    await screen.findByText("Showing 1–25 of 60 people.");
+    expect(window.location.search).toBe("?q=Person");
   });
 
-  it("drops the page number from the first page's address", async () => {
-    goTo("/en/search?q=Person&page=2");
-    const user = userEvent.setup();
-    stubApi(peopleNamed(30));
+  it("shrinks a long list of pages to the ones that matter", async () => {
+    goTo("/en/search?q=Person&page=5");
+    stubApi(peopleNamed(325));
     render(<App />);
-    await screen.findByText("Showing 26–30 of 30 people.");
 
-    await user.click(
-      within(pagination()).getByRole("link", { name: /Previous/ }),
-    );
+    await screen.findByText("Showing 101–125 of 325 people.");
 
-    await screen.findByText("Showing 1–25 of 30 people.");
-    expect(window.location.search).toBe("?q=Person");
+    expect(pagination().textContent).toBe("1…4Page 556…13");
+    expect(currentPage()).toHaveTextContent("Page 5");
+    expect(
+      within(pagination())
+        .getAllByRole("link")
+        .map((link) => link.textContent),
+    ).toEqual(["1", "4", "6", "13"]);
   });
 
   it("offers no page links when everyone fits on one page", async () => {
@@ -413,7 +420,9 @@ describe("pages of results", () => {
     stubApi(peopleNamed(30));
     render(<App />);
     await screen.findByText("Showing 1–25 of 30 people.");
-    await user.click(within(pagination()).getByRole("link", { name: /Next/ }));
+    await user.click(
+      within(pagination()).getByRole("link", { name: "Page 2" }),
+    );
     await screen.findByText("Showing 26–30 of 30 people.");
 
     await goBack();
@@ -433,6 +442,48 @@ describe("pages of results", () => {
     fireEvent.click(results()[0], { ctrlKey: true });
 
     expect(window.location.pathname).toBe("/en/search");
+  });
+});
+
+describe("the page numbers", () => {
+  const GAP = null;
+
+  it.each([
+    [1, 1, [1]],
+    [1, 2, [1, 2]],
+    [2, 5, [1, 2, 3, 4, 5]],
+    [1, 5, [1, 2, 3, 4, 5]],
+    [1, 7, [1, 2, 3, 4, GAP, 7]],
+    [3, 7, [1, 2, 3, 4, GAP, 7]],
+    [4, 7, [1, 2, 3, 4, 5, 6, 7]],
+    [5, 7, [1, GAP, 4, 5, 6, 7]],
+    [7, 7, [1, GAP, 4, 5, 6, 7]],
+    [1, 13, [1, 2, 3, 4, GAP, 13]],
+    [6, 13, [1, GAP, 5, 6, 7, GAP, 13]],
+    [13, 13, [1, GAP, 10, 11, 12, 13]],
+  ])("on page %i of %i", (current, last, expected) => {
+    expect(pageNumbers(current, last)).toEqual(expected);
+  });
+
+  it("never hides a single page or lists one twice, however many there are", () => {
+    for (let last = 1; last <= 60; last += 1) {
+      for (let current = 1; current <= last; current += 1) {
+        const pages = pageNumbers(current, last);
+        const numbers = pages.filter((page) => page !== null);
+        expect(new Set(numbers).size).toBe(numbers.length);
+        expect(numbers).toContain(current);
+        expect(numbers[0]).toBe(1);
+        expect(numbers.at(-1)).toBe(last);
+        // Small enough for a phone's width.
+        expect(pages.length).toBeLessThanOrEqual(7);
+        pages.forEach((page, index) => {
+          if (page !== null) return;
+          const skipped =
+            (pages[index + 1] as number) - (pages[index - 1] as number) - 1;
+          expect(skipped).toBeGreaterThan(1);
+        });
+      }
+    }
   });
 });
 
@@ -806,10 +857,9 @@ describe("Icelandic", () => {
       screen.getByRole("heading", { name: "Niðurstöður fyrir „Person“" }),
     ).toBeVisible();
 
-    await user.click(screen.getByRole("link", { name: /Næsta/ }));
+    await user.click(screen.getByRole("link", { name: "Síða 2" }));
 
     await screen.findByText("Sýni 26–30 af 30.");
-    expect(screen.getByText("Síða 2 af 2")).toBeVisible();
     expect(screen.getByRole("link", { name: "English" })).toHaveAttribute(
       "href",
       "/en/search?q=Person&page=2",

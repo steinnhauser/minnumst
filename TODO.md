@@ -193,7 +193,7 @@ Fill the archive from open sources while keeping to the [data protection rules](
 
 - [x] Data model: birth and death dates (a year or a full date) and a `person_sources` table (URL, source, title).
 - [x] The API rejects creating or importing a person who fails rule 1, and the admin desk explains the rejection. Tests cover the boundary years.
-- [x] First batch from Wikidata (CC0): `make import fetch` keeps names, dates and links for people who pass rule 1, the batch is reviewed in Git, and `make import plan|apply|remove` acts on the host, separately from any deploy.
+- [x] First batch from Wikidata (CC0): `make import fetch` keeps names, dates and links for people who pass rule 1, the batch is reviewed locally and kept out of Git, and `make import plan|apply|remove` uploads it to the host and acts on it, separately from any deploy.
 - [ ] Parent and partner relationships, and a short summary in our own words on each source.
 - [ ] Server-side search in the admin desk before the census import: it loads everyone at once today, which won't work for 226,864 people.
 - [ ] Import script in `tools/` for [ICE-ID](https://huggingface.co/datasets/goldpotatoes/ice-id) (licence and National Archives position to be confirmed: the dataset card says MIT, the paper CC BY 4.0): pinned dataset revision and checksum, idempotent, dry run by default. Only the 226,864 linked people are imported, rule 1 is applied, and relatives who fail it are left out. A report lists how many were imported and how many skipped, and why.

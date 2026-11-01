@@ -153,7 +153,7 @@ The design assumes an attacker has read all of this. Security rests on keys, pat
 Minnumst holds the history of people who have died. It never holds data about living people. Every person record and story has to meet these rules:
 
 1. **Only people who died more than five years ago.** Iceland's Data Protection Act, [Act No. 90/2018](https://www.althingi.is/lagas/nuna/2018090.html), applies to a deceased person's data for five years after death, and longer for information that would reasonably be kept confidential ([Persónuvernd summary](https://gamli.personuvernd.is/media/glaerukynningar-pv/Kynningarfundur_2018-Fyrirtaeki_og_stofnanir_VEL.pdf)). The GDPR itself doesn't cover deceased persons and leaves them to national law ([Recital 27](https://gdpr-info.eu/recitals/no-27/)). Minnumst stays outside that five-year window entirely. A person qualifies only if:
-   - a recorded date of death is more than five years ago, or
+   - a recorded date of death is more than five years and two months ago (a margin for inexact records), or
    - when no date of death is known, they were born at least 128 years before the current year (the longest verified human lifespan of 122 years, plus the five years, plus one year because census records give only a birth year). In 2026 that means born in 1898 or earlier.
 
    Anyone who doesn't meet one of these is left out. When in doubt, leave them out.
@@ -178,7 +178,7 @@ Wikidata is the first source imported: its people are checked against rule 1, an
 
 [Íslendingabók](https://www.islendingabok.is/english) is open only to people with an Icelandic ID number and has no export, so Minnumst doesn't use it. Commercial genealogy sites and the restricted part of the [Icelandic Gigaword Corpus](https://clarin.is/en/resources/gigaword/) aren't used either.
 
-**Status:** people are added by editors through the editorial desk, which sits behind authentication, and through imports reviewed in Git. The API and the import both refuse anyone who fails rule 1, and the import fetches and keeps only names, dates and links. Anyone can suggest a change to a page or ask for a correction or removal without an account; suggestions are private until an editor accepts them, and a rejected suggestion's text is deleted. Story history is for editors only and a person can be hidden, so removed content stops being served, while backups keep it until they expire. All sample data in this repository is fictional. Questions about the archive go to [contact@minnumst.org](mailto:contact@minnumst.org).
+**Status:** people are added by editors through the editorial desk, which sits behind authentication, and through imports an operator reviews and runs. The batches themselves aren't kept in this repository. The API and the import both refuse anyone who fails rule 1, and the import fetches and keeps only names, dates and links. Anyone can suggest a change to a page or ask for a correction or removal without an account; suggestions are private until an editor accepts them, and a rejected suggestion's text is deleted. Story history is for editors only and a person can be hidden, so removed content stops being served, while backups keep it until they expire. All sample data in this repository is fictional. Questions about the archive go to [contact@minnumst.org](mailto:contact@minnumst.org).
 
 **Planned** ([`TODO.md`](TODO.md) item 12): the census import and more source links on profiles, each keeping its source and licence.
 
@@ -195,6 +195,7 @@ make validate      # everything CI checks except the stack (needs Docker for the
 Run the whole stack in containers, rendered from the same Compose template that `deploy/` uses (Traefik, PostgreSQL, the API and both frontends):
 
 ```sh
+make preview start # the app alone in containers, to try it in a browser (no login)
 make stack-test    # build the images, start the stack, seed sample data, run the API and edge tests
 make down          # stop it; the database volume is kept
 ```

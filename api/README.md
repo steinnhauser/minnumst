@@ -34,9 +34,9 @@ The checked-in contract is [`openapi.json`](openapi.json). `make openapi-check` 
 | `PUT /api/admin/people/{person_id}/visibility`     | Hide a person from every public read, or show them again                                                                  |
 | `GET /healthz`, `GET /readyz`                      | Liveness, and readiness including the database                                                                            |
 
-- Names are unique after normalisation (accents and whitespace), enforced by a database constraint. Each person has at most one story.
-- Only people who qualify can be stored: a recorded death more than five years ago or, without one, a birth at least 128 years before the current year (`eligibility.py`). Creating, updating and importing all apply this rule. Dates are `YYYY` or `YYYY-MM-DD`, and a bare year of death counts as its last day.
-- Many people share a name, so a name and dates together must be unique.
+- Each person has at most one story.
+- Only people who qualify can be stored: a recorded death more than five years and two months ago or, without one, a birth at least 128 years before the current year (`eligibility.py`). Creating, updating and importing all apply this rule. Dates are `YYYY` or `YYYY-MM-DD`, and a bare year of death counts as its last day.
+- Many people share a name, so a name and dates together must be unique after normalisation (accents, case and whitespace), enforced by a database constraint.
 - Everything under `/api/admin` needs a login at the edge. Only editors see story history and unreviewed suggestions, so text removed from a story stops being public while the record of it is kept.
 - A suggestion stores nothing about the visitor. A decision clears its text and keeps who decided and when; accepted text lives on as a revision.
 - Every save appends an immutable revision. There are no routes to edit, delete or restore revisions, and a person with a story can't be deleted.
@@ -44,7 +44,7 @@ The checked-in contract is [`openapi.json`](openapi.json). `make openapi-check` 
   - `GET /api/people/{person_id}` is the canonical read by ID. Every mutation takes an ID rather than a slug, so integrations and the end-to-end test use it to check a write.
   - `GET /api/people/{person_id}/blog` returns just the current story and its revision count, without the person or the history.
   - `DELETE /api/people/{person_id}` exists to undo a mistaken create. It removes only a person without a story and answers `409` otherwise; like every write it goes through Authentik. No route edits or deletes stories or revisions.
-- Writes rely on Traefik and Authentik in front of the API: `POST`, `PUT`, `PATCH` and `DELETE` are routed through forward-auth. The API itself has no login.
+- Writes and editor routes rely on Traefik and Authentik in front of the API: `POST`, `PUT`, `PATCH`, `DELETE` and everything under `/api/admin` go through forward-auth. The one exception is `POST /api/people/{person_id}/suggestions`, which has its own stricter limits. The API itself has no login, and it takes the reviewer's name from the `X-Authentik-Username` header that the edge sets.
 
 ## Configuration
 

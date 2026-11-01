@@ -1,6 +1,6 @@
 # Minnumst public archive
 
-The public, read-only React frontend: search the archive and read each person's current story. It has no sign-in.
+The public React frontend: search the archive, read each person's current story and sources, and suggest an edit. It has no sign-in.
 
 Setup, checks and the local stack are documented in the [repository README](../README.md) and [CONTRIBUTING](../CONTRIBUTING.md). From the repository root, with the API running (`make dev-api`):
 

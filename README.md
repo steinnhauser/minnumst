@@ -57,7 +57,7 @@ Each service ships as a non-root container image that logs structured JSON. The 
 
 ## Security and networking
 
-Minnumst is built so that the only thing reachable from the internet is a TLS-terminating reverse proxy, every write is authenticated before it reaches the application, and each host process and container can do as little as possible. The controls below are enforced in code and verified in CI on every change.
+Minnumst is built so that the only thing reachable from the internet is a TLS-terminating reverse proxy, every write except a visitor's unpublished suggestion is authenticated before it reaches the application, and each host process and container can do as little as possible. The controls below are enforced in code and verified in CI on every change.
 
 | Layer               | Standard                                                                                                                  |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
@@ -192,15 +192,21 @@ make format        # Ruff and Prettier; format-check, lint, test and build work 
 make validate      # everything CI checks except the stack (needs Docker for the PostgreSQL tests)
 ```
 
-Run the whole stack in containers, rendered from the same Compose template that `deploy/` uses (Traefik, PostgreSQL, the API and both frontends):
+To try the app in a browser, run it alone in containers, without Traefik or a login:
 
 ```sh
-make preview start # the app alone in containers, to try it in a browser (no login)
+make preview start # archive on port 5173, desk on 5174, API on 8000
+make preview stop  # stop it; `make preview reset` also deletes its data
+```
+
+To test everything, run the whole stack, rendered from the same Compose template that `deploy/` uses (Traefik, PostgreSQL, the API and both frontends):
+
+```sh
 make stack-test    # build the images, start the stack, seed sample data, run the API and edge tests
 make down          # stop it; the database volume is kept
 ```
 
-The archive is then on <http://127.0.0.1:5173>, the editorial desk on <http://127.0.0.1:5174> and the API docs on <http://127.0.0.1:8000/docs>.
+Either way, the archive is on <http://127.0.0.1:5173>, the editorial desk on <http://127.0.0.1:5174> and the API docs on <http://127.0.0.1:8000/docs>.
 
 For quicker iteration, run the development servers instead, each in its own terminal: `make dev-api`, `make dev-web` and `make dev-admin`. They work without configuration. [CONTRIBUTING](CONTRIBUTING.md) has the details, and [`deploy/README.md`](deploy/README.md) covers production.
 

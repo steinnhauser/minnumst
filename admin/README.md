@@ -1,6 +1,6 @@
 # Minnumst editorial desk
 
-The React frontend editors use to create and rename people and to write stories. Every save appends a new revision through the API; earlier revisions stay readable in the history tab.
+The React frontend editors use to create and update people, write stories, review visitors' suggestions and hide people from the public. Every save appends a new revision through the API; earlier revisions stay readable in the history tab.
 
 Setup, checks and the local stack are documented in the [repository README](../README.md) and [CONTRIBUTING](../CONTRIBUTING.md). From the repository root, with the API running (`make dev-api`):
 

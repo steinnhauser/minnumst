@@ -1,6 +1,6 @@
 # Minnumst deployment
 
-Ansible hardens a single Ubuntu Server host and runs Minnumst on it with Docker Compose: Traefik, the public archive, the editorial desk, the API and PostgreSQL. The images are built from [`docker/`](../docker/) in this repository. Run every command from the repository root.
+Ansible hardens a single Ubuntu Server host and runs Minnumst on it with Docker Compose: Traefik, Authentik, the public archive, the editorial desk, the API and PostgreSQL. The images are built from [`docker/`](../docker/) in this repository. Run every command from the repository root.
 
 The host is configured to the **CIS Ubuntu Linux 24.04 LTS Benchmark** (Level 1 – Server, with selected Level 2 controls). Each task cites its CIS section and the **NIST SP 800-53 Rev. 5** control it implements. The container engine follows the **CIS Docker Benchmark**, and the containers follow **NIST SP 800-190** (Application Container Security Guide). CI applies the host role to a real Ubuntu 24.04 VM on every change, requires the second run to change nothing, and reports the [Lynis](https://cisofy.com/lynis/) hardening index before and after.
 
@@ -12,7 +12,7 @@ One machine with 2 vCPUs, 4 GB of memory and 40 GB of disk runs the stack comfor
 
 ## Setting up the host
 
-On Hetzner Cloud, [`infra/`](../infra/) does steps 1 and 2 for you: it creates the server, its firewall and an unformatted data volume, and `make infra-inventory` writes an inventory that names the volume, which the host role encrypts with LUKS2 and mounts at `/srv/minnumst` for Docker's data and the backups. Elsewhere, these steps happen once, before Ansible can take over:
+On Hetzner Cloud, [`infra/`](../infra/) does steps 1 and 2 for you: it creates the server, its firewall and an unformatted data volume, and `make infra inventory` writes an inventory that names the volume, which the host role encrypts with LUKS2 and mounts at `/srv/minnumst` for Docker's data and the backups. Elsewhere, these steps happen once, before Ansible can take over:
 
 1. **Install with full-disk encryption** (NIST SC-28). In the Ubuntu Server installer, choose _Use an entire disk_ → _Set up this disk as an LVM group_ → _Encrypt the LVM group with LUKS_. The playbook checks that `/` is on a LUKS volume and refuses to continue otherwise. To unlock the disk after a remote reboot, install `dropbear-initramfs` with your SSH key in `/etc/dropbear/initramfs/authorized_keys`. If a provider can only offer its own disk encryption, set `host_require_disk_encryption: false` and record why.
 2. **Create an administrator** with `sudo` rights and an SSH key (Ed25519 or a hardware key), and log in with it once. The playbook disables password and root logins, and checks the key exists first, so it can't lock you out.

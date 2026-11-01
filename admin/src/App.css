@@ -1265,6 +1265,20 @@
 
 .version-diff
 
+/* RevisionHistory builds these class names from each line's kind. */
+.version-diff .diff-added {
+  background: var(--sage);
+  box-shadow: inset 3px 0 var(--green);
+  padding-left: 8px;
+}
+
+.version-diff .diff-removed {
+  background: var(--coral-pale);
+  box-shadow: inset 3px 0 var(--coral);
+  padding-left: 8px;
+  text-decoration: line-through;
+}
+
 /* A long list scrolls by itself, so the editor beside it stays in view. */
 .page-index {
   position: sticky;

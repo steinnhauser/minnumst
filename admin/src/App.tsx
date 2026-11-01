@@ -95,7 +95,17 @@ function App() {
     let active = true;
     void loadPeople()
       .then((people) => {
-        if (active) setPages(people);
+        if (!active) return;
+        // The list takes a while with many people: anything created or changed
+        // here in the meantime is newer than what it brings.
+        setPages((current) => {
+          const loaded = new Set(people.map((person) => person.id));
+          const local = new Map(current.map((page) => [page.id, page]));
+          return [
+            ...current.filter((page) => !loaded.has(page.id)),
+            ...people.map((person) => local.get(person.id) ?? person),
+          ];
+        });
       })
       .catch((error: unknown) => {
         if (active) {
@@ -255,9 +265,7 @@ function App() {
         revisions: [...person.revisions, saved.revision],
       };
       setPages((current) =>
-        current.some((item) => item.id === savedPage.id)
-          ? current.map((item) => (item.id === savedPage.id ? savedPage : item))
-          : [savedPage, ...current],
+        current.map((item) => (item.id === savedPage.id ? savedPage : item)),
       );
       setSelectedId(savedPage.id);
       setPersonName(savedPage.personName);

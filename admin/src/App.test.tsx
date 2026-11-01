@@ -851,6 +851,42 @@ describe("story page editor", () => {
     );
   });
 
+  it("keeps a page's loaded history when the people list arrives late", async () => {
+    const user = userEvent.setup();
+    const people = deferred<Response>();
+    stubApi(({ method }) =>
+      method === "POST"
+        ? apiResponse(ada)
+        : method === "PUT"
+          ? apiResponse(storyResponse("person-1", apiRevision(1)))
+          : people.promise,
+    );
+    render(<App />);
+
+    await user.type(screen.getByLabelText(/Person name/), "Ada Lovelace");
+    await user.type(screen.getByLabelText(/Page title/), "A title");
+    await user.type(screen.getByLabelText(/^Story/), "A story");
+    await user.click(screen.getByRole("button", { name: "Save new version" }));
+    await screen.findByText("Saved as version 1.");
+
+    await act(async () =>
+      people.resolve(
+        apiResponse(
+          peoplePage([
+            apiPerson({ ...ada, story: storySummary(apiRevision(1)) }),
+            bjork,
+          ]),
+        ),
+      ),
+    );
+
+    await user.click(screen.getByRole("tab", { name: /History/ }));
+    expect(screen.getByText("Version 1 (current)")).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: /Ada Lovelace/ }),
+    ).toHaveLength(1);
+  });
+
   it("ignores the people list from a cancelled first load", async () => {
     const loads = [deferred<Response>(), deferred<Response>()];
     let peopleRequests = 0;
@@ -1156,11 +1192,12 @@ describe("story page editor", () => {
     expect(screen.getByRole("button", { name: "Saving..." })).toBeDisabled();
     await vi.waitFor(() => expect(callsTo(fetchMock, "PUT")).toHaveLength(1));
 
-    // The list loaded before Ada was created replaces the one that had her.
+    // A list loaded before Ada was created doesn't take her away.
     await act(async () => people.resolve(apiResponse(peoplePage([bjork]))));
     expect(
-      screen.queryByRole("button", { name: /Ada Lovelace/ }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: /Ada Lovelace/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Björk/ })).toBeInTheDocument();
 
     await act(async () =>
       saved.resolve(

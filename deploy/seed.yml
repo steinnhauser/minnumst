@@ -1,5 +1,5 @@
 ---
-# Imports a reviewed batch of people. Separate from site.yml so that no deploy, with
+# Imports a batch of people from this machine. Separate from site.yml so that no deploy, with
 # any tags, can run it. `make import plan|apply|remove` runs this.
 - name: Import a batch of people
   hosts: minnumst

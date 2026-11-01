@@ -141,7 +141,7 @@ services:
         condition: service_healthy
     networks: [backend]
 
-  # Imports a reviewed batch of people as the API's role. Only `make import` runs
+  # Imports a batch of people as the API's role. Only `make import` runs
   # it, never a deploy.
   seed:
     <<: *locked-down

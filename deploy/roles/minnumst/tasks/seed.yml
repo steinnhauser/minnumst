@@ -1,36 +1,44 @@
 ---
-# Imports a reviewed batch of people; see deploy/seed.yml. Run deliberately, never
-# by a deploy. The stack must already be running the release that has the schema.
-- name: Create the batch directory
-  ansible.builtin.file:
-    path: "{{ minnumst_deploy_dir }}/seed"
-    state: directory
-    owner: root
-    group: root
-    mode: "0755"
-
-- name: Copy the batch
-  ansible.builtin.copy:
-    src: "{{ minnumst_seed_file }}"
-    dest: "{{ minnumst_deploy_dir }}/seed/batch.jsonl"
-    owner: root
-    group: root
-    mode: "0644"
-
+# Imports a batch of people from the operator's machine; see deploy/seed.yml. Run
+# deliberately, never by a deploy. The stack must already be running the release
+# that has the schema. The batch doesn't stay on the host.
 - name: Back up the database first (NIST CP-9)
   ansible.builtin.systemd_service:
     name: minnumst-backup.service
     state: started
   when: minnumst_seed_action != "plan"
 
-- name: Run the batch
-  ansible.builtin.command:
-    argv: >-
-      {{ minnumst_compose + ['--profile', 'seed', 'run', '--rm', '--no-deps', 'seed',
-      'python', '-m', 'minnumst_api.seed', minnumst_seed_action, '/seed/batch.jsonl'] }}
-  register: minnumst_seed_result
-  changed_when: minnumst_seed_action != "plan"
+- name: Run the batch, then delete it from the host
+  block:
+    - name: Create the batch directory
+      ansible.builtin.file:
+        path: "{{ minnumst_deploy_dir }}/seed"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
 
-- name: Report
-  ansible.builtin.debug:
-    msg: "{{ minnumst_seed_result.stdout_lines | last }}"
+    - name: Upload the batch
+      ansible.builtin.copy:
+        src: "{{ minnumst_seed_file }}"
+        dest: "{{ minnumst_deploy_dir }}/seed/batch.jsonl"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Run the batch
+      ansible.builtin.command:
+        argv: >-
+          {{ minnumst_compose + ['--profile', 'seed', 'run', '--rm', '--no-deps', 'seed',
+          'python', '-m', 'minnumst_api.seed', minnumst_seed_action, '/seed/batch.jsonl'] }}
+      register: minnumst_seed_result
+      changed_when: minnumst_seed_action != "plan"
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "{{ minnumst_seed_result.stdout_lines | last }}"
+  always:
+    - name: Delete the batch from the host
+      ansible.builtin.file:
+        path: "{{ minnumst_deploy_dir }}/seed"
+        state: absent

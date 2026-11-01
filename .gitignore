@@ -64,6 +64,8 @@ infra/terraform.tfvars
 
 # Local Compose stack: rendered configuration and local credentials
 tools/compose/.local/
+# Batches of people to import stay on the operator's machine (`make import`).
+deploy/seed/
 tools/compose/local-vars.yml
 
 # Editors and operating systems

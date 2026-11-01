@@ -1,16 +1,18 @@
 """Who the archive may hold: only people dead for more than five years.
 
 Iceland's Act 90/2018 covers the dead for five years. A person qualifies through
-a recorded date of death more than five years ago or, without one, through being
-born at least 128 years before the current year. Every way in (the API and the
-import) goes through this one rule, and doubtful dates count against a person.
+a recorded date of death more than five years and two months ago, the two months
+being a margin for inexact records, or, without one, through being born at least
+128 years before the current year. Every way in (the API and the import) goes
+through this one rule, and doubtful dates count against a person.
 """
 
 import re
+from calendar import monthrange
 from datetime import UTC, date, datetime
 
 PARTIAL_DATE = re.compile(r"^\d{4}(-\d{2}-\d{2})?$")
-YEARS_DEAD = 5
+MONTHS_DEAD = 5 * 12 + 2
 YEARS_SINCE_BIRTH = 128
 
 
@@ -29,22 +31,26 @@ def _latest_day(value: str) -> date:
     return date.fromisoformat(value if len(value) > 4 else f"{value}-12-31")
 
 
+def _months_before(today: date, months: int) -> date:
+    """The same day that many months earlier, or that month's last day if shorter."""
+    year, month = divmod(today.year * 12 + today.month - 1 - months, 12)
+    month += 1
+    return date(year, month, min(today.day, monthrange(year, month)[1]))
+
+
 def is_eligible(
     birth_date: str | None, death_date: str | None, today: date | None = None
 ) -> bool:
     today = today or datetime.now(UTC).date()
     if death_date:
-        # Five years before today; February 29 falls back to February 28.
-        day = 28 if (today.month, today.day) == (2, 29) else today.day
-        return _latest_day(death_date) < today.replace(
-            year=today.year - YEARS_DEAD, day=day
-        )
+        return _latest_day(death_date) < _months_before(today, MONTHS_DEAD)
     if birth_date:
         return int(birth_date[:4]) <= today.year - YEARS_SINCE_BIRTH
     return False
 
 
 INELIGIBLE = (
-    "The archive only holds people with a recorded death more than five years ago "
+    "The archive only holds people with a recorded death more than five years and "
+    "two months ago "
     f"or, without one, born at least {YEARS_SINCE_BIRTH} years before this year"
 )

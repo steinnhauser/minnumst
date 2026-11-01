@@ -14,9 +14,9 @@ TODAY = date(2026, 11, 1)
     ("birth", "death", "expected"),
     [
         # A death on record decides, whatever the birth year.
-        (None, "2021-10-31", True),
-        (None, "2021-11-01", False),
-        (None, "2021-11-02", False),
+        (None, "2021-08-31", True),
+        (None, "2021-09-01", False),
+        (None, "2021-10-31", False),
         ("1850", "2026-01-01", False),
         # A bare year may mean its last day.
         (None, "2020", True),
@@ -35,11 +35,17 @@ def test_boundaries_of_the_rule(
     assert is_eligible(birth, death, TODAY) is expected
 
 
-def test_a_leap_day_does_not_break_the_rule() -> None:
-    leap_day = date(2028, 2, 29)
+def test_a_shorter_month_does_not_break_the_rule() -> None:
+    # Two months and five years before April 30 lands on a February with 28 days.
+    today = date(2028, 4, 30)
 
-    assert is_eligible(None, "2023-02-27", leap_day)
-    assert not is_eligible(None, "2023-02-28", leap_day)
+    assert is_eligible(None, "2023-02-27", today)
+    assert not is_eligible(None, "2023-02-28", today)
+
+
+def test_a_bare_year_qualifies_only_once_all_of_it_is_past_the_margin() -> None:
+    assert not is_eligible(None, "2021", date(2027, 2, 28))
+    assert is_eligible(None, "2021", date(2027, 3, 1))
 
 
 @pytest.mark.parametrize(

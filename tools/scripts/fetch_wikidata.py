@@ -3,8 +3,8 @@
 
 Asks the public query service once and keeps only names, birth and death dates
 and links, and only for people who pass the archive's rule: the answer includes
-living people, who must never reach a file. The file is committed and read before
-anything is imported, and the import checks every person again
+living people, who must never reach a file. The file stays out of Git and is read
+before anything is imported, and the import checks every person again
 (`minnumst_api.seed`). Run with `make import fetch`.
 """
 

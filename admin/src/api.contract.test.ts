@@ -204,7 +204,7 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
   it("refuses people who fail the five-year rule", async () => {
     const error = await failure(api.createPerson(`${run} Too Young`, "1990"));
     expect(error.status).toBe(422);
-    expect(error.message).toContain("more than five years ago");
+    expect(error.message).toContain("more than five years and");
   });
 
   it("rejects names that differ only in accents, case or spacing with 409", async () => {

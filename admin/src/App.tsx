@@ -585,8 +585,8 @@ function App() {
                     </div>
                   </div>
                   <p className="person-name-note">
-                    Only people who died more than five years ago or, with no
-                    known death, were born at least 128 years ago.
+                    Only people who died more than five years and two months ago
+                    or, with no known death, were born at least 128 years ago.
                   </p>
                   {selectedPost && (
                     <div className="person-name-actions">

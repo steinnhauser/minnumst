@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 
-// The interface in two languages, chosen by the address: /is/... is Icelandic.
+// The interface in two languages, chosen by the address: Icelandic by default, and
+// English under /en.
 // Names and stories stay as they were written. No sentence puts a name inside
 // Icelandic text, because names inflect and these strings can't decline them.
 export type Language = "en" | "is";
@@ -8,6 +9,7 @@ export type Language = "en" | "is";
 const en = {
   locale: "en-GB",
   otherLanguageName: "Íslenska",
+  languageNotice: "",
   title: "Minnumst | A shared history of ancestors",
   home: "Minnumst home",
   tagline: "A SHARED HISTORY OF ANCESTORS",
@@ -31,10 +33,10 @@ const en = {
   publicNote: "Open to everyone · No sign-in needed",
   about: "About the archive",
   panelFooter: "ICELAND · PEOPLE · MEMORY",
-  photoAlt: "A group of hikers crossing a green mountain trail",
-  photoEyebrow: "THE STORIES THAT MAKE A PLACE",
+  photoAlt:
+    "Grafarkirkja, a small old church with a turf roof, under a pale sky",
+  photoEyebrow: "GRAFARKIRKJA, NEAR HOFSÓS",
   photoCaption: ["Remembered", "together."],
-  photoIndex: "01 / PEOPLE & PLACE",
   aboutEyebrow: "A SHARED RECORD",
   aboutText:
     "A growing collection of the stories of those who came before us, kept with care by the people who remember them.",
@@ -79,12 +81,13 @@ const en = {
   dataPromise:
     "This archive only holds people who died more than five years ago, and it uses no tracking or analytics. To correct or remove something, use “Suggest an edit” on a person's page or write to us.",
   dataLink: "Data protection and sources",
-  photoCredit: "Landing photograph from Unsplash",
+  photoCredit: "Photograph: Grafarkirkja, by Syrio",
 };
 
 const is: typeof en = {
   locale: "is-IS",
   otherLanguageName: "English",
+  languageNotice: "Don't read Icelandic? Read this site in English",
   title: "Minnumst | Sameiginleg saga forfeðra",
   home: "Minnumst, forsíða",
   tagline: "SAMEIGINLEG SAGA FORFEÐRA",
@@ -107,10 +110,9 @@ const is: typeof en = {
   publicNote: "Öllum opið · Engin innskráning",
   about: "Um safnið",
   panelFooter: "ÍSLAND · FÓLK · MINNING",
-  photoAlt: "Hópur göngufólks á grænum fjallaslóða",
-  photoEyebrow: "SÖGURNAR SEM MÓTA STAÐINN",
+  photoAlt: "Grafarkirkja, lítil gömul kirkja með torfþaki, undir fölum himni",
+  photoEyebrow: "GRAFARKIRKJA VIÐ HOFSÓS",
   photoCaption: ["Minnumst", "saman."],
-  photoIndex: "01 / FÓLK OG STAÐUR",
   aboutEyebrow: "SAMEIGINLEG HEIMILD",
   aboutText:
     "Vaxandi safn af sögum þeirra sem á undan okkur gengu, varðveitt af alúð af þeim sem minnast þeirra.",
@@ -156,28 +158,33 @@ const is: typeof en = {
   dataPromise:
     "Hér eru aðeins skráðir einstaklingar sem létust fyrir meira en fimm árum, og engin rakning eða greining er notuð. Til að leiðrétta eða fjarlægja eitthvað geturðu notað „Leggja til breytingu“ á síðu viðkomandi eða skrifað til okkar.",
   dataLink: "Persónuvernd og heimildir",
-  photoCredit: "Forsíðumynd frá Unsplash",
+  photoCredit: "Ljósmynd: Grafarkirkja, eftir Syrio",
 };
 
 export const translations = { en, is };
 export type Translations = typeof en;
 
-const ICELANDIC_PATH = /^\/is(\/|$)/;
+const ENGLISH_PATH = /^\/en(\/|$)/;
 
 export function languageFromPath(pathname: string): Language {
-  return ICELANDIC_PATH.test(pathname) ? "is" : "en";
+  return ENGLISH_PATH.test(pathname) ? "en" : "is";
 }
 
 // The address without its language prefix.
 export function withoutLanguage(pathname: string): string {
-  return pathname.replace(ICELANDIC_PATH, "/");
+  return pathname.replace(ENGLISH_PATH, "/");
 }
 
 export function inLanguage(language: Language, path: string): string {
-  return language === "is" ? `/is${path === "/" ? "" : path}` : path;
+  return language === "en" ? `/en${path === "/" ? "" : path}` : path;
 }
 
-export const LanguageContext = createContext<Language>("en");
+// Whether the browser reads Icelandic; everyone else gets a pointer to English.
+export function browserReadsIcelandic(): boolean {
+  return navigator.languages.some((tag) => /^is\b/i.test(tag));
+}
+
+export const LanguageContext = createContext<Language>("is");
 
 export function useTranslations(): Translations {
   return translations[useContext(LanguageContext)];

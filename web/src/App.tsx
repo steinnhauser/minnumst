@@ -15,6 +15,7 @@ import {
 } from "./api";
 import { lifespan } from "./dates";
 import {
+  browserReadsIcelandic,
   inLanguage,
   LanguageContext,
   languageFromPath,
@@ -64,6 +65,11 @@ function App() {
   // while the page is open.
   const [language] = useState(() => languageFromPath(window.location.pathname));
   const t = translations[language];
+  const otherLanguage = language === "en" ? "is" : "en";
+  const otherLanguagePath = inLanguage(
+    otherLanguage,
+    withoutLanguage(window.location.pathname),
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [searchMessage, setSearchMessage] = useState("");
   const [suggestions, setSuggestions] = useState<readonly Person[]>([]);
@@ -278,12 +284,9 @@ function App() {
               <p className="header-note">{t.tagline}</p>
               <a
                 className="language-link"
-                href={inLanguage(
-                  language === "en" ? "is" : "en",
-                  withoutLanguage(window.location.pathname),
-                )}
-                hrefLang={language === "en" ? "is" : "en"}
-                lang={language === "en" ? "is" : "en"}
+                href={otherLanguagePath}
+                hrefLang={otherLanguage}
+                lang={otherLanguage}
               >
                 <Globe size={14} aria-hidden="true" />
                 {t.otherLanguageName}
@@ -292,6 +295,14 @@ function App() {
           </header>
 
           <div className="search-content">
+            {language === "is" && !browserReadsIcelandic() && (
+              <p className="language-notice" lang="en">
+                <a href={otherLanguagePath} hrefLang="en">
+                  {t.languageNotice}
+                  <ArrowUpRight size={14} aria-hidden="true" />
+                </a>
+              </p>
+            )}
             <p className="eyebrow">
               <span className="eyebrow-mark" aria-hidden="true" />
               {t.eyebrow}
@@ -455,7 +466,7 @@ function App() {
         </section>
 
         <figure className="photo-panel">
-          <img src="/people-on-the-trail.jpg" alt={t.photoAlt} />
+          <img src="/grafarkirkja.jpg" alt={t.photoAlt} />
           <figcaption className="photo-caption">
             <span>{t.photoEyebrow}</span>
             <p>
@@ -464,15 +475,11 @@ function App() {
               {t.photoCaption[1]}
             </p>
           </figcaption>
-          <span className="photo-index">{t.photoIndex}</span>
         </figure>
 
         <section className="about-strip" id="about" aria-label={t.about}>
           <p className="eyebrow">{t.aboutEyebrow}</p>
-          <p>
-            A growing collection of the stories of those who came before us,
-            kept with care by the people who remember them.
-          </p>
+          <p>{t.aboutText}</p>
         </section>
 
         <SiteFooter contact={CONTACT} />

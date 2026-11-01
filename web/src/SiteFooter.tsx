@@ -31,10 +31,16 @@ function SiteFooter({ contact }: { contact: string }) {
           {t.dataLink}
         </a>
         <a
-          href="https://images.unsplash.com/photo-1551632811-561732d1e306"
+          href="https://commons.wikimedia.org/wiki/File:Grafarkirkja_02.jpg"
           rel="noreferrer"
         >
           {t.photoCredit}
+        </a>
+        <a
+          href="https://creativecommons.org/licenses/by-sa/4.0/"
+          rel="noreferrer"
+        >
+          CC BY-SA 4.0
         </a>
       </div>
     </footer>

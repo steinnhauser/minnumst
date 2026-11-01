@@ -10,7 +10,7 @@ make dev-web          # http://127.0.0.1:5173
 
 ## Languages
 
-The interface is in English at `/` and Icelandic at `/is`, chosen by the address, so each language has its own links and nothing is stored in the browser. A link in the header goes to the same page in the other language. All interface text is in [`src/i18n.ts`](src/i18n.ts). Names and stories stay as they were written and aren't translated. Icelandic names inflect, so no Icelandic sentence puts a name inside its text, and born and died use the customary `f.` and `d.`, which need no gendered form.
+The interface is in Icelandic by default and in English under `/en`, chosen by the address, so each language has its own links and nothing is stored in the browser. A link in the header goes to the same page in the other language, and a browser that doesn't list Icelandic among its languages also gets a line in English pointing to the English pages. All interface text is in [`src/i18n.ts`](src/i18n.ts). Names and stories stay as they were written and aren't translated. Icelandic names inflect, so no Icelandic sentence puts a name inside its text, and born and died use the customary `f.` and `d.`, which need no gendered form.
 
 ## API usage
 
@@ -26,4 +26,4 @@ Search calls `GET /api/people?query=…&offset=…&limit=…`: 8 suggestions whi
 
 [`docker/frontend.Dockerfile`](../docker/frontend.Dockerfile) with `APP=web` and `SERVICE_NAME=minnumst-public`, built from the repository root. The image serves the build with [`packages/static-server`](../packages/static-server/) as a non-root user on port `8080` and reads `VITE_API_URL` and `LOG_LEVEL` at runtime. Its logs are JSON lines with a request ID, method, sanitised route, status and duration; query strings and slugs are not logged.
 
-The landing photograph is from [Unsplash](https://images.unsplash.com/photo-1551632811-561732d1e306) and is bundled, so the page doesn't depend on an image host.
+The landing photograph is [Grafarkirkja](https://commons.wikimedia.org/wiki/File:Grafarkirkja_02.jpg) by Syrio, under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), resized and credited in the footer. It is bundled, so the page doesn't depend on an image host.

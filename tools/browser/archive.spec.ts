@@ -1,4 +1,4 @@
-import { archive, expect, test } from "./fixtures";
+import { archive, archiveRoot, expect, test } from "./fixtures";
 
 test("a reader finds a person and reads their story", async ({
   page,
@@ -100,16 +100,20 @@ test("the about section and footer aren't hidden behind the photo", async ({
   await audit();
 });
 
-test("the archive reads in Icelandic under /is, and its links stay in Icelandic", async ({
+test("the archive opens in Icelandic, with English easy to find, and each stays itself", async ({
   page,
   audit,
 }) => {
-  await page.goto(archive);
-  await page.getByRole("link", { name: "Íslenska" }).click();
-  await expect(page).toHaveURL(/\/is$/);
+  await page.goto(archiveRoot);
   await expect(page.locator("html")).toHaveAttribute("lang", "is");
   await expect(
     page.getByRole("heading", { name: "Hverra viltu minnast?" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "English", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /Read this site in English/ }),
   ).toBeVisible();
   await audit();
 
@@ -120,11 +124,40 @@ test("the archive reads in Icelandic under /is, and its links stay in Icelandic"
     .getByRole("button")
     .first()
     .click();
-  await expect(page).toHaveURL(/\/is\/people\/[a-z0-9-]+$/);
+  await expect(page).toHaveURL(/5173\/people\/[a-z0-9-]+$/);
   await expect(page.getByText("TIL MINNINGAR")).toBeVisible();
   await audit();
 
-  await page.getByRole("link", { name: "English" }).click();
+  await page.getByRole("link", { name: "English", exact: true }).click();
+  await expect(page).toHaveURL(/\/en\/people\/[a-z0-9-]+$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.getByText("IN MEMORY OF")).toBeVisible();
+
+  await page.getByRole("link", { name: "Íslenska" }).click();
+  await expect(page).toHaveURL(/5173\/people\/[a-z0-9-]+$/);
+});
+
+test("a tag or a quote in a story stays plain text on the page", async ({
+  page,
+}, testInfo) => {
+  const attack = `<img src=x onerror="document.title='hacked'"> ' OR 1=1 --`;
+  const api = process.env.MINNUMST_API_URL ?? "http://127.0.0.1:8000";
+  const created = await page.request.post(`${api}/api/people`, {
+    data: {
+      name: `Browser Markup ${testInfo.project.name} ${Date.now()}`,
+      birth_date: "1850",
+    },
+  });
+  const person = await created.json();
+  const saved = await page.request.put(`${api}/api/people/${person.id}/story`, {
+    data: { title: attack, content: attack },
+  });
+  expect(saved.ok()).toBe(true);
+
+  await page.goto(`${archive}/people/${person.slug}`);
+
+  const profile = page.getByLabel("Person details");
+  await expect(profile.getByRole("heading", { level: 3 })).toHaveText(attack);
+  await expect(profile.locator("img")).toHaveCount(0);
+  await expect(page).not.toHaveTitle("hacked");
 });

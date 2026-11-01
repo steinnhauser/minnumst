@@ -28,7 +28,11 @@ const receipt = () => Response.json({ id: "s1", status: "pending" });
 
 async function open(person: PersonDetail = adaProfile) {
   const user = userEvent.setup();
-  render(<SuggestionForm person={person} contact="contact@example.org" />);
+  render(
+    <LanguageContext.Provider value="en">
+      <SuggestionForm person={person} contact="contact@example.org" />
+    </LanguageContext.Provider>,
+  );
   await user.click(screen.getByRole("button", { name: "Suggest an edit" }));
   return user;
 }

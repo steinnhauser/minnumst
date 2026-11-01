@@ -2,8 +2,10 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test as base } from "@playwright/test";
 
 // The local stack's addresses; override them to test other servers.
-export const archive =
+export const archiveRoot =
   process.env.MINNUMST_ARCHIVE_URL ?? "http://127.0.0.1:5173";
+// The tests read English; Icelandic, the default, has its own test.
+export const archive = `${archiveRoot}/en`;
 export const desk = process.env.MINNUMST_DESK_URL ?? "http://127.0.0.1:5174";
 
 // A page fails its test if the browser logs any error, which includes every

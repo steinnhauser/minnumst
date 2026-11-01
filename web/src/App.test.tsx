@@ -38,7 +38,7 @@ const adaJonsdottir = {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
-  window.history.replaceState(null, "", "/");
+  window.history.replaceState(null, "", "/en");
   document.title = defaultTitle;
 });
 
@@ -79,7 +79,7 @@ function searchbox() {
 
 describe("profile URLs", () => {
   it("opens the profile named in the address bar", async () => {
-    window.history.replaceState(null, "", "/people/ada-lovelace");
+    window.history.replaceState(null, "", "/en/people/ada-lovelace");
     const fetchMock = stubApi();
 
     render(<App />);
@@ -94,8 +94,8 @@ describe("profile URLs", () => {
   });
 
   it("closes the profile when the reader goes back", async () => {
-    window.history.replaceState(null, "", "/");
-    window.history.pushState(null, "", "/people/ada-lovelace");
+    window.history.replaceState(null, "", "/en");
+    window.history.pushState(null, "", "/en/people/ada-lovelace");
     stubApi();
     render(<App />);
     await screen.findByRole("heading", { name: "Ada Lovelace" });
@@ -113,7 +113,7 @@ describe("profile URLs", () => {
   });
 
   it("says when a profile has no published story", async () => {
-    window.history.replaceState(null, "", "/people/ada-lovelace");
+    window.history.replaceState(null, "", "/en/people/ada-lovelace");
     stubApi([ada], { ...ada, current_story: null, sources: [] });
 
     render(<App />);
@@ -127,7 +127,7 @@ describe("profile URLs", () => {
   });
 
   it("explains why a profile could not be loaded", async () => {
-    window.history.replaceState(null, "", "/people/missing");
+    window.history.replaceState(null, "", "/en/people/missing");
     vi.stubGlobal(
       "fetch",
       vi
@@ -154,7 +154,7 @@ describe("profile URLs", () => {
   });
 
   it("returns to the start page when searching from a profile", async () => {
-    window.history.replaceState(null, "", "/people/ada-lovelace");
+    window.history.replaceState(null, "", "/en/people/ada-lovelace");
     const user = userEvent.setup();
     stubApi();
     render(<App />);
@@ -166,7 +166,7 @@ describe("profile URLs", () => {
     expect(
       await screen.findByText("Showing 1 of 1 people."),
     ).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/en");
     expect(document.title).toBe(defaultTitle);
   });
 });
@@ -223,7 +223,7 @@ describe("public people search", () => {
     expect(screen.getByText("Notes and correspondence")).toHaveClass(
       "story-excerpt",
     );
-    expect(window.location.pathname).toBe("/people/ada-lovelace");
+    expect(window.location.pathname).toBe("/en/people/ada-lovelace");
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining(
         "/api/people?query=Ada+Lovelace&offset=0&limit=50",
@@ -320,8 +320,8 @@ describe("Icelandic", () => {
     document.documentElement.lang = "en";
   });
 
-  it("serves the interface under /is, and links to the same page in the other language", async () => {
-    window.history.replaceState(null, "", "/is/people/ada-lovelace");
+  it("serves Icelandic by default, and links to the same page in the other language", async () => {
+    window.history.replaceState(null, "", "/people/ada-lovelace");
     const fetchMock = stubApi([ada], {
       ...adaProfile,
       birth_date: "1815-12-10",
@@ -342,13 +342,13 @@ describe("Icelandic", () => {
       /\/api\/people\/by-slug\/ada-lovelace$/,
     );
     const toEnglish = screen.getByRole("link", { name: "English" });
-    expect(toEnglish).toHaveAttribute("href", "/people/ada-lovelace");
+    expect(toEnglish).toHaveAttribute("href", "/en/people/ada-lovelace");
     expect(toEnglish).toHaveAttribute("lang", "en");
     expect(screen.getByText("A life in letters")).toBeVisible();
   });
 
   it("invites a first story on a short page without declining the name", async () => {
-    window.history.replaceState(null, "", "/is/people/ada-lovelace");
+    window.history.replaceState(null, "", "/people/ada-lovelace");
     stubApi([ada], { ...ada, current_story: null, sources: [] });
 
     render(<App />);
@@ -359,7 +359,7 @@ describe("Icelandic", () => {
   });
 
   it("offers Icelandic from the English pages", async () => {
-    window.history.replaceState(null, "", "/people/ada-lovelace");
+    window.history.replaceState(null, "", "/en/people/ada-lovelace");
     stubApi();
 
     render(<App />);
@@ -367,12 +367,12 @@ describe("Icelandic", () => {
     await screen.findByRole("heading", { name: "Ada Lovelace" });
     expect(screen.getByRole("link", { name: "Íslenska" })).toHaveAttribute(
       "href",
-      "/is/people/ada-lovelace",
+      "/people/ada-lovelace",
     );
   });
 
   it("keeps the language when searching and opening a person", async () => {
-    window.history.replaceState(null, "", "/is/people/ada-lovelace");
+    window.history.replaceState(null, "", "/people/ada-lovelace");
     stubApi();
     const user = userEvent.setup();
     render(<App />);
@@ -384,20 +384,20 @@ describe("Icelandic", () => {
     );
     await user.click(screen.getByRole("button", { name: "Leita" }));
 
-    expect(window.location.pathname).toBe("/is");
+    expect(window.location.pathname).toBe("/");
     expect(await screen.findByText("Sýni 1 af 1.")).toBeVisible();
     expect(screen.getByRole("link", { name: "English" })).toHaveAttribute(
       "href",
-      "/",
+      "/en",
     );
 
     await user.click(screen.getByRole("button", { name: /Ada Lovelace/ }));
 
-    expect(window.location.pathname).toBe("/is/people/ada-lovelace");
+    expect(window.location.pathname).toBe("/people/ada-lovelace");
   });
 
   it("explains failures in Icelandic instead of the API's English", async () => {
-    window.history.replaceState(null, "", "/is/people/ada-lovelace");
+    window.history.replaceState(null, "", "/people/ada-lovelace");
     vi.stubGlobal(
       "fetch",
       vi.fn(() =>
@@ -417,15 +417,72 @@ describe("Icelandic", () => {
     expect(screen.queryByText("Out of order")).toBeNull();
   });
 
-  it("doesn't take /island or /issues for Icelandic", () => {
-    expect(languageFromPath("/is")).toBe("is");
-    expect(languageFromPath("/is/")).toBe("is");
-    expect(languageFromPath("/is/people/a")).toBe("is");
-    expect(languageFromPath("/island")).toBe("en");
-    expect(languageFromPath("/people/is")).toBe("en");
-    expect(withoutLanguage("/is")).toBe("/");
-    expect(inLanguage("is", "/")).toBe("/is");
-    expect(inLanguage("en", "/")).toBe("/");
+  it("only takes /en itself for English", () => {
+    expect(languageFromPath("/")).toBe("is");
+    expect(languageFromPath("/people/a")).toBe("is");
+    expect(languageFromPath("/en")).toBe("en");
+    expect(languageFromPath("/en/")).toBe("en");
+    expect(languageFromPath("/en/people/a")).toBe("en");
+    expect(languageFromPath("/english")).toBe("is");
+    expect(languageFromPath("/people/en")).toBe("is");
+    expect(withoutLanguage("/en")).toBe("/");
+    expect(withoutLanguage("/en/people/a")).toBe("/people/a");
+    expect(inLanguage("en", "/")).toBe("/en");
+    expect(inLanguage("en", "/people/a")).toBe("/en/people/a");
+    expect(inLanguage("is", "/")).toBe("/");
+  });
+
+  it("points readers whose browser doesn't list Icelandic to the English pages", async () => {
+    window.history.replaceState(null, "", "/");
+    stubApi();
+    render(<App />);
+
+    const notice = await screen.findByRole("link", {
+      name: /Read this site in English/,
+    });
+    expect(notice).toHaveAttribute("href", "/en");
+    expect(notice.closest("p")).toHaveAttribute("lang", "en");
+  });
+
+  it("leaves that pointer out for readers of Icelandic, and on the English pages", async () => {
+    window.history.replaceState(null, "", "/");
+    stubApi();
+    const languages = vi
+      .spyOn(navigator, "languages", "get")
+      .mockReturnValue(["is-IS", "en"]);
+    render(<App />);
+    await screen.findByRole("heading", { name: "Hverra viltu minnast?" });
+    expect(screen.queryByText(/Read this site in English/)).toBeNull();
+    expect(screen.getByRole("link", { name: "English" })).toBeVisible();
+    cleanup();
+    languages.mockRestore();
+
+    window.history.replaceState(null, "", "/en");
+    render(<App />);
+    await screen.findByRole("heading", { name: "Find someone to remember." });
+    expect(screen.queryByText(/Read this site in English/)).toBeNull();
+  });
+
+  it("shows no English text on an Icelandic page, apart from the way to English", async () => {
+    window.history.replaceState(null, "", "/");
+    stubApi();
+    vi.spyOn(navigator, "languages", "get").mockReturnValue(["is"]);
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Hverra viltu minnast?" });
+    const text = container.textContent ?? "";
+
+    for (const [key, value] of Object.entries(translations.en)) {
+      if (
+        typeof value !== "string" ||
+        value === translations.is[key as never]
+      ) {
+        continue;
+      }
+      if (key === "otherLanguageName" || key === "languageNotice") continue;
+      expect(text, key).not.toContain(value);
+    }
+    expect(text).toContain(translations.is.aboutText);
+    vi.restoreAllMocks();
   });
 
   it("has every text in both languages", () => {
@@ -437,7 +494,7 @@ describe("Icelandic", () => {
 
 describe("a person's page", () => {
   it("survives a malformed address and says the page wasn't found", async () => {
-    window.history.replaceState(null, "", "/people/%E0%A4%A");
+    window.history.replaceState(null, "", "/en/people/%E0%A4%A");
     vi.stubGlobal(
       "fetch",
       vi.fn(() =>
@@ -453,7 +510,7 @@ describe("a person's page", () => {
   });
 
   it("reports other failures in the API's own words", async () => {
-    window.history.replaceState(null, "", "/people/ada-lovelace");
+    window.history.replaceState(null, "", "/en/people/ada-lovelace");
     vi.stubGlobal(
       "fetch",
       vi.fn(() =>
@@ -472,7 +529,7 @@ describe("a person's page", () => {
     ["an answer", () => Response.json({ ...adaProfile, name: "Too late" })],
     ["an error", () => Response.json({ detail: "Too late" }, { status: 500 })],
   ])("ignores %s for a profile no longer wanted", async (_, late) => {
-    window.history.replaceState(null, "", "/people/ada-lovelace");
+    window.history.replaceState(null, "", "/en/people/ada-lovelace");
     let finish: (response: Response) => void = () => undefined;
     let calls = 0;
     vi.stubGlobal(
@@ -520,7 +577,7 @@ describe("a person's page", () => {
   });
 
   it("shows their dates and links to their sources", async () => {
-    window.history.replaceState(null, "", "/people/ada-lovelace");
+    window.history.replaceState(null, "", "/en/people/ada-lovelace");
     stubApi([ada], {
       ...adaProfile,
       birth_date: "1815-12-10",
@@ -643,7 +700,7 @@ describe("search suggestions", () => {
     await user.click(await screen.findByRole("option", { name: /Ada/ }));
 
     expect(await screen.findByText("A story about Ada.")).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/people/ada-lovelace");
+    expect(window.location.pathname).toBe("/en/people/ada-lovelace");
     expect(searchbox()).toHaveFocus();
   });
 

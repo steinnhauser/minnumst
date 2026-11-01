@@ -5,6 +5,6 @@
   "type": "module",
   "dependencies": {
     "pino": "10.4.0",
-    "serve-handler": "6.1.7"
+    "sirv": "3.0.2"
   }
 }

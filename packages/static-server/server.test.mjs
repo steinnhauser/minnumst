@@ -134,6 +134,49 @@ describe("static server", () => {
     }
   });
 
+  it("declares UTF-8 and answers HEAD and revalidation", async () => {
+    const app = await serve();
+    try {
+      const page = await app.request("/");
+      expect(page.headers.get("content-type")).toBe("text/html;charset=utf-8");
+      const etag = page.headers.get("etag");
+      expect(etag).toBeTruthy();
+
+      const unchanged = await app.request("/", {
+        headers: { "If-None-Match": etag },
+      });
+      expect(unchanged.status).toBe(304);
+      expect(unchanged.headers.get("cache-control")).toBe("no-cache");
+
+      const head = await app.request("/", { method: "HEAD" });
+      expect(head.status).toBe(200);
+      expect(await head.text()).toBe("");
+    } finally {
+      app.close();
+    }
+  });
+
+  it("serves the app for addresses that look like files, and never outside the build", async () => {
+    const app = await serve();
+    try {
+      for (const path of ["/people/jon.s", "/en/people/a.b", "/favicon.ico"]) {
+        const response = await app.request(path);
+        expect(response.status, path).toBe(200);
+        expect(await response.text(), path).toBe("<p>Minnumst</p>");
+      }
+      for (const path of [
+        "/%2e%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd",
+        "/..%2f..%2f..%2f..%2fetc/passwd",
+        "/assets/..%2f..%2f..%2f..%2fetc/passwd",
+      ]) {
+        const response = await app.request(path);
+        expect(await response.text(), path).not.toContain("root:");
+      }
+    } finally {
+      app.close();
+    }
+  });
+
   it("falls back to index.html for client-side routes without logging slugs", async () => {
     const app = await serve();
     try {

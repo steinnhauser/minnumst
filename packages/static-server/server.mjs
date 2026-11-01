@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import handler from "serve-handler";
+import sirv from "sirv";
 import { runtimeConfigScript, securityHeaders } from "./config.mjs";
 import {
   createLogger,
@@ -24,19 +24,28 @@ export function parsePort(value) {
   return port;
 }
 
-// The request handler; `serve` is serve-handler, replaceable in tests.
-export function createApp({ env, root, logger, serve = handler }) {
+// Serves from a list of the build's files made at startup, so a request can only
+// ever reach those files. Client-side routes fall back to index.html, including
+// ones that look like file names, and missing assets stay 404s.
+function fileServer(root) {
+  const dist = resolve(root, "dist");
+  let handlers;
+  return async (request, response, isAsset) => {
+    // On the first request, so a missing build is a logged 500 and not a crash.
+    handlers ??= {
+      assets: sirv(dist, { etag: true }),
+      app: sirv(dist, { etag: true, single: true, ignores: false }),
+    };
+    (isAsset ? handlers.assets : handlers.app)(request, response, () => {
+      response.writeHead(404).end("Not Found");
+    });
+  };
+}
+
+// The request handler; `serve` is the file server, replaceable in tests.
+export function createApp({ env, root, logger, serve = fileServer(root) }) {
   const runtimeConfig = runtimeConfigScript(env);
   const headers = securityHeaders(env);
-  const assetOptions = {
-    public: resolve(root, "dist"),
-    directoryListing: false,
-  };
-  // Client-side routes fall back to index.html; missing assets stay 404s.
-  const appOptions = {
-    ...assetOptions,
-    rewrites: [{ source: "/**", destination: "/index.html" }],
-  };
 
   return (request, response) => {
     const requestId = getRequestId(request.headers);
@@ -93,8 +102,7 @@ export function createApp({ env, root, logger, serve = handler }) {
       );
       return writeHead(statusCode, ...rest);
     };
-    const options = isAsset ? assetOptions : appOptions;
-    void serve(request, response, options).catch((error) => {
+    void serve(request, response, isAsset).catch((error) => {
       logger.error(
         { err: error, request_id: requestId, method: request.method, route },
         "Static request failed",

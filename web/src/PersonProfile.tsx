@@ -30,17 +30,22 @@ function PersonProfile({
         <p className="no-story">{t.noStory(person.name)}</p>
       )}
       {person.sources.length > 0 && (
-        <ul className="person-sources" aria-label={t.sources}>
-          {person.sources.map((source) => (
-            <li key={source.url}>
-              <a href={source.url} rel="noreferrer">
-                {source.title}
-              </a>
-            </li>
-          ))}
-        </ul>
+        <div className="person-sources-block">
+          <p className="eyebrow">{t.sourcesHeading}</p>
+          <ul className="person-sources" aria-label={t.sources}>
+            {person.sources.map((source) => (
+              <li key={source.url}>
+                <a href={source.url} rel="noreferrer">
+                  {source.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
-      <SuggestionForm key={person.id} person={person} contact={contact} />
+      <div className="suggestion-area">
+        <SuggestionForm key={person.id} person={person} contact={contact} />
+      </div>
     </article>
   );
 }

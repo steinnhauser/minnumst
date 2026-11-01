@@ -26,4 +26,6 @@ Typing at least 3 letters shows up to 8 suggestions, from `GET /api/people?query
 
 [`docker/frontend.Dockerfile`](../docker/frontend.Dockerfile) with `APP=web` and `SERVICE_NAME=minnumst-public`, built from the repository root. The image serves the build with [`packages/static-server`](../packages/static-server/) as a non-root user on port `8080` and reads `VITE_API_URL` and `LOG_LEVEL` at runtime. Its logs are JSON lines with a request ID, method, sanitised route, status and duration; query strings and slugs are not logged.
 
+The typefaces are Newsreader and Source Sans 3, both under the SIL Open Font License and bundled, so loading the page involves no third party. Colours are tokens in [`src/index.css`](src/index.css), with a dark set for readers who prefer it.
+
 The landing photograph is [Grafarkirkja](https://commons.wikimedia.org/wiki/File:Grafarkirkja_02.jpg) by Syrio, under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), resized and credited in the footer. It is bundled, so the page doesn't depend on an image host.

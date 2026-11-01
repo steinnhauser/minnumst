@@ -52,7 +52,6 @@ const en = {
   pageLabel: (page: number) => `Page ${page}`,
   backToResults: "← Back to the results",
   shortPage: "A short page",
-  publicNote: "Open to everyone · No sign-in needed",
   about: "About the archive",
   photoAlt:
     "Grafarkirkja, a small old church with a turf roof, under a pale sky",
@@ -72,6 +71,7 @@ const en = {
   noStory: (name: string) =>
     `No story has been written yet. If you know something of ${name}'s life, you are welcome to suggest one.`,
   sources: "Sources",
+  sourcesHeading: "SOURCES",
   suggestEdit: "Suggest an edit",
   sent: (name: string) =>
     `Thank you for helping to remember ${name}. An editor will read your suggestion before anything changes on this page.`,
@@ -87,6 +87,7 @@ const en = {
   noteRequest: "What is wrong, or what should be removed?",
   sourceLink: "Link to a source (optional)",
   send: "Send for review",
+  cancel: "Cancel",
   tooMany:
     "Many suggestions have arrived just now. Please wait a few minutes and try again; your text is still here.",
   tooLong:
@@ -150,7 +151,6 @@ const is: typeof en = {
   pageLabel: (page: number) => `Síða ${page}`,
   backToResults: "← Aftur í niðurstöður",
   shortPage: "Stutt síða",
-  publicNote: "Öllum opið · Engin innskráning",
   about: "Um safnið",
   photoAlt: "Grafarkirkja, lítil gömul kirkja með torfþaki, undir fölum himni",
   photoEyebrow: "GRAFARKIRKJA VIÐ HOFSÓS",
@@ -170,6 +170,7 @@ const is: typeof en = {
   noStory: () =>
     "Engin saga hefur enn verið skráð. Ef þú veist eitthvað um ævi viðkomandi er þér velkomið að leggja hana til.",
   sources: "Heimildir",
+  sourcesHeading: "HEIMILDIR",
   suggestEdit: "Leggja til breytingu",
   sent: () =>
     "Takk fyrir að hjálpa okkur að varðveita þessa minningu. Ritstjóri les tillöguna þína áður en nokkru er breytt á þessari síðu.",
@@ -185,6 +186,7 @@ const is: typeof en = {
   noteRequest: "Hvað er rangt eða hvað ætti að fjarlægja?",
   sourceLink: "Tengill á heimild (valkvætt)",
   send: "Senda til yfirlestrar",
+  cancel: "Hætta við",
   tooMany:
     "Margar tillögur hafa borist rétt í þessu. Bíddu í nokkrar mínútur og reyndu aftur; textinn þinn er enn hér.",
   tooLong:

@@ -115,9 +115,6 @@ describe("the front page", () => {
     render(<App />);
 
     expect(searchbox()).toHaveAttribute("placeholder", "Type a name...");
-    expect(
-      screen.getByText("Open to everyone · No sign-in needed"),
-    ).toBeInTheDocument();
     expect(document.title).toBe(defaultTitle);
   });
 

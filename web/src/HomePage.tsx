@@ -27,17 +27,10 @@ function HomePage({ englishPath }: { englishPath: string }) {
               </a>
             </p>
           )}
-          <p className="eyebrow">
-            <span className="eyebrow-mark" aria-hidden="true" />
-            {t.eyebrow}
-          </p>
+          <p className="eyebrow">{t.eyebrow}</p>
           <h1 id="page-title">{t.heading}</h1>
           <p className="intro-copy">{t.intro}</p>
           <SearchBox />
-          <p className="public-note">
-            <span aria-hidden="true" />
-            {t.publicNote}
-          </p>
         </section>
         <figure className="photo-panel">
           <img src="/grafarkirkja.jpg" alt={t.photoAlt} />

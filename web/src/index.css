@@ -1,21 +1,52 @@
+/* Warm paper and deep moss, with a touch of rust, taken from the church in the
+   photograph. Bundled typefaces, so no reader's visit reaches a third party. */
 :root {
-  --paper: #fff;
-  --ink: #1f342c;
-  --muted: #637069;
-  --line: #e2e7e1;
-  --coral: #ce4253;
-  --coral-dark: #c9384c;
-  --font-body: "Avenir Next", "Trebuchet MS", sans-serif;
+  color-scheme: light dark;
+
+  --paper: #fbf9f5;
+  --surface: #fff;
+  --band: #f2efe8;
+  --ink: #232a26;
+  --muted: #59615b;
+  --line: #e3dfd5;
+  --control-line: #8b8f88;
+  --accent: #2f4f43;
+  --accent-hover: #233d33;
+  --on-accent: #fff;
+  --rust: #8a4b2d;
+  --shadow: rgb(35 42 38 / 12%);
+
+  --font-body:
+    "Source Sans 3 Variable", "Source Sans 3", "Segoe UI", system-ui, sans-serif;
   --font-display:
-    "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    "Newsreader Variable", Newsreader, Georgia, "Times New Roman", serif;
 
   font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.6;
   color: var(--ink);
   background: var(--paper);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #171c1a;
+    --surface: #1f2522;
+    --band: #1c2220;
+    --ink: #ece8e0;
+    --muted: #a9afa9;
+    --line: #333b37;
+    --control-line: #7b827d;
+    --accent: #a9c7b7;
+    --accent-hover: #bfd7ca;
+    --on-accent: #14201b;
+    --rust: #dda47f;
+    --shadow: rgb(0 0 0 / 40%);
+  }
 }
 
 *,
@@ -26,17 +57,18 @@
 
 html {
   min-width: 320px;
-  scroll-behavior: smooth;
 }
 
 body {
   min-width: 320px;
   min-height: 100svh;
   margin: 0;
+  background: var(--paper);
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -44,7 +76,27 @@ input {
   min-height: 100svh;
 }
 
-::selection {
-  background: #f9cbd1;
+a {
   color: var(--ink);
+  text-decoration-color: var(--control-line);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition:
+    color 140ms ease,
+    text-decoration-color 140ms ease;
+}
+
+a:hover {
+  color: var(--rust);
+  text-decoration-color: currentcolor;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #d9e4dc;
+  color: #232a26;
 }

@@ -171,6 +171,24 @@ test("the archive opens in Icelandic, with English easy to find, and each stays 
   await expect(page).toHaveURL(/5173\/people\/[a-z0-9-]+$/);
 });
 
+test("every page reads well in dark mode", async ({ page, audit }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto(archive);
+  await audit();
+
+  await page.getByLabel("Search by name").fill("Sample Person");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByLabel("Search results")).toBeVisible();
+  await audit();
+
+  await page.getByLabel("Search results").getByRole("link").first().click();
+  await page.getByRole("button", { name: "Suggest an edit" }).click();
+  await expect(
+    page.getByRole("form", { name: "Suggest an edit" }),
+  ).toBeVisible();
+  await audit();
+});
+
 test("a tag or a quote in a story stays plain text on the page", async ({
   page,
 }, testInfo) => {

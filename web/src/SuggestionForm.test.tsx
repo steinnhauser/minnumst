@@ -193,6 +193,22 @@ describe("suggesting an edit", () => {
     expect(thanks).not.toHaveTextContent("Ada");
   });
 
+  it("can be closed again, keeping what was written", async () => {
+    stubFetch(receipt());
+    const user = await open();
+
+    await user.type(screen.getByRole("textbox", { name: "Title" }), "!");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("form", { name: "Suggest an edit" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Suggest an edit" }));
+
+    expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue(
+      "A life in letters!",
+    );
+  });
+
   it("moves keyboard focus to the form it opens", async () => {
     stubFetch(receipt());
     await open();

@@ -1,5 +1,4 @@
 import { useContext, useEffect, useRef, useState } from "react";
-import { ArrowUpRight } from "lucide-react";
 import { searchPeople, type PersonPage } from "./api";
 import AppLink from "./AppLink";
 import { personDetail } from "./dates";
@@ -79,11 +78,8 @@ function SearchResults({ query, page }: { query: string; page: number }) {
                 to={profilePath(language, person.slug)}
                 resultsPath={here}
               >
-                <span>
-                  <strong>{person.name}</strong>
-                  <span>{personDetail(person, t)}</span>
-                </span>
-                <ArrowUpRight size={16} aria-hidden="true" />
+                <strong>{person.name}</strong>
+                <span>{personDetail(person, t)}</span>
               </AppLink>
             </li>
           ))}

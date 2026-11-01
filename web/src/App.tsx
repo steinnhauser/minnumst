@@ -68,7 +68,7 @@ function App() {
             <AppLink className="wordmark" to={homePath(language)}>
               <span className="visually-hidden">{t.home}</span>
               <span aria-hidden="true">
-                MINNUMST<span className="wordmark-dot">.</span>
+                Minnumst<span className="wordmark-dot">.</span>
               </span>
             </AppLink>
             <div className="header-actions">

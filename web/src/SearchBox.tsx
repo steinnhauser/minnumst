@@ -6,7 +6,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { ArrowUpRight, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { searchPeople, type Person } from "./api";
 import { personDetail } from "./dates";
 import { LanguageContext, useTranslations } from "./i18n";
@@ -149,18 +149,14 @@ function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => openPerson(person)}
             >
-              <span>
-                <strong>{person.name}</strong>
-                <span>{personDetail(person, t)}</span>
-              </span>
-              <ArrowUpRight size={16} aria-hidden="true" />
+              <strong>{person.name}</strong>
+              <span>{personDetail(person, t)}</span>
             </button>
           ))}
         </div>
       </div>
       <button className="search-button" type="submit">
-        <span>{t.searchButton}</span>
-        <ArrowUpRight size={18} strokeWidth={2} aria-hidden="true" />
+        {t.searchButton}
       </button>
       <p className="search-message" role="status" aria-live="polite">
         {message}

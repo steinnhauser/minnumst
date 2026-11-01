@@ -76,7 +76,7 @@ function SuggestionForm({
   if (!isOpen) {
     return (
       <button
-        className="quiet-button"
+        className="button-secondary"
         type="button"
         onClick={() => setIsOpen(true)}
       >
@@ -93,7 +93,7 @@ function SuggestionForm({
       tabIndex={-1}
       onSubmit={(event) => void handleSubmit(event)}
     >
-      <p>
+      <p className="suggestion-intro">
         {t.formIntro} <a href={`mailto:${contact}`}>{contact}</a>.
       </p>
       <fieldset>
@@ -119,56 +119,75 @@ function SuggestionForm({
       </fieldset>
       {kind === "edit" && (
         <>
-          <label htmlFor="suggestion-title">{t.storyTitle}</label>
-          <input
-            id="suggestion-title"
-            required
-            maxLength={255}
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-          />
-          <label htmlFor="suggestion-excerpt">{t.storyExcerpt}</label>
-          <textarea
-            id="suggestion-excerpt"
-            rows={2}
-            maxLength={10000}
-            value={excerpt}
-            onChange={(event) => setExcerpt(event.target.value)}
-          />
-          <label htmlFor="suggestion-content">{t.storyContent}</label>
-          <textarea
-            id="suggestion-content"
-            required
-            rows={10}
-            maxLength={50000}
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-          />
+          <div className="suggestion-field">
+            <label htmlFor="suggestion-title">{t.storyTitle}</label>
+            <input
+              id="suggestion-title"
+              required
+              maxLength={255}
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+          </div>
+          <div className="suggestion-field">
+            <label htmlFor="suggestion-excerpt">{t.storyExcerpt}</label>
+            <textarea
+              id="suggestion-excerpt"
+              rows={2}
+              maxLength={10000}
+              value={excerpt}
+              onChange={(event) => setExcerpt(event.target.value)}
+            />
+          </div>
+          <div className="suggestion-field">
+            <label htmlFor="suggestion-content">{t.storyContent}</label>
+            <textarea
+              id="suggestion-content"
+              required
+              rows={10}
+              maxLength={50000}
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+            />
+          </div>
         </>
       )}
-      <label htmlFor="suggestion-note">
-        {kind === "edit" ? t.noteForEditor : t.noteRequest}
-      </label>
-      <textarea
-        id="suggestion-note"
-        required={kind === "request"}
-        rows={3}
-        maxLength={2000}
-        value={note}
-        onChange={(event) => setNote(event.target.value)}
-      />
-      <label htmlFor="suggestion-source">{t.sourceLink}</label>
-      <input
-        id="suggestion-source"
-        type="url"
-        maxLength={2048}
-        value={sourceUrl}
-        onChange={(event) => setSourceUrl(event.target.value)}
-      />
+      <div className="suggestion-field">
+        <label htmlFor="suggestion-note">
+          {kind === "edit" ? t.noteForEditor : t.noteRequest}
+        </label>
+        <textarea
+          id="suggestion-note"
+          required={kind === "request"}
+          rows={3}
+          maxLength={2000}
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+        />
+      </div>
+      <div className="suggestion-field">
+        <label htmlFor="suggestion-source">{t.sourceLink}</label>
+        <input
+          id="suggestion-source"
+          type="url"
+          maxLength={2048}
+          value={sourceUrl}
+          onChange={(event) => setSourceUrl(event.target.value)}
+        />
+      </div>
       {error && <p role="alert">{error}</p>}
-      <button className="quiet-button" type="submit" disabled={isSending}>
-        {t.send}
-      </button>
+      <div className="suggestion-actions">
+        <button className="button-primary" type="submit" disabled={isSending}>
+          {t.send}
+        </button>
+        <button
+          className="button-secondary"
+          type="button"
+          onClick={() => setIsOpen(false)}
+        >
+          {t.cancel}
+        </button>
+      </div>
     </form>
   );
 }

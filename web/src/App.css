@@ -490,7 +490,7 @@ a.pagination-page:hover {
   outline: 0;
 }
 
-.person-detail h2 {
+.person-detail h1 {
   margin: 0;
   font-family: var(--font-display);
   font-size: clamp(2.3rem, 5.5vw, 3.2rem);
@@ -511,7 +511,7 @@ a.pagination-page:hover {
   font-family: var(--font-display);
 }
 
-.person-story h3 {
+.person-story h2 {
   margin: 0;
   font-size: 1.6rem;
   font-weight: 500;

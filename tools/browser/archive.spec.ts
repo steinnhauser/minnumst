@@ -12,7 +12,7 @@ test("a reader finds a person and reads their story", async ({
   await page.getByLabel("Search results").getByRole("link").first().click();
 
   const profile = page.getByLabel("Person details");
-  await expect(profile.getByRole("heading", { level: 2 })).toContainText(
+  await expect(profile.getByRole("heading", { level: 1 })).toContainText(
     "Sample Person",
   );
   await expect(profile.locator(".story-content")).not.toBeEmpty();
@@ -20,10 +20,10 @@ test("a reader finds a person and reads their story", async ({
 
   // The profile has its own address, which opens it directly.
   await expect(page).toHaveURL(/\/people\/[a-z0-9-]+$/);
-  const name = await profile.getByRole("heading", { level: 2 }).textContent();
+  const name = await profile.getByRole("heading", { level: 1 }).textContent();
   await page.goto(page.url());
   await expect(
-    page.getByLabel("Person details").getByRole("heading", { level: 2 }),
+    page.getByLabel("Person details").getByRole("heading", { level: 1 }),
   ).toHaveText(name ?? "");
 });
 
@@ -114,7 +114,7 @@ test("a reader picks a search suggestion with the keyboard", async ({
   await search.press("Enter");
   await expect(suggestions).toBeHidden();
   await expect(
-    page.getByLabel("Person details").getByRole("heading", { level: 2 }),
+    page.getByLabel("Person details").getByRole("heading", { level: 1 }),
   ).toHaveText(name ?? "");
   await expect(page).toHaveURL(/\/people\/[a-z0-9-]+$/);
   await audit();
@@ -209,7 +209,7 @@ test("a tag or a quote in a story stays plain text on the page", async ({
   await page.goto(`${archive}/people/${person.slug}`);
 
   const profile = page.getByLabel("Person details");
-  await expect(profile.getByRole("heading", { level: 3 })).toHaveText(attack);
+  await expect(profile.getByRole("heading", { level: 2 })).toHaveText(attack);
   await expect(profile.locator("img")).toHaveCount(0);
   await expect(page).not.toHaveTitle("hacked");
 });

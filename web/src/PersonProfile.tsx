@@ -15,12 +15,12 @@ function PersonProfile({
     <article className="person-detail" aria-label={t.personLabel} tabIndex={0}>
       <div className="person-detail-heading">
         <p className="eyebrow">{t.inMemoryOf}</p>
-        <h2>{person.name}</h2>
+        <h1>{person.name}</h1>
         <p className="person-dates">{lifespan(person, t)}</p>
       </div>
       {person.current_story ? (
         <div className="person-story">
-          <h3>{person.current_story.title}</h3>
+          <h2>{person.current_story.title}</h2>
           {person.current_story.excerpt && (
             <p className="story-excerpt">{person.current_story.excerpt}</p>
           )}

@@ -30,7 +30,7 @@ async function openInArchive(page: Page, name: string) {
     .getByRole("link", { name: new RegExp(`^${name}`) })
     .click();
   await expect(
-    page.getByLabel("Person details").getByRole("heading", { level: 2 }),
+    page.getByLabel("Person details").getByRole("heading", { level: 1 }),
   ).toHaveText(name);
   return page.url();
 }
@@ -96,7 +96,7 @@ test("an editor renames a person and the profile keeps its address", async ({
   // Slugs are permanent, so the old address shows the new name.
   await page.goto(profile);
   await expect(
-    page.getByLabel("Person details").getByRole("heading", { level: 2 }),
+    page.getByLabel("Person details").getByRole("heading", { level: 1 }),
   ).toHaveText(renamed);
   expect(await openInArchive(page, renamed)).toBe(profile);
   await audit();

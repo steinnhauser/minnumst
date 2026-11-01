@@ -13,7 +13,7 @@ DEPLOY_WRAPPER := $(if $(wildcard infra/terraform.tfstate),$(SSH_ACCESS) run)
 INVENTORY ?= deploy/inventory/hosts.ini
 # Ask for the vault password only once there is a vault.
 VAULT_ARGS ?= $(if $(wildcard deploy/inventory/group_vars/all/vault.yml),--ask-vault-pass)
-# The batch of people `make import` works on, reviewed in Git before it is imported.
+# The batch of people `make import` works on, read first and kept out of Git.
 IMPORT_BATCH ?= deploy/seed/wikidata-2026-11.jsonl
 # Where `make infra-backup` keeps its copies of the encrypted state.
 INFRA_BACKUP_DIR ?= $(HOME)/.local/share/minnumst/infra-state
@@ -27,7 +27,7 @@ unexport VIRTUAL_ENV
 	openapi openapi-check migration build validate clean ci \
 	dev-api dev-web dev-admin \
 	stack-config up wait seed e2e contract edge backup-test browser stack-test ps logs down db-update db-clear db-reset \
-	deploy-check deploy release infra-check infra-plan infra-apply infra-inventory infra-backup ssh import
+	deploy-check deploy release infra-check infra-plan infra-apply infra-inventory infra-backup ssh import preview
 
 help:
 	@printf '%s\n' \
@@ -50,6 +50,11 @@ help:
 	  '  dev-api         API with reload on http://127.0.0.1:8000 (docs at /docs)' \
 	  '  dev-web         Public archive on http://127.0.0.1:5173' \
 	  '  dev-admin       Editorial desk on http://127.0.0.1:5174' \
+	  '' \
+	  'Preview: the app alone in containers, with no edge or login, to try on this machine' \
+	  '  preview start   Build and start it with sample people: archive on 5173, desk on 5174, API on 8000' \
+	  '  preview load    Add the batch of people in IMPORT_BATCH' \
+	  '  preview stop    Stop it and keep the data (also: preview reset, which deletes the data)' \
 	  '' \
 	  'Local stack: the deploy/ Compose template with locally built images' \
 	  '  stack-test      up, wait, seed, e2e, contract, edge, backup-test and browser in order' \
@@ -253,6 +258,15 @@ endif
 ssh:
 	@$(SSH_ACCESS) $(filter-out ssh,$(MAKECMDGOALS))
 
+# `make preview start`: the app alone, with no edge or login, to try on this machine.
+ifeq (preview,$(firstword $(MAKECMDGOALS)))
+start stop reset load:
+	@:
+endif
+
+preview:
+	@IMPORT_BATCH=$(IMPORT_BATCH) bash tools/scripts/preview.sh $(filter-out preview,$(MAKECMDGOALS))
+
 ifeq (import,$(firstword $(MAKECMDGOALS)))
 fetch plan apply remove:
 	@:
@@ -263,7 +277,8 @@ endif
 import:
 	@case "$(filter-out import,$(MAKECMDGOALS))" in \
 	  fetch) $(UV_RUN) python tools/scripts/fetch_wikidata.py $(IMPORT_BATCH) ;; \
-	  plan|apply|remove) $(DEPLOY_WRAPPER) env -C deploy $(UV_RUN) ansible-playbook -i $(abspath $(INVENTORY)) $(VAULT_ARGS) seed.yml \
+	  plan|apply|remove) test -f $(IMPORT_BATCH) || { echo 'No $(IMPORT_BATCH): run `make import fetch` first.'; exit 1; }; \
+	    $(DEPLOY_WRAPPER) env -C deploy $(UV_RUN) ansible-playbook -i $(abspath $(INVENTORY)) $(VAULT_ARGS) seed.yml \
 	    -e minnumst_seed_action=$(filter-out import,$(MAKECMDGOALS)) -e minnumst_seed_file=$(abspath $(IMPORT_BATCH)) ;; \
 	  *) echo 'Usage: make import fetch|plan|apply|remove [IMPORT_BATCH=file]'; exit 2 ;; \
 	esac

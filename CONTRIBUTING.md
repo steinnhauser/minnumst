@@ -46,6 +46,10 @@ When an API route or schema changes, change the contract in one pull request, in
 
 When a model changes, run `make migration MESSAGE="describe the change"`, review the generated file in `api/src/minnumst_api/migrations/versions/`, and grant any new table to the runtime role in the same migration. `make test` fails if the models and the migrations disagree.
 
+## Trying a feature in a browser
+
+`make preview start` builds the release images and runs just the app on this machine, from [`tools/compose/preview.yml`](tools/compose/preview.yml): PostgreSQL, the API, the archive on <http://127.0.0.1:5173> and the desk on <http://127.0.0.1:5174>, with sample people. There is no Traefik or Authentik, so the desk opens without a login, and everything listens on loopback only. After a code change, run `make preview start` again. `make preview load` adds a batch of people, `make preview stop` keeps the data and `make preview reset` deletes it.
+
 ## Development servers
 
 Run each server in its own terminal. The defaults connect them to each other; override a setting with an environment variable or a `.env` file in the component's folder.

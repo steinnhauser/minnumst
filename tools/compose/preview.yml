@@ -1,0 +1,69 @@
+# The app alone, to try on this machine before a release (`make preview start`): the
+# release images and PostgreSQL, without the edge or the login, on loopback only.
+# The password is for this throwaway local database.
+name: minnumst-preview
+
+x-database-url: &database-url postgresql+psycopg://minnumst:preview@postgres:5432/minnumst
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: minnumst
+      POSTGRES_PASSWORD: preview
+      POSTGRES_DB: minnumst
+    healthcheck:
+      test: [CMD, pg_isready, --username, minnumst]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - data:/var/lib/postgresql
+
+  api:
+    image: minnumst-preview/api
+    build:
+      context: ../..
+      dockerfile: docker/api.Dockerfile
+    command:
+      - sh
+      - -c
+      - python -m minnumst_api.migrate && exec uvicorn minnumst_api.main:app --host 0.0.0.0 --port 8000 --no-access-log
+    environment:
+      DATABASE_URL: *database-url
+      CORS_ORIGINS: http://127.0.0.1:5173,http://127.0.0.1:5174
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  web:
+    image: minnumst-preview/web
+    build:
+      context: ../..
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        APP: web
+        SERVICE_NAME: minnumst-public
+    environment:
+      VITE_API_URL: http://127.0.0.1:8000
+    ports:
+      - "127.0.0.1:5173:8080"
+
+  admin:
+    image: minnumst-preview/admin
+    build:
+      context: ../..
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        APP: admin
+        SERVICE_NAME: minnumst-admin
+        RUNTIME_CONFIG_KEYS: VITE_API_URL DEBUG
+    environment:
+      VITE_API_URL: http://127.0.0.1:8000
+    ports:
+      - "127.0.0.1:5174:8080"
+
+volumes:
+  data:

@@ -68,6 +68,8 @@ Fill the archive from open sources while keeping to the [data protection rules](
 
 ## `admin/`
 
+- [ ] Let editors mark a version "do not restore" when text was removed at a family's request or for privacy. Today a warning covers this.
+
 - [ ] Localise the editor in Icelandic and English, preserving story content as authored. Test validation, loading, save status, history and preview in both languages.
 - [ ] Add portrait selection and upload once the API's media contract exists. Don't keep image bytes in browser state or imply the feature exists before then.
 

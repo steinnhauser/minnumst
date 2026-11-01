@@ -1,13 +1,13 @@
 # Contributing
 
-Thanks for contributing to Minnumst. Please discuss substantial changes in an issue before opening a pull request.
+Thanks for contributing to Minnumst. Minnumst holds stories about people's family members who have passed away, so write interface text and samples with that in mind. Please discuss substantial changes in an issue before opening a pull request.
 
 ## Ground rules
 
 - Keep each pull request focused, ideally on one component (`api/`, `web/`, `admin/`, `deploy/` or `tools/`). Describe the change and the checks you ran, and link related issues.
 - Never commit credentials, `.env` files, vault passwords, decrypted secrets, real inventories, or local databases. The root `.gitignore` covers the usual paths; check `git status` before committing anyway.
 - Follow the [data protection rules](README.md#data-protection-and-sources) in every change and every sample. Only people who died more than five years and two months ago or were born at least 128 years ago, no living people (including relatives named in obituaries), nothing confidential, and links with our own summaries instead of copied text. Test data and screenshots stay fictional.
-- Story history is immutable: every save appends a revision. Don't add routes or UI that overwrite or delete revisions.
+- Story history is immutable: every save appends a version, and restoring publishes an old text as a new version. Don't add routes or UI that overwrite or delete versions.
 - Update documentation when behaviour, setup or operator steps change. Include screenshots for visual changes.
 
 ## Setup
@@ -71,7 +71,7 @@ make dev-admin    # http://127.0.0.1:5174
 5. `make contract` runs the real API clients of both frontends against `MINNUMST_API_URL` (default `http://127.0.0.1:8000`), and `make test` skips them. The public archive's suite ([`web/src/api.contract.test.ts`](web/src/api.contract.test.ts)) only reads, and checks the response shapes against the generated types, empty results, the `404` message, accent-insensitive search for `Sólveig Þorgrímsdóttir`, and the `limit` and `offset` bounds. The editorial desk's suite ([`admin/src/api.contract.test.ts`](admin/src/api.contract.test.ts)) creates, renames and writes stories, and checks the shapes, name normalisation and the `409` for names that differ only in accents or case, append-only revisions, the `404` and `422` messages, and request IDs on errors. Its people are all named `Contract test …`, and because the API can't delete a person with a story, `make contract` then removes them from the local database (`tools/scripts/e2e_api.py cleanup-contract`, in the migrate container), even when a test fails;
 6. `make edge` runs `tools/scripts/e2e_edge.sh`, which goes through Traefik like a browser: the HTTPS redirect, HSTS and CSP, public reads, authentication on the editorial desk, on every write method and on editor routes however the path is spelled, a visitor's suggestion passing without a login under its own limits, (the stand-in accepts `Authorization: Bearer local-edge-test`), and the API rate limit. Authentik itself runs in the stack, and the same script checks that its blueprint applied (mandatory TOTP, the two allowed groups) and that its real forward-auth endpoint sends an anonymous request to the login page. It also checks the rendered production Compose file for network isolation and container hardening;
 7. `make backup-test` dumps the database as the nightly backup does, restores it into a fresh database and compares the data;
-8. `make browser` runs the Playwright tests in [`tools/browser/`](tools/browser/) at desktop and phone widths: a reader searching the archive and reading a story, an editor writing two revisions and seeing both in the history, and a visitor's suggestion published only after an editor accepts it. A test fails on any browser console error, which includes Content Security Policy violations, and on serious accessibility problems found by axe. Install the browser once with `npx playwright install chromium`. To run them against the development servers instead of the stack, set `MINNUMST_ARCHIVE_URL` and `MINNUMST_DESK_URL` (default `http://127.0.0.1:5173` and `http://127.0.0.1:5174`); the development servers send no Content Security Policy, so only the stack checks it.
+8. `make browser` runs the Playwright tests in [`tools/browser/`](tools/browser/) at desktop and phone widths: a reader searching the archive and reading a story, an editor writing two versions, comparing them and publishing the earlier one again, and a visitor's suggestion published only after an editor accepts it. A test fails on any browser console error, which includes Content Security Policy violations, and on serious accessibility problems found by axe. Install the browser once with `npx playwright install chromium`. To run them against the development servers instead of the stack, set `MINNUMST_ARCHIVE_URL` and `MINNUMST_DESK_URL` (default `http://127.0.0.1:5173` and `http://127.0.0.1:5174`); the development servers send no Content Security Policy, so only the stack checks it.
 
 Use `make ps`, `make logs SERVICES="api public admin"` and `make down` to inspect and stop the stack; `down` keeps the database volume. `make db-update` appends revisions when the sample stories change, and `make db-clear` and `make db-reset` wipe the local database after asking for confirmation.
 
@@ -79,7 +79,7 @@ To change the local settings, for example `minnumst_log_level: DEBUG`, copy `too
 
 ## Commit messages
 
-Use [Conventional Commits](https://www.conventionalcommits.org/) with the component as the scope, for example `feat(web): add profile filters`, `fix(api): validate blog revisions` or `docs(deploy): clarify vault setup`. Changes to shared tooling use `build:`, `ci:` or `chore:` without a component scope.
+Use [Conventional Commits](https://www.conventionalcommits.org/) with the component as the scope, for example `feat(web): add profile filters`, `fix(api): validate story versions` or `docs(deploy): clarify vault setup`. Changes to shared tooling use `build:`, `ci:` or `chore:` without a component scope.
 Use `!` or a `BREAKING CHANGE:` footer for incompatible changes. Release notes and version bumps come from these messages: `feat` bumps the minor version, `fix` and `perf` the patch version, and breaking changes the major version (the minor version before 1.0). A commit counts towards a component when it touches the component's files and isn't scoped to another component.
 
 ## Releases

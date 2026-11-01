@@ -57,7 +57,7 @@ Fill the archive from open sources while keeping to the [data protection rules](
 ## `api/`
 
 - [ ] Design the portrait and media contract with `admin/` and `deploy/`: upload authorisation, content type and size validation, metadata, retention and deletion, and delivery. Prefer object storage for the bytes with metadata in the database, unless storing them in PostgreSQL is a deliberate decision. Browsers never query the database directly.
-- [ ] Support autocomplete with bounded results and a predictable minimum query length. Benchmark the normalised-name `ILIKE` search on PostgreSQL, and add indexes (for example a `pg_trgm` GIN index) only from measured query plans.
+- [ ] Benchmark the normalised-name `ILIKE` search on PostgreSQL, and add indexes (for example a `pg_trgm` GIN index) only from measured query plans.
 - [ ] Localise validation and error messages only where the clients need it. Stored names and story content stay language-neutral.
 
 ## `web/`

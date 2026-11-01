@@ -11,9 +11,9 @@ Minnumst has a public archive for reading stories, an editorial desk for writing
 It is self-hosted with OpenTofu, Ansible and Docker Compose behind Traefik, with Authentik guarding the editorial desk and everything editors do, on a host hardened against the CIS and NIST security frameworks.
 
 <p align="center">
-  <img src="docs/assets/screenshot-web.jpg" alt="Public archive: search beside a photograph of a turf-roofed church" width="72%">
+  <img src="docs/assets/screenshot-web.jpg" alt="Public archive: the search beside a framed photograph of a turf-roofed church" width="72%">
   &nbsp;
-  <img src="docs/assets/screenshot-mobile.jpg" alt="Public archive on a phone: search result and story" width="22%">
+  <img src="docs/assets/screenshot-mobile.jpg" alt="Public archive on a phone: a person\'s page with their story" width="22%">
 </p>
 <p align="center">
   <img src="docs/assets/screenshot-admin.png" alt="Editorial desk: list of people and the version history of one story" width="95%">

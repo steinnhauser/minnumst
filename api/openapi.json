@@ -1,10 +1,10 @@
 {
   "components": {
     "schemas": {
-      "BlogResponse": {
+      "EditedStoryResponse": {
         "properties": {
           "current_revision": {
-            "$ref": "#/components/schemas/BlogRevisionResponse"
+            "$ref": "#/components/schemas/StoryRevisionDetail"
           },
           "id": {
             "title": "Id",
@@ -25,102 +25,7 @@
           "revision_count",
           "current_revision"
         ],
-        "title": "BlogResponse",
-        "type": "object"
-      },
-      "BlogRevisionInput": {
-        "properties": {
-          "content": {
-            "minLength": 1,
-            "title": "Content",
-            "type": "string"
-          },
-          "excerpt": {
-            "default": "",
-            "maxLength": 10000,
-            "title": "Excerpt",
-            "type": "string"
-          },
-          "title": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "title",
-          "content"
-        ],
-        "title": "BlogRevisionInput",
-        "type": "object"
-      },
-      "BlogRevisionResponse": {
-        "properties": {
-          "content": {
-            "title": "Content",
-            "type": "string"
-          },
-          "excerpt": {
-            "title": "Excerpt",
-            "type": "string"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "revision_number": {
-            "title": "Revision Number",
-            "type": "integer"
-          },
-          "saved_at": {
-            "format": "date-time",
-            "title": "Saved At",
-            "type": "string"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "revision_number",
-          "saved_at",
-          "title",
-          "excerpt",
-          "content"
-        ],
-        "title": "BlogRevisionResponse",
-        "type": "object"
-      },
-      "BlogSummary": {
-        "properties": {
-          "excerpt": {
-            "title": "Excerpt",
-            "type": "string"
-          },
-          "revision_count": {
-            "title": "Revision Count",
-            "type": "integer"
-          },
-          "saved_at": {
-            "format": "date-time",
-            "title": "Saved At",
-            "type": "string"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "title",
-          "excerpt",
-          "saved_at",
-          "revision_count"
-        ],
-        "title": "BlogSummary",
+        "title": "EditedStoryResponse",
         "type": "object"
       },
       "ErrorResponse": {
@@ -204,25 +109,15 @@
             ],
             "title": "Birth Date"
           },
-          "blog": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/BlogSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
-          "current_blog": {
+          "current_story": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/BlogRevisionResponse"
+                "$ref": "#/components/schemas/StoryRevisionResponse"
               },
               {
                 "type": "null"
@@ -259,6 +154,16 @@
             },
             "title": "Sources",
             "type": "array"
+          },
+          "story": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StorySummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "updated_at": {
             "format": "date-time",
@@ -320,16 +225,6 @@
             ],
             "title": "Birth Date"
           },
-          "blog": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/BlogSummary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -357,6 +252,16 @@
           "slug": {
             "title": "Slug",
             "type": "string"
+          },
+          "story": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StorySummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "updated_at": {
             "format": "date-time",
@@ -447,13 +352,262 @@
         "title": "PersonVisibility",
         "type": "object"
       },
+      "RevisionRestore": {
+        "properties": {
+          "base_revision_number": {
+            "anyOf": [
+              {
+                "maximum": 2147483647.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Revision Number"
+          },
+          "change_note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Note"
+          }
+        },
+        "title": "RevisionRestore",
+        "type": "object"
+      },
+      "StoryResponse": {
+        "properties": {
+          "current_revision": {
+            "$ref": "#/components/schemas/StoryRevisionResponse"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "person_id": {
+            "title": "Person Id",
+            "type": "string"
+          },
+          "revision_count": {
+            "title": "Revision Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "revision_count",
+          "current_revision"
+        ],
+        "title": "StoryResponse",
+        "type": "object"
+      },
+      "StoryRevisionDetail": {
+        "description": "A version as editors see it. The public never sees who saved it or why.",
+        "properties": {
+          "change_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Note"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_by": {
+            "title": "Created By",
+            "type": "string"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "restored_from": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restored From"
+          },
+          "revision_number": {
+            "title": "Revision Number",
+            "type": "integer"
+          },
+          "saved_at": {
+            "format": "date-time",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision_number",
+          "saved_at",
+          "title",
+          "excerpt",
+          "content",
+          "created_by",
+          "change_note",
+          "restored_from"
+        ],
+        "title": "StoryRevisionDetail",
+        "type": "object"
+      },
+      "StoryRevisionInput": {
+        "properties": {
+          "base_revision_number": {
+            "anyOf": [
+              {
+                "maximum": 2147483647.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The version this edit started from (0 for no story yet). If the story has moved on, the save answers 409 and changes nothing. Omit to skip.",
+            "title": "Base Revision Number"
+          },
+          "change_note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Note"
+          },
+          "content": {
+            "maxLength": 200000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "excerpt": {
+            "default": "",
+            "maxLength": 10000,
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "content"
+        ],
+        "title": "StoryRevisionInput",
+        "type": "object"
+      },
+      "StoryRevisionResponse": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "revision_number": {
+            "title": "Revision Number",
+            "type": "integer"
+          },
+          "saved_at": {
+            "format": "date-time",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision_number",
+          "saved_at",
+          "title",
+          "excerpt",
+          "content"
+        ],
+        "title": "StoryRevisionResponse",
+        "type": "object"
+      },
+      "StorySummary": {
+        "properties": {
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "revision_count": {
+            "title": "Revision Count",
+            "type": "integer"
+          },
+          "saved_at": {
+            "format": "date-time",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "excerpt",
+          "saved_at",
+          "revision_count"
+        ],
+        "title": "StorySummary",
+        "type": "object"
+      },
       "SuggestionAcceptance": {
         "description": "The story as the editor wants it; omitted, the visitor's text is used.",
         "properties": {
           "story": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/BlogRevisionInput"
+                "$ref": "#/components/schemas/StoryRevisionInput"
               },
               {
                 "type": "null"
@@ -470,7 +624,8 @@
           "base_revision_number": {
             "anyOf": [
               {
-                "minimum": 1.0,
+                "maximum": 2147483647.0,
+                "minimum": 0.0,
                 "type": "integer"
               },
               {
@@ -640,7 +795,7 @@
           "current_revision": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/BlogRevisionResponse"
+                "$ref": "#/components/schemas/StoryRevisionResponse"
               },
               {
                 "type": "null"
@@ -839,10 +994,10 @@
         "summary": "List Hidden People"
       }
     },
-    "/api/admin/people/{person_id}/blog/revisions": {
+    "/api/admin/people/{person_id}/story/revisions": {
       "get": {
         "description": "The full revision history, newest first. For editors only: the public sees just the current revision, so text an editor removes from a story stops being public while the record of it is kept.",
-        "operationId": "list_blog_revisions_api_admin_people__person_id__blog_revisions_get",
+        "operationId": "list_story_revisions_api_admin_people__person_id__story_revisions_get",
         "parameters": [
           {
             "in": "path",
@@ -861,9 +1016,9 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/BlogRevisionResponse"
+                    "$ref": "#/components/schemas/StoryRevisionDetail"
                   },
-                  "title": "Response List Blog Revisions Api Admin People  Person Id  Blog Revisions Get",
+                  "title": "Response List Story Revisions Api Admin People  Person Id  Story Revisions Get",
                   "type": "array"
                 }
               }
@@ -891,7 +1046,100 @@
             "description": "Validation Error"
           }
         },
-        "summary": "List Blog Revisions"
+        "summary": "List Story Revisions"
+      }
+    },
+    "/api/admin/people/{person_id}/story/revisions/{revision_number}/restore": {
+      "post": {
+        "description": "Publish an earlier version again. It becomes a new version with the same text, so nothing is overwritten and the restore can itself be undone.",
+        "operationId": "restore_revision_api_admin_people__person_id__story_revisions__revision_number__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "person_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Person Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "revision_number",
+            "required": true,
+            "schema": {
+              "maximum": 2147483647,
+              "minimum": 1,
+              "title": "Revision Number",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Authentik-Username",
+            "required": false,
+            "schema": {
+              "default": "unknown",
+              "maxLength": 255,
+              "title": "X-Authentik-Username",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevisionRestore"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditedStoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Person or story not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflicts with stored data"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Revision"
       }
     },
     "/api/admin/people/{person_id}/visibility": {
@@ -980,6 +1228,7 @@
             "required": false,
             "schema": {
               "default": 0,
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
@@ -1209,6 +1458,7 @@
             "schema": {
               "default": 0,
               "description": "Number of matches to skip",
+              "maximum": 2147483647,
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
@@ -1520,10 +1770,10 @@
         "summary": "Update Person"
       }
     },
-    "/api/people/{person_id}/blog": {
+    "/api/people/{person_id}/story": {
       "get": {
         "description": "Read just the person's story: its current revision and how many revisions it has, without the person or the full history. No frontend calls it; it returns 404 for a person without a story.",
-        "operationId": "read_blog_api_people__person_id__blog_get",
+        "operationId": "read_story_api_people__person_id__story_get",
         "parameters": [
           {
             "in": "path",
@@ -1541,7 +1791,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BlogResponse"
+                  "$ref": "#/components/schemas/StoryResponse"
                 }
               }
             },
@@ -1568,10 +1818,10 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Read Blog"
+        "summary": "Read Story"
       },
       "put": {
-        "operationId": "save_blog_api_people__person_id__blog_put",
+        "operationId": "save_story_api_people__person_id__story_put",
         "parameters": [
           {
             "in": "path",
@@ -1582,13 +1832,24 @@
               "title": "Person Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Authentik-Username",
+            "required": false,
+            "schema": {
+              "default": "unknown",
+              "maxLength": 255,
+              "title": "X-Authentik-Username",
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BlogRevisionInput"
+                "$ref": "#/components/schemas/StoryRevisionInput"
               }
             }
           },
@@ -1599,7 +1860,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BlogResponse"
+                  "$ref": "#/components/schemas/EditedStoryResponse"
                 }
               }
             },
@@ -1615,6 +1876,16 @@
             },
             "description": "Person or story not found"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflicts with stored data"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -1626,7 +1897,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Save Blog"
+        "summary": "Save Story"
       }
     },
     "/api/people/{person_id}/suggestions": {

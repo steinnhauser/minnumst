@@ -1,3 +1,4 @@
+import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta, timezone
@@ -13,7 +14,7 @@ from minnumst_api.config import settings
 from minnumst_api.logging_config import configure_logging
 from minnumst_api.main import create_app
 from minnumst_api.migrate import upgrade
-from minnumst_api.models import BlogPost, Person, UTCDateTime
+from minnumst_api.models import Person, Story, UTCDateTime
 
 
 def migrated_app() -> FastAPI:
@@ -84,7 +85,7 @@ def test_lists_summarise_stories_without_loading_their_text(
     client: TestClient,
 ) -> None:
     person = create_person(client)
-    client.put(f"/api/people/{person['id']}/blog", json=STORY)
+    client.put(f"/api/people/{person['id']}/story", json=STORY)
     statements: list[str] = []
     engine = client.app.state.engine
 
@@ -95,7 +96,7 @@ def test_lists_summarise_stories_without_loading_their_text(
     page = client.get("/api/people").json()
     event.remove(engine, "before_cursor_execute", record)
 
-    assert page["items"][0]["blog"]["title"] == "Story"
+    assert page["items"][0]["story"]["title"] == "Story"
     assert not any("content" in statement for statement in statements)
 
 
@@ -109,7 +110,7 @@ def test_person_slug_collisions_get_a_unique_suffix(client: TestClient) -> None:
     assert third["slug"] == "ada-lovelace-1850-2"
 
 
-def test_blog_save_appends_history_and_slug_read_returns_current(
+def test_story_save_appends_history_and_slug_read_returns_current(
     client: TestClient,
 ) -> None:
     person = create_person(client)
@@ -124,9 +125,9 @@ def test_blog_save_appends_history_and_slug_read_returns_current(
         "content": "Second version",
     }
 
-    first_save = client.put(f"/api/people/{person['id']}/blog", json=first)
-    second_save = client.put(f"/api/people/{person['id']}/blog", json=second)
-    history = client.get(f"/api/admin/people/{person['id']}/blog/revisions")
+    first_save = client.put(f"/api/people/{person['id']}/story", json=first)
+    second_save = client.put(f"/api/people/{person['id']}/story", json=second)
+    history = client.get(f"/api/admin/people/{person['id']}/story/revisions")
     public_page = client.get(f"/api/people/by-slug/{person['slug']}")
 
     assert first_save.status_code == 200
@@ -138,7 +139,7 @@ def test_blog_save_appends_history_and_slug_read_returns_current(
         "First version",
     ]
     assert [item["revision_number"] for item in history.json()] == [2, 1]
-    assert public_page.json()["current_blog"]["content"] == "Second version"
+    assert public_page.json()["current_story"]["content"] == "Second version"
 
 
 def timestamps(document: object) -> list[tuple[str, str]]:
@@ -158,7 +159,7 @@ def test_timestamps_read_back_from_the_database_are_explicitly_utc(
     client: TestClient,
 ) -> None:
     person = create_person(client)
-    client.put(f"/api/people/{person['id']}/blog", json=STORY)
+    client.put(f"/api/people/{person['id']}/story", json=STORY)
     client.patch(
         f"/api/people/{person['id']}", json={"name": "Ásta Jóns", "birth_date": "1850"}
     )
@@ -168,8 +169,8 @@ def test_timestamps_read_back_from_the_database_are_explicitly_utc(
             client.get("/api/people").json(),
             client.get(f"/api/people/{person['id']}").json(),
             client.get(f"/api/people/by-slug/{person['slug']}").json(),
-            client.get(f"/api/people/{person['id']}/blog").json(),
-            client.get(f"/api/admin/people/{person['id']}/blog/revisions").json(),
+            client.get(f"/api/people/{person['id']}/story").json(),
+            client.get(f"/api/admin/people/{person['id']}/story/revisions").json(),
         ]
     )
 
@@ -192,7 +193,7 @@ def test_utc_timestamps_are_normalised_on_write_and_read() -> None:
         assert convert(oslo, None) == utc  # type: ignore[arg-type]
 
 
-def test_people_can_be_updated_but_blog_history_blocks_deletion(
+def test_people_can_be_updated_but_story_history_blocks_deletion(
     client: TestClient,
 ) -> None:
     person = create_person(client)
@@ -201,7 +202,7 @@ def test_people_can_be_updated_but_blog_history_blocks_deletion(
         json={"name": "Ásta Jónsdóttir, 1820-1901", "death_date": "1901"},
     )
     client.put(
-        f"/api/people/{person['id']}/blog",
+        f"/api/people/{person['id']}/story",
         json={"title": "Story", "excerpt": "", "content": "Remembered"},
     )
     deleted = client.delete(f"/api/people/{person['id']}")
@@ -221,7 +222,7 @@ def test_missing_person_returns_not_found(client: TestClient) -> None:
 
 
 def test_malformed_person_id_is_rejected_before_lookup(client: TestClient) -> None:
-    for path in ("/api/people/unknown", "/api/people/1%0Aforged/blog"):
+    for path in ("/api/people/unknown", "/api/people/1%0Aforged/story"):
         assert client.get(path).status_code == 422
 
 
@@ -291,7 +292,7 @@ def test_cors_never_allows_unlisted_origins(monkeypatch: pytest.MonkeyPatch) -> 
     assert preflight.status_code == 400
 
 
-def test_person_without_blog_can_be_deleted(client: TestClient) -> None:
+def test_person_without_story_can_be_deleted(client: TestClient) -> None:
     person = create_person(client)
 
     deleted = client.delete(f"/api/people/{person['id']}")
@@ -386,16 +387,16 @@ def test_person_reads_by_id_and_slug_include_the_current_story(
 ) -> None:
     person = create_person(client)
     before = client.get(f"/api/people/{person['id']}").json()
-    client.put(f"/api/people/{person['id']}/blog", json=STORY)
+    client.put(f"/api/people/{person['id']}/story", json=STORY)
 
     by_id = client.get(f"/api/people/{person['id']}").json()
     by_slug = client.get(f"/api/people/by-slug/{person['slug']}").json()
 
-    assert before["blog"] is None
-    assert before["current_blog"] is None
+    assert before["story"] is None
+    assert before["current_story"] is None
     assert by_id == by_slug
-    assert by_id["current_blog"]["content"] == "Remembered"
-    assert by_id["blog"]["revision_count"] == 1
+    assert by_id["current_story"]["content"] == "Remembered"
+    assert by_id["story"]["revision_count"] == 1
 
 
 def test_unknown_slug_returns_not_found(client: TestClient) -> None:
@@ -405,33 +406,33 @@ def test_unknown_slug_returns_not_found(client: TestClient) -> None:
     assert response.json() == {"detail": "Person not found"}
 
 
-def test_blog_read_returns_the_current_revision(client: TestClient) -> None:
+def test_story_read_returns_the_current_revision(client: TestClient) -> None:
     person = create_person(client)
-    client.put(f"/api/people/{person['id']}/blog", json=STORY)
-    client.put(f"/api/people/{person['id']}/blog", json={**STORY, "content": "More"})
+    client.put(f"/api/people/{person['id']}/story", json=STORY)
+    client.put(f"/api/people/{person['id']}/story", json={**STORY, "content": "More"})
 
-    blog = client.get(f"/api/people/{person['id']}/blog").json()
+    story = client.get(f"/api/people/{person['id']}/story").json()
 
-    assert blog["person_id"] == person["id"]
-    assert blog["revision_count"] == 2
-    assert blog["current_revision"]["revision_number"] == 2
-    assert blog["current_revision"]["content"] == "More"
+    assert story["person_id"] == person["id"]
+    assert story["revision_count"] == 2
+    assert story["current_revision"]["revision_number"] == 2
+    assert story["current_revision"]["content"] == "More"
 
 
-def test_blog_routes_return_not_found_without_a_story(client: TestClient) -> None:
+def test_story_routes_return_not_found_without_a_story(client: TestClient) -> None:
     person = create_person(client)
 
     for path in (
-        f"/api/people/{person['id']}/blog",
-        f"/api/admin/people/{person['id']}/blog/revisions",
+        f"/api/people/{person['id']}/story",
+        f"/api/admin/people/{person['id']}/story/revisions",
     ):
         response = client.get(path)
         assert response.status_code == 404
-        assert response.json() == {"detail": "Blog not found"}
-    assert client.get(f"/api/people/{MISSING_ID}/blog").status_code == 404
-    assert client.put(f"/api/people/{MISSING_ID}/blog", json=STORY).status_code == 404
+        assert response.json() == {"detail": "Story not found"}
+    assert client.get(f"/api/people/{MISSING_ID}/story").status_code == 404
+    assert client.put(f"/api/people/{MISSING_ID}/story", json=STORY).status_code == 404
     assert (
-        client.get(f"/api/admin/people/{MISSING_ID}/blog/revisions").status_code == 404
+        client.get(f"/api/admin/people/{MISSING_ID}/story/revisions").status_code == 404
     )
 
 
@@ -440,16 +441,16 @@ def test_a_story_without_revisions_is_treated_as_missing(client: TestClient) -> 
     # schema allows an empty story row, so reads must not fail on one.
     person = create_person(client)
     with client.app.state.session_factory() as session:
-        session.add(BlogPost(person_id=person["id"]))
+        session.add(Story(person_id=person["id"]))
         session.commit()
 
     detail = client.get(f"/api/people/{person['id']}").json()
-    blog = client.get(f"/api/people/{person['id']}/blog")
+    story = client.get(f"/api/people/{person['id']}/story")
 
-    assert detail["blog"] is None
-    assert detail["current_blog"] is None
-    assert blog.status_code == 404
-    assert blog.json() == {"detail": "Blog has no revisions"}
+    assert detail["story"] is None
+    assert detail["current_story"] is None
+    assert story.status_code == 404
+    assert story.json() == {"detail": "Story has no revisions"}
 
 
 def test_rename_to_an_existing_identity_conflicts(client: TestClient) -> None:
@@ -608,3 +609,220 @@ def test_responses_are_logged_at_a_level_matching_their_status(
         == logging.WARNING
     )
     assert completed_request_log(caplog, "/api/people").levelno == logging.INFO
+
+
+@pytest.mark.parametrize("text", ["with\x00nul", "lone\ud800surrogate"])
+def test_text_the_database_cant_hold_is_refused(client: TestClient, text: str) -> None:
+    person = create_person(client)
+
+    def send(method: str, path: str, body: dict) -> int:
+        return client.request(
+            method,
+            path,
+            content=json.dumps(body),
+            headers={"Content-Type": "application/json"},
+        ).status_code
+
+    assert send("POST", "/api/people", {"name": text, "birth_date": "1850"}) == 422
+    assert (
+        send(
+            "PUT",
+            f"/api/people/{person['id']}/story",
+            {"title": text, "content": "Text"},
+        )
+        == 422
+    )
+    assert (
+        send(
+            "POST",
+            f"/api/people/{person['id']}/suggestions",
+            {"kind": "request", "note": text},
+        )
+        == 422
+    )
+
+
+def test_a_nul_in_a_search_or_address_is_refused_not_a_server_error(
+    client: TestClient,
+) -> None:
+    assert client.get("/api/people?query=a%00b").status_code == 422
+    assert client.get("/api/people/by-slug/a%00b").status_code == 404
+    assert client.get("/api/people", params={"offset": 2**40}).status_code == 422
+
+
+def test_names_with_control_characters_or_extreme_length_are_refused(
+    client: TestClient,
+) -> None:
+    def create(name: str) -> int:
+        body = {"name": name, "birth_date": "1850"}
+        return client.post("/api/people", json=body).status_code
+
+    assert create("A\x07B") == 422
+    # Each ligature folds to several letters, past what the column holds.
+    assert create("\ufdfa" * 40) == 422
+    # The longest allowed name still gets a slug that fits, even when it's taken.
+    assert create("þ" * 240) == 201
+    assert create("þ" * 241) == 201
+    assert len(client.get("/api/people").json()["items"][1]["slug"]) <= 255
+
+
+@pytest.mark.parametrize(
+    "story",
+    [
+        {"title": "   ", "content": "Text"},
+        {"title": "Title", "content": " \n "},
+        {"title": "T" * 256, "content": "Text"},
+        {"title": "Title", "content": "x" * 200001},
+        {"title": "Title", "content": "Text", "base_revision_number": 2**31},
+    ],
+)
+def test_blank_or_oversized_stories_are_refused(
+    client: TestClient, story: dict
+) -> None:
+    person = create_person(client)
+
+    response = client.put(f"/api/people/{person['id']}/story", json=story)
+
+    assert response.status_code == 422
+
+
+def test_death_before_birth_is_refused(client: TestClient) -> None:
+    body = {"name": "Reversed", "birth_date": "1850", "death_date": "1800"}
+
+    response = client.post("/api/people", json=body)
+
+    assert response.status_code == 422
+    assert "before the date of birth" in response.text
+    assert (
+        client.post(
+            "/api/people",
+            json={
+                "name": "Same year",
+                "birth_date": "1850-06-01",
+                "death_date": "1850",
+            },
+        ).status_code
+        == 201
+    )
+
+
+def test_a_save_from_an_old_version_is_refused(client: TestClient) -> None:
+    person = create_person(client)
+    path = f"/api/people/{person['id']}/story"
+
+    first = client.put(path, json={**STORY, "base_revision_number": 0})
+    stale = client.put(path, json={**STORY, "base_revision_number": 0})
+    next_one = client.put(path, json={**STORY, "base_revision_number": 1})
+    unchecked = client.put(path, json=STORY)
+
+    assert first.status_code == 200
+    assert stale.status_code == 409
+    assert "has changed since you opened it" in stale.json()["detail"]
+    assert next_one.json()["revision_count"] == 2
+    assert unchecked.json()["revision_count"] == 3
+
+
+def test_a_first_save_racing_another_is_refused(client: TestClient) -> None:
+    person = create_person(client)
+
+    # Another request saves the first story between the lookup and this flush;
+    # the unique constraint has the final say.
+    @event.listens_for(client.app.state.session_factory, "before_flush", once=True)
+    def concurrent_save(session: Session, *_: object) -> None:
+        session.add(Story(person_id=person["id"]))
+
+    response = client.put(f"/api/people/{person['id']}/story", json=STORY)
+
+    assert response.status_code == 409
+    assert client.get(f"/api/people/{person['id']}").json()["current_story"] is None
+
+
+def test_versions_record_who_and_why_for_editors_only(client: TestClient) -> None:
+    person = create_person(client)
+    saved = client.put(
+        f"/api/people/{person['id']}/story",
+        json={**STORY, "change_note": "  Added a source  "},
+        headers={"X-Authentik-Username": "editor"},
+    ).json()
+
+    assert saved["current_revision"]["created_by"] == "editor"
+    [version] = client.get(f"/api/admin/people/{person['id']}/story/revisions").json()
+    assert version["created_by"] == "editor"
+    assert version["change_note"] == "Added a source"
+
+    public = client.get(f"/api/people/{person['id']}").json()["current_story"]
+    story = client.get(f"/api/people/{person['id']}/story").json()["current_revision"]
+    for document in (public, story):
+        assert not {"created_by", "change_note", "restored_from"} & set(document)
+
+
+def versions(client: TestClient, person: dict) -> list[dict]:
+    return client.get(f"/api/admin/people/{person['id']}/story/revisions").json()
+
+
+def test_restoring_publishes_an_old_version_as_a_new_one(client: TestClient) -> None:
+    person = create_person(client)
+    path = f"/api/people/{person['id']}/story"
+    client.put(path, json={**STORY, "content": "First"})
+    client.put(path, json={**STORY, "content": "Second"})
+
+    restored = client.post(
+        f"/api/admin/people/{person['id']}/story/revisions/1/restore",
+        json={},
+        headers={"X-Authentik-Username": "editor"},
+    )
+
+    assert restored.status_code == 200
+    current = restored.json()["current_revision"]
+    assert current["revision_number"] == 3
+    assert current["restored_from"] == 1
+    assert current["change_note"] == "Restored version 1"
+    assert current["created_by"] == "editor"
+    assert (
+        client.get(f"/api/people/{person['id']}").json()["current_story"]["content"]
+        == "First"
+    )
+    assert [item["content"] for item in versions(client, person)] == [
+        "First",
+        "Second",
+        "First",
+    ]
+
+
+def test_restoring_takes_an_editors_note(client: TestClient) -> None:
+    person = create_person(client)
+    path = f"/api/people/{person['id']}/story"
+    client.put(path, json={**STORY, "content": "First"})
+    client.put(path, json={**STORY, "content": "Second"})
+
+    restored = client.post(
+        f"/api/admin/people/{person['id']}/story/revisions/1/restore",
+        json={"change_note": "The family asked for this"},
+    )
+
+    assert restored.json()["current_revision"]["change_note"] == (
+        "The family asked for this"
+    )
+
+
+def test_restoring_refuses_what_it_cant_do(client: TestClient) -> None:
+    person = create_person(client)
+    restore = f"/api/admin/people/{person['id']}/story/revisions"
+    assert client.post(f"{restore}/1/restore", json={}).status_code == 404
+
+    client.put(f"/api/people/{person['id']}/story", json=STORY)
+    client.put(f"/api/people/{person['id']}/story", json=STORY)
+
+    missing = client.post(f"{restore}/9/restore", json={})
+    same_text = client.post(f"{restore}/1/restore", json={})
+    client.put(
+        f"/api/people/{person['id']}/story", json={**STORY, "content": "Changed"}
+    )
+    stale = client.post(f"{restore}/1/restore", json={"base_revision_number": 2})
+
+    assert missing.status_code == 404
+    assert same_text.status_code == 409
+    assert "already has this text" in same_text.json()["detail"]
+    assert stale.status_code == 409
+    assert len(versions(client, person)) == 3
+    assert client.post(f"{restore}/0/restore", json={}).status_code == 422

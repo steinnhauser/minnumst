@@ -7,6 +7,7 @@ from time import perf_counter
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy import text
@@ -77,6 +78,23 @@ async def internal_server_error(request: Request, _: Exception) -> ASGIApp:
     return CORSMiddleware(response, **cors_options) if cors_options else response
 
 
+async def validation_error(_: Request, error: RequestValidationError) -> JSONResponse:
+    """Say what was wrong without repeating what was sent.
+
+    FastAPI's default echoes the submitted text, which needn't travel back or be
+    valid: a lone surrogate would turn this 422 into a 500 while encoding it.
+    """
+    return JSONResponse(
+        {
+            "detail": [
+                {"loc": item["loc"], "msg": item["msg"], "type": item["type"]}
+                for item in error.errors()
+            ]
+        },
+        status_code=422,
+    )
+
+
 def create_app(database_url: str | None = None) -> FastAPI:
     """The API. Its schema comes from migrations (`python -m minnumst_api.migrate`)."""
     configure_logging(settings.log_level)
@@ -97,7 +115,10 @@ def create_app(database_url: str | None = None) -> FastAPI:
         version=version("minnumst-api"),
         lifespan=lifespan,
         # FastAPI's type wants a Response; Starlette runs any ASGI app it returns.
-        exception_handlers={Exception: internal_server_error},  # type: ignore[dict-item]
+        exception_handlers={
+            Exception: internal_server_error,  # type: ignore[dict-item]
+            RequestValidationError: validation_error,
+        },
     )
     app.state.engine = engine
     app.state.session_factory = session_factory

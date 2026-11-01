@@ -19,8 +19,8 @@ depends_on = None
 # allowed only because saving a revision locks it with SELECT ... FOR UPDATE.
 RUNTIME_PRIVILEGES = {
     "people": "SELECT, INSERT, UPDATE, DELETE",
-    "blog_posts": "SELECT, INSERT, UPDATE",
-    "blog_revisions": "SELECT, INSERT",
+    "stories": "SELECT, INSERT, UPDATE",
+    "story_revisions": "SELECT, INSERT",
     "person_sources": "SELECT, INSERT, DELETE",
     "suggestions": "SELECT, INSERT, UPDATE, DELETE",
 }
@@ -31,10 +31,10 @@ def upgrade() -> None:
         "people",
         sa.Column("id", sa.Uuid(as_uuid=False), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("normalized_name", sa.String(length=255), nullable=False),
+        sa.Column("normalized_name", sa.String(length=600), nullable=False),
         sa.Column("birth_date", sa.String(length=10), nullable=True),
         sa.Column("death_date", sa.String(length=10), nullable=True),
-        sa.Column("identity", sa.String(length=300), nullable=False),
+        sa.Column("identity", sa.String(length=630), nullable=False),
         sa.Column("slug", sa.String(length=255), nullable=False),
         sa.Column("hidden_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -67,41 +67,44 @@ def upgrade() -> None:
         op.f("ix_person_sources_person_id"), "person_sources", ["person_id"]
     )
     op.create_table(
-        "blog_posts",
+        "stories",
         sa.Column("id", sa.Uuid(as_uuid=False), nullable=False),
         sa.Column("person_id", sa.Uuid(as_uuid=False), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["person_id"],
             ["people.id"],
-            name=op.f("fk_blog_posts_person_id_people"),
+            name=op.f("fk_stories_person_id_people"),
             ondelete="RESTRICT",
         ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_blog_posts")),
-        sa.UniqueConstraint("person_id", name=op.f("uq_blog_posts_person_id")),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_stories")),
+        sa.UniqueConstraint("person_id", name=op.f("uq_stories_person_id")),
     )
     op.create_table(
-        "blog_revisions",
+        "story_revisions",
         sa.Column("id", sa.Uuid(as_uuid=False), nullable=False),
-        sa.Column("blog_id", sa.Uuid(as_uuid=False), nullable=False),
+        sa.Column("story_id", sa.Uuid(as_uuid=False), nullable=False),
         sa.Column("revision_number", sa.Integer(), nullable=False),
         sa.Column("title", sa.String(length=255), nullable=False),
         sa.Column("excerpt", sa.Text(), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("created_by", sa.String(length=255), nullable=False),
+        sa.Column("change_note", sa.String(length=500), nullable=True),
+        sa.Column("restored_from", sa.Integer(), nullable=True),
         sa.CheckConstraint(
             "revision_number >= 1",
-            name=op.f("ck_blog_revisions_revision_number_positive"),
+            name=op.f("ck_story_revisions_revision_number_positive"),
         ),
         sa.ForeignKeyConstraint(
-            ["blog_id"],
-            ["blog_posts.id"],
-            name=op.f("fk_blog_revisions_blog_id_blog_posts"),
+            ["story_id"],
+            ["stories.id"],
+            name=op.f("fk_story_revisions_story_id_stories"),
             ondelete="RESTRICT",
         ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_blog_revisions")),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_story_revisions")),
         sa.UniqueConstraint(
-            "blog_id", "revision_number", name=op.f("uq_blog_revisions_blog_id")
+            "story_id", "revision_number", name=op.f("uq_story_revisions_story_id")
         ),
     )
     op.create_table(
@@ -135,8 +138,8 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(
             ["revision_id"],
-            ["blog_revisions.id"],
-            name=op.f("fk_suggestions_revision_id_blog_revisions"),
+            ["story_revisions.id"],
+            name=op.f("fk_suggestions_revision_id_story_revisions"),
             ondelete="RESTRICT",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_suggestions")),
@@ -148,8 +151,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("suggestions")
-    op.drop_table("blog_revisions")
-    op.drop_table("blog_posts")
+    op.drop_table("story_revisions")
+    op.drop_table("stories")
     op.drop_table("person_sources")
     op.drop_index(op.f("ix_people_name"), table_name="people")
     op.drop_table("people")

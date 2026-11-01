@@ -101,7 +101,7 @@ def remove_batch(engine: Engine, batch: list[dict[str, Any]]) -> Counter[str]:
             )
             if person is None:
                 report["not_found"] += 1
-            elif person.blog is not None:
+            elif person.story is not None:
                 report["kept_has_a_story"] += 1
             else:
                 session.delete(person)

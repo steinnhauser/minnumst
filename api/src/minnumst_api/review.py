@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Header, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Path, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -18,18 +18,24 @@ from minnumst_api.api import (
     NOT_FOUND,
     WITH_STORY,
     WITH_STORY_SUMMARY,
+    ReviewerHeader,
     SessionDep,
     append_revision,
+    edited_story_response,
     get_person,
     latest_revision,
     person_response,
 )
 from minnumst_api.models import Person, Suggestion, SuggestionStatus
 from minnumst_api.schemas import (
-    BlogRevisionInput,
-    BlogRevisionResponse,
+    MAX_INTEGER,
+    EditedStoryResponse,
     PersonResponse,
     PersonVisibility,
+    RevisionRestore,
+    StoryRevisionDetail,
+    StoryRevisionInput,
+    StoryRevisionResponse,
     SuggestionAcceptance,
     SuggestionPage,
     SuggestionResponse,
@@ -37,13 +43,11 @@ from minnumst_api.schemas import (
 
 admin_router = APIRouter(prefix="/api/admin")
 logger = logging.getLogger(__name__)
-# Set by Traefik from Authentik's answer, replacing anything a client sent.
-ReviewerHeader = Annotated[str, Header(alias="X-Authentik-Username", max_length=255)]
 
 
 def suggestion_response(suggestion: Suggestion) -> SuggestionResponse:
     person = suggestion.person
-    current = latest_revision(person.blog) if person.blog else None
+    current = latest_revision(person.story) if person.story else None
     return SuggestionResponse(
         id=suggestion.id,
         person_id=person.id,
@@ -53,7 +57,7 @@ def suggestion_response(suggestion: Suggestion) -> SuggestionResponse:
         status=suggestion.status,
         base_revision_number=suggestion.base_revision_number,
         current_revision=(
-            BlogRevisionResponse.model_validate(current) if current else None
+            StoryRevisionResponse.model_validate(current) if current else None
         ),
         title=suggestion.title,
         excerpt=suggestion.excerpt,
@@ -114,7 +118,7 @@ def reloaded(session: Session, suggestion_id: str) -> SuggestionResponse:
 def list_suggestions(
     session: SessionDep,
     suggestion_status: Annotated[SuggestionStatus, Query(alias="status")] = "pending",
-    offset: Annotated[int, Query(ge=0)] = 0,
+    offset: Annotated[int, Query(ge=0, le=MAX_INTEGER)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> SuggestionPage:
     total = session.scalar(
@@ -154,13 +158,19 @@ def accept_suggestion(
 ) -> SuggestionResponse:
     suggestion = pending_suggestion(session, suggestion_id)
     if suggestion.kind == "edit":
-        story = payload.story or BlogRevisionInput(
+        story = payload.story or StoryRevisionInput(
             title=suggestion.title or "",
             excerpt=suggestion.excerpt or "",
             content=suggestion.content or "",
         )
         person = get_person(session, suggestion.person_id)
-        suggestion.revision_id = append_revision(session, person, story).id
+        suggestion.revision_id = append_revision(
+            session,
+            person,
+            story,
+            reviewer,
+            change_note=story.change_note or "Accepted a visitor's suggestion",
+        ).id
     decide(session, suggestion, "accepted", reviewer)
     return reloaded(session, suggestion.id)
 
@@ -180,8 +190,8 @@ def reject_suggestion(
 
 
 @admin_router.get(
-    "/people/{person_id}/blog/revisions",
-    response_model=list[BlogRevisionResponse],
+    "/people/{person_id}/story/revisions",
+    response_model=list[StoryRevisionDetail],
     responses=NOT_FOUND,
     description=(
         "The full revision history, newest first. For editors only: the public "
@@ -189,30 +199,85 @@ def reject_suggestion(
         "stops being public while the record of it is kept."
     ),
 )
-def list_blog_revisions(
+def list_story_revisions(
     person_id: UUID, session: SessionDep
-) -> list[BlogRevisionResponse]:
+) -> list[StoryRevisionDetail]:
     person = get_person(session, person_id)
-    if person.blog is None:
+    if person.story is None:
         logger.warning(
-            "Blog history read failed because no blog exists person_id=%s",
+            "Story history read failed because no story exists person_id=%s",
             person.id,
         )
-        raise HTTPException(status_code=404, detail="Blog not found")
+        raise HTTPException(status_code=404, detail="Story not found")
     revisions = [
-        BlogRevisionResponse.model_validate(revision)
+        StoryRevisionDetail.model_validate(revision)
         for revision in sorted(
-            person.blog.revisions,
+            person.story.revisions,
             key=lambda item: item.revision_number,
             reverse=True,
         )
     ]
     logger.debug(
-        "Blog history loaded person_id=%s revision_count=%d",
+        "Story history loaded person_id=%s revision_count=%d",
         person.id,
         len(revisions),
     )
     return revisions
+
+
+@admin_router.post(
+    "/people/{person_id}/story/revisions/{revision_number}/restore",
+    response_model=EditedStoryResponse,
+    responses=NOT_FOUND | CONFLICT,
+    description=(
+        "Publish an earlier version again. It becomes a new version with the same "
+        "text, so nothing is overwritten and the restore can itself be undone."
+    ),
+)
+def restore_revision(
+    person_id: UUID,
+    revision_number: Annotated[int, Path(ge=1, le=MAX_INTEGER)],
+    payload: RevisionRestore,
+    session: SessionDep,
+    editor: ReviewerHeader = "unknown",
+) -> EditedStoryResponse:
+    person = get_person(session, person_id)
+    versions = person.story.revisions if person.story else []
+    original = next(
+        (item for item in versions if item.revision_number == revision_number), None
+    )
+    if original is None:
+        logger.warning("Restore failed because the version doesn't exist")
+        raise HTTPException(status_code=404, detail="Version not found")
+    current = max(versions, key=lambda item: item.revision_number)
+    text = (original.title, original.excerpt, original.content)
+    if text == (current.title, current.excerpt, current.content):
+        logger.warning("Restore rejected because the text is already current")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The current version already has this text",
+        )
+    revision = append_revision(
+        session,
+        person,
+        StoryRevisionInput(
+            title=original.title,
+            excerpt=original.excerpt,
+            content=original.content,
+            base_revision_number=payload.base_revision_number,
+        ),
+        editor,
+        change_note=payload.change_note or f"Restored version {revision_number}",
+        restored_from=revision_number,
+    )
+    story = revision.story
+    session.commit()
+    logger.info(
+        "Story version restored person_id=%s revision_number=%d",
+        person.id,
+        revision.revision_number,
+    )
+    return edited_story_response(story, revision)
 
 
 @admin_router.get("/people/hidden", response_model=list[PersonResponse])

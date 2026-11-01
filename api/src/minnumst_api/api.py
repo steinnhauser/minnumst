@@ -2,19 +2,23 @@ import logging
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from pydantic import AfterValidator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from minnumst_api.database import get_session
-from minnumst_api.models import BlogPost, BlogRevision, Person, Suggestion
-from minnumst_api.names import new_person, normalized_person_name, person_identity
+from minnumst_api.models import Person, Story, StoryRevision, Suggestion
+from minnumst_api.names import (
+    new_person,
+    normalized_person_name,
+    person_identity,
+    storable_text,
+)
 from minnumst_api.schemas import (
-    BlogResponse,
-    BlogRevisionInput,
-    BlogRevisionResponse,
-    BlogSummary,
+    MAX_INTEGER,
+    EditedStoryResponse,
     ErrorResponse,
     PersonCreate,
     PersonDetail,
@@ -22,6 +26,11 @@ from minnumst_api.schemas import (
     PersonResponse,
     PersonSourceResponse,
     PersonUpdate,
+    StoryResponse,
+    StoryRevisionDetail,
+    StoryRevisionInput,
+    StoryRevisionResponse,
+    StorySummary,
     SuggestionCreate,
     SuggestionReceipt,
 )
@@ -40,32 +49,44 @@ QUEUE_FULL: Responses = {
     429: {"model": ErrorResponse, "description": "The review queue is full"}
 }
 SessionDep = Annotated[Session, Depends(get_session)]
+# Set by Traefik from Authentik's answer, replacing anything a client sent.
+ReviewerHeader = Annotated[str, Header(alias="X-Authentik-Username", max_length=255)]
 logger = logging.getLogger(__name__)
 # Keeps a flood of suggestions from filling the disk or burying the queue.
 MAX_PENDING_SUGGESTIONS = 500
 IDENTITY_CONFLICT = "A person with this name and these dates already exists"
+STORY_MOVED_ON = (
+    "This story has changed since you opened it. Open it again to see the latest "
+    "version; your text has not been saved."
+)
 # A person with their whole story, for a single profile.
-WITH_STORY = selectinload(Person.blog).selectinload(BlogPost.revisions)
+WITH_STORY = selectinload(Person.story).selectinload(Story.revisions)
 # Lists only summarise stories, so they skip loading every revision's full text.
-WITH_STORY_SUMMARY = WITH_STORY.defer(BlogRevision.content)
+WITH_STORY_SUMMARY = WITH_STORY.defer(StoryRevision.content)
 
 
-def latest_revision(blog: BlogPost) -> BlogRevision | None:
-    if not blog.revisions:
+def searchable(value: str | None) -> str | None:
+    if value is not None and not storable_text(value):
+        raise ValueError("The search contains characters that can't be stored")
+    return value
+
+
+def latest_revision(story: Story) -> StoryRevision | None:
+    if not story.revisions:
         return None
-    return max(blog.revisions, key=lambda revision: revision.revision_number)
+    return max(story.revisions, key=lambda revision: revision.revision_number)
 
 
 def person_response(person: Person) -> PersonResponse:
-    blog_summary = None
-    if person.blog:
-        revision = latest_revision(person.blog)
+    story_summary = None
+    if person.story:
+        revision = latest_revision(person.story)
         if revision:
-            blog_summary = BlogSummary(
+            story_summary = StorySummary(
                 title=revision.title,
                 excerpt=revision.excerpt,
                 saved_at=revision.created_at,
-                revision_count=len(person.blog.revisions),
+                revision_count=len(person.story.revisions),
             )
     return PersonResponse(
         id=person.id,
@@ -75,30 +96,39 @@ def person_response(person: Person) -> PersonResponse:
         updated_at=person.updated_at,
         birth_date=person.birth_date,
         death_date=person.death_date,
-        blog=blog_summary,
+        story=story_summary,
     )
 
 
 def person_detail(person: Person) -> PersonDetail:
-    current = latest_revision(person.blog) if person.blog else None
+    current = latest_revision(person.story) if person.story else None
     return PersonDetail(
         **person_response(person).model_dump(),
-        current_blog=(
-            BlogRevisionResponse.model_validate(current) if current else None
+        current_story=(
+            StoryRevisionResponse.model_validate(current) if current else None
         ),
         sources=[PersonSourceResponse.model_validate(item) for item in person.sources],
     )
 
 
-def blog_response(blog: BlogPost) -> BlogResponse:
-    revision = latest_revision(blog)
+def story_response(story: Story) -> StoryResponse:
+    revision = latest_revision(story)
     if revision is None:
-        raise HTTPException(status_code=404, detail="Blog has no revisions")
-    return BlogResponse(
-        id=blog.id,
-        person_id=blog.person_id,
-        revision_count=len(blog.revisions),
-        current_revision=BlogRevisionResponse.model_validate(revision),
+        raise HTTPException(status_code=404, detail="Story has no revisions")
+    return StoryResponse(
+        id=story.id,
+        person_id=story.person_id,
+        revision_count=len(story.revisions),
+        current_revision=StoryRevisionResponse.model_validate(revision),
+    )
+
+
+def edited_story_response(story: Story, revision: StoryRevision) -> EditedStoryResponse:
+    return EditedStoryResponse(
+        id=story.id,
+        person_id=story.person_id,
+        revision_count=revision.revision_number,
+        current_revision=StoryRevisionDetail.model_validate(revision),
     )
 
 
@@ -127,31 +157,58 @@ def get_public_person(session: Session, person_id: UUID) -> Person:
 
 
 def append_revision(
-    session: Session, person: Person, payload: BlogRevisionInput
-) -> BlogRevision:
-    """Add a revision to the person's story, creating the story on the first save."""
-    blog = session.scalar(
-        select(BlogPost).where(BlogPost.person_id == person.id).with_for_update()
+    session: Session,
+    person: Person,
+    payload: StoryRevisionInput,
+    created_by: str,
+    *,
+    change_note: str | None = None,
+    restored_from: int | None = None,
+) -> StoryRevision:
+    """Add a version to the person's story, creating the story on the first save.
+
+    A save that started from an older version is refused, so it can't silently
+    undo what was published since. The story row's lock orders concurrent saves,
+    and a unique constraint decides between two first saves.
+    """
+    story = session.scalar(
+        select(Story).where(Story.person_id == person.id).with_for_update()
     )
-    if blog is None:
-        blog = BlogPost(id=str(uuid4()), person_id=person.id)
-        session.add(blog)
-        session.flush()
-    latest_number = session.scalar(
-        select(func.max(BlogRevision.revision_number)).where(
-            BlogRevision.blog_id == blog.id
+    latest_number = (
+        session.scalar(
+            select(func.max(StoryRevision.revision_number)).where(
+                StoryRevision.story_id == story.id
+            )
         )
-    )
-    revision = BlogRevision(
+        if story
+        else None
+    ) or 0
+    if payload.base_revision_number not in (None, latest_number):
+        logger.warning("Save rejected because the story moved on")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=STORY_MOVED_ON)
+    if story is None:
+        story = Story(id=str(uuid4()), person_id=person.id)
+        session.add(story)
+    revision = StoryRevision(
         id=str(uuid4()),
-        blog_id=blog.id,
-        revision_number=(latest_number or 0) + 1,
+        story=story,
+        revision_number=latest_number + 1,
         title=payload.title,
         excerpt=payload.excerpt,
         content=payload.content,
+        created_by=created_by,
+        change_note=change_note or payload.change_note or None,
+        restored_from=restored_from,
     )
     session.add(revision)
-    session.flush()
+    try:
+        session.flush()
+    except IntegrityError as error:
+        session.rollback()
+        logger.warning("Save rejected because another save came first")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=STORY_MOVED_ON
+        ) from error
     return revision
 
 
@@ -171,8 +228,11 @@ def list_people(
     query: Annotated[
         str | None,
         Query(max_length=255, description="Part of a name; empty matches everyone"),
+        AfterValidator(searchable),
     ] = None,
-    offset: Annotated[int, Query(ge=0, description="Number of matches to skip")] = 0,
+    offset: Annotated[
+        int, Query(ge=0, le=MAX_INTEGER, description="Number of matches to skip")
+    ] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Page size, 1 to 100")] = 50,
 ) -> PersonPage:
     statement = select(Person).where(Person.hidden_at.is_(None))
@@ -224,10 +284,14 @@ def create_person(payload: PersonCreate, session: SessionDep) -> PersonResponse:
 
 @router.get("/people/by-slug/{slug}", response_model=PersonDetail, responses=NOT_FOUND)
 def get_person_by_slug(slug: str, session: SessionDep) -> PersonDetail:
-    person = session.scalar(
-        select(Person)
-        .options(WITH_STORY, selectinload(Person.sources))
-        .where(Person.slug == slug, Person.hidden_at.is_(None))
+    person = (
+        None
+        if not storable_text(slug)
+        else session.scalar(
+            select(Person)
+            .options(WITH_STORY, selectinload(Person.sources))
+            .where(Person.slug == slug, Person.hidden_at.is_(None))
+        )
     )
     if person is None:
         logger.warning("Public person lookup failed route=by-slug")
@@ -291,8 +355,8 @@ def update_person(
 
 
 @router.get(
-    "/people/{person_id}/blog",
-    response_model=BlogResponse,
+    "/people/{person_id}/story",
+    response_model=StoryResponse,
     responses=NOT_FOUND,
     description=(
         "Read just the person's story: its current revision and how many "
@@ -300,44 +364,43 @@ def update_person(
         "frontend calls it; it returns 404 for a person without a story."
     ),
 )
-def read_blog(person_id: UUID, session: SessionDep) -> BlogResponse:
+def read_story(person_id: UUID, session: SessionDep) -> StoryResponse:
     person = get_public_person(session, person_id)
-    if person.blog is None:
+    if person.story is None:
         logger.warning(
-            "Blog read failed because no blog exists person_id=%s", person.id
+            "Story read failed because no story exists person_id=%s", person.id
         )
-        raise HTTPException(status_code=404, detail="Blog not found")
+        raise HTTPException(status_code=404, detail="Story not found")
     logger.debug(
-        "Blog loaded person_id=%s revision_count=%d",
+        "Story loaded person_id=%s revision_count=%d",
         person.id,
-        len(person.blog.revisions),
+        len(person.story.revisions),
     )
-    return blog_response(person.blog)
+    return story_response(person.story)
 
 
 @router.put(
-    "/people/{person_id}/blog", response_model=BlogResponse, responses=NOT_FOUND
+    "/people/{person_id}/story",
+    response_model=EditedStoryResponse,
+    responses=NOT_FOUND | CONFLICT,
 )
-def save_blog(
-    person_id: UUID, payload: BlogRevisionInput, session: SessionDep
-) -> BlogResponse:
+def save_story(
+    person_id: UUID,
+    payload: StoryRevisionInput,
+    session: SessionDep,
+    editor: ReviewerHeader = "unknown",
+) -> EditedStoryResponse:
     person = get_person(session, person_id)
-    revision = append_revision(session, person, payload)
-    blog_id = revision.blog_id
+    revision = append_revision(session, person, payload, editor)
+    story = revision.story
     session.commit()
-    saved_blog = session.scalars(
-        select(BlogPost)
-        .options(selectinload(BlogPost.revisions))
-        .where(BlogPost.id == blog_id)
-        .execution_options(populate_existing=True)
-    ).one()
     logger.info(
-        "Blog revision saved person_id=%s blog_id=%s revision_number=%d",
+        "Story revision saved person_id=%s story_id=%s revision_number=%d",
         person.id,
-        blog_id,
+        story.id,
         revision.revision_number,
     )
-    return blog_response(saved_blog)
+    return edited_story_response(story, revision)
 
 
 @router.post(
@@ -397,15 +460,15 @@ def create_suggestion(
 )
 def delete_person(person_id: UUID, session: SessionDep) -> Response:
     person = get_person(session, person_id)
-    if person.blog is not None:
+    if person.story is not None:
         logger.warning(
-            "Person deletion rejected because blog history exists person_id=%s",
+            "Person deletion rejected because story history exists person_id=%s",
             person.id,
         )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                "Person has blog history; deletion is disabled to preserve revisions"
+                "Person has story history; deletion is disabled to preserve revisions"
             ),
         )
     deleted_id = person.id

@@ -31,6 +31,17 @@ def _latest_day(value: str) -> date:
     return date.fromisoformat(value if len(value) > 4 else f"{value}-12-31")
 
 
+def _earliest_day(value: str) -> date:
+    return date.fromisoformat(value if len(value) > 4 else f"{value}-01-01")
+
+
+def dates_in_order(birth_date: str | None, death_date: str | None) -> bool:
+    """False only when a death certainly came before the birth."""
+    if not (birth_date and death_date):
+        return True
+    return _earliest_day(birth_date) <= _latest_day(death_date)
+
+
 def _months_before(today: date, months: int) -> date:
     """The same day that many months earlier, or that month's last day if shorter."""
     year, month = divmod(today.year * 12 + today.month - 1 - months, 12)

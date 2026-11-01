@@ -74,12 +74,12 @@ class Person(Base):
         Uuid(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    normalized_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_name: Mapped[str] = mapped_column(String(600), nullable=False)
     # Partial ISO 8601 dates, YYYY or YYYY-MM-DD: old records often give a year.
     birth_date: Mapped[str | None] = mapped_column(String(10))
     death_date: Mapped[str | None] = mapped_column(String(10))
     # Many people share a name, so the name and dates together identify a person.
-    identity: Mapped[str] = mapped_column(String(300), nullable=False)
+    identity: Mapped[str] = mapped_column(String(630), nullable=False)
     slug: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     # A hidden person is left out of everything the public can read.
     hidden_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
@@ -93,7 +93,7 @@ class Person(Base):
         nullable=False,
     )
 
-    blog: Mapped[BlogPost | None] = relationship(back_populates="person", uselist=False)
+    story: Mapped[Story | None] = relationship(back_populates="person", uselist=False)
     sources: Mapped[list[PersonSource]] = relationship(
         back_populates="person",
         cascade="all, delete-orphan",
@@ -124,8 +124,8 @@ class PersonSource(Base):
     person: Mapped[Person] = relationship(back_populates="sources")
 
 
-class BlogPost(Base):
-    __tablename__ = "blog_posts"
+class Story(Base):
+    __tablename__ = "stories"
 
     id: Mapped[str] = mapped_column(
         Uuid(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
@@ -137,29 +137,29 @@ class BlogPost(Base):
         UTCDateTime(), default=lambda: datetime.now(UTC), nullable=False
     )
 
-    person: Mapped[Person] = relationship(back_populates="blog")
+    person: Mapped[Person] = relationship(back_populates="story")
     # Revisions are append-only: the ORM never cascades deletes to them, and
     # the database refuses to delete a story that has revisions.
-    revisions: Mapped[list[BlogRevision]] = relationship(
-        back_populates="blog",
+    revisions: Mapped[list[StoryRevision]] = relationship(
+        back_populates="story",
         cascade="save-update, merge",
         passive_deletes="all",
-        order_by="BlogRevision.revision_number",
+        order_by="StoryRevision.revision_number",
     )
 
 
-class BlogRevision(Base):
-    __tablename__ = "blog_revisions"
+class StoryRevision(Base):
+    __tablename__ = "story_revisions"
     __table_args__ = (
-        UniqueConstraint("blog_id", "revision_number"),
+        UniqueConstraint("story_id", "revision_number"),
         CheckConstraint("revision_number >= 1", name="revision_number_positive"),
     )
 
     id: Mapped[str] = mapped_column(
         Uuid(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
     )
-    blog_id: Mapped[str] = mapped_column(
-        ForeignKey("blog_posts.id", ondelete="RESTRICT"), nullable=False
+    story_id: Mapped[str] = mapped_column(
+        ForeignKey("stories.id", ondelete="RESTRICT"), nullable=False
     )
     revision_number: Mapped[int] = mapped_column(nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -168,8 +168,12 @@ class BlogRevision(Base):
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=lambda: datetime.now(UTC), nullable=False
     )
+    # For editors only: who saved this version, why, and what it was restored from.
+    created_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    change_note: Mapped[str | None] = mapped_column(String(500))
+    restored_from: Mapped[int | None] = mapped_column()
 
-    blog: Mapped[BlogPost] = relationship(back_populates="revisions")
+    story: Mapped[Story] = relationship(back_populates="revisions")
 
 
 class Suggestion(Base):
@@ -211,7 +215,7 @@ class Suggestion(Base):
     reviewed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     reviewed_by: Mapped[str | None] = mapped_column(String(255))
     revision_id: Mapped[str | None] = mapped_column(
-        ForeignKey("blog_revisions.id", ondelete="RESTRICT")
+        ForeignKey("story_revisions.id", ondelete="RESTRICT")
     )
 
     person: Mapped[Person] = relationship(back_populates="suggestions")

@@ -21,7 +21,7 @@ export interface paths {
         readonly patch?: never;
         readonly trace?: never;
     };
-    readonly "/api/admin/people/{person_id}/blog/revisions": {
+    readonly "/api/admin/people/{person_id}/story/revisions": {
         readonly parameters: {
             readonly query?: never;
             readonly header?: never;
@@ -29,12 +29,32 @@ export interface paths {
             readonly cookie?: never;
         };
         /**
-         * List Blog Revisions
+         * List Story Revisions
          * @description The full revision history, newest first. For editors only: the public sees just the current revision, so text an editor removes from a story stops being public while the record of it is kept.
          */
-        readonly get: operations["list_blog_revisions_api_admin_people__person_id__blog_revisions_get"];
+        readonly get: operations["list_story_revisions_api_admin_people__person_id__story_revisions_get"];
         readonly put?: never;
         readonly post?: never;
+        readonly delete?: never;
+        readonly options?: never;
+        readonly head?: never;
+        readonly patch?: never;
+        readonly trace?: never;
+    };
+    readonly "/api/admin/people/{person_id}/story/revisions/{revision_number}/restore": {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: never;
+            readonly path?: never;
+            readonly cookie?: never;
+        };
+        readonly get?: never;
+        readonly put?: never;
+        /**
+         * Restore Revision
+         * @description Publish an earlier version again. It becomes a new version with the same text, so nothing is overwritten and the restore can itself be undone.
+         */
+        readonly post: operations["restore_revision_api_admin_people__person_id__story_revisions__revision_number__restore_post"];
         readonly delete?: never;
         readonly options?: never;
         readonly head?: never;
@@ -181,7 +201,7 @@ export interface paths {
         readonly patch: operations["update_person_api_people__person_id__patch"];
         readonly trace?: never;
     };
-    readonly "/api/people/{person_id}/blog": {
+    readonly "/api/people/{person_id}/story": {
         readonly parameters: {
             readonly query?: never;
             readonly header?: never;
@@ -189,12 +209,12 @@ export interface paths {
             readonly cookie?: never;
         };
         /**
-         * Read Blog
+         * Read Story
          * @description Read just the person's story: its current revision and how many revisions it has, without the person or the full history. No frontend calls it; it returns 404 for a person without a story.
          */
-        readonly get: operations["read_blog_api_people__person_id__blog_get"];
-        /** Save Blog */
-        readonly put: operations["save_blog_api_people__person_id__blog_put"];
+        readonly get: operations["read_story_api_people__person_id__story_get"];
+        /** Save Story */
+        readonly put: operations["save_story_api_people__person_id__story_put"];
         readonly post?: never;
         readonly delete?: never;
         readonly options?: never;
@@ -260,59 +280,15 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** BlogResponse */
-        readonly BlogResponse: {
-            readonly current_revision: components["schemas"]["BlogRevisionResponse"];
+        /** EditedStoryResponse */
+        readonly EditedStoryResponse: {
+            readonly current_revision: components["schemas"]["StoryRevisionDetail"];
             /** Id */
             readonly id: string;
             /** Person Id */
             readonly person_id: string;
             /** Revision Count */
             readonly revision_count: number;
-        };
-        /** BlogRevisionInput */
-        readonly BlogRevisionInput: {
-            /** Content */
-            readonly content: string;
-            /**
-             * Excerpt
-             * @default
-             */
-            readonly excerpt: string;
-            /** Title */
-            readonly title: string;
-        };
-        /** BlogRevisionResponse */
-        readonly BlogRevisionResponse: {
-            /** Content */
-            readonly content: string;
-            /** Excerpt */
-            readonly excerpt: string;
-            /** Id */
-            readonly id: string;
-            /** Revision Number */
-            readonly revision_number: number;
-            /**
-             * Saved At
-             * Format: date-time
-             */
-            readonly saved_at: string;
-            /** Title */
-            readonly title: string;
-        };
-        /** BlogSummary */
-        readonly BlogSummary: {
-            /** Excerpt */
-            readonly excerpt: string;
-            /** Revision Count */
-            readonly revision_count: number;
-            /**
-             * Saved At
-             * Format: date-time
-             */
-            readonly saved_at: string;
-            /** Title */
-            readonly title: string;
         };
         /**
          * ErrorResponse
@@ -346,13 +322,12 @@ export interface components {
         readonly PersonDetail: {
             /** Birth Date */
             readonly birth_date?: string | null;
-            readonly blog?: components["schemas"]["BlogSummary"] | null;
             /**
              * Created At
              * Format: date-time
              */
             readonly created_at: string;
-            readonly current_blog?: components["schemas"]["BlogRevisionResponse"] | null;
+            readonly current_story?: components["schemas"]["StoryRevisionResponse"] | null;
             /** Death Date */
             readonly death_date?: string | null;
             /** Id */
@@ -366,6 +341,7 @@ export interface components {
              * @default []
              */
             readonly sources: readonly components["schemas"]["PersonSourceResponse"][];
+            readonly story?: components["schemas"]["StorySummary"] | null;
             /**
              * Updated At
              * Format: date-time
@@ -387,7 +363,6 @@ export interface components {
         readonly PersonResponse: {
             /** Birth Date */
             readonly birth_date?: string | null;
-            readonly blog?: components["schemas"]["BlogSummary"] | null;
             /**
              * Created At
              * Format: date-time
@@ -401,6 +376,7 @@ export interface components {
             readonly name: string;
             /** Slug */
             readonly slug: string;
+            readonly story?: components["schemas"]["StorySummary"] | null;
             /**
              * Updated At
              * Format: date-time
@@ -437,12 +413,107 @@ export interface components {
             /** Hidden */
             readonly hidden: boolean;
         };
+        /** RevisionRestore */
+        readonly RevisionRestore: {
+            /** Base Revision Number */
+            readonly base_revision_number?: number | null;
+            /** Change Note */
+            readonly change_note?: string | null;
+        };
+        /** StoryResponse */
+        readonly StoryResponse: {
+            readonly current_revision: components["schemas"]["StoryRevisionResponse"];
+            /** Id */
+            readonly id: string;
+            /** Person Id */
+            readonly person_id: string;
+            /** Revision Count */
+            readonly revision_count: number;
+        };
+        /**
+         * StoryRevisionDetail
+         * @description A version as editors see it. The public never sees who saved it or why.
+         */
+        readonly StoryRevisionDetail: {
+            /** Change Note */
+            readonly change_note: string | null;
+            /** Content */
+            readonly content: string;
+            /** Created By */
+            readonly created_by: string;
+            /** Excerpt */
+            readonly excerpt: string;
+            /** Id */
+            readonly id: string;
+            /** Restored From */
+            readonly restored_from: number | null;
+            /** Revision Number */
+            readonly revision_number: number;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            readonly saved_at: string;
+            /** Title */
+            readonly title: string;
+        };
+        /** StoryRevisionInput */
+        readonly StoryRevisionInput: {
+            /**
+             * Base Revision Number
+             * @description The version this edit started from (0 for no story yet). If the story has moved on, the save answers 409 and changes nothing. Omit to skip.
+             */
+            readonly base_revision_number?: number | null;
+            /** Change Note */
+            readonly change_note?: string | null;
+            /** Content */
+            readonly content: string;
+            /**
+             * Excerpt
+             * @default
+             */
+            readonly excerpt: string;
+            /** Title */
+            readonly title: string;
+        };
+        /** StoryRevisionResponse */
+        readonly StoryRevisionResponse: {
+            /** Content */
+            readonly content: string;
+            /** Excerpt */
+            readonly excerpt: string;
+            /** Id */
+            readonly id: string;
+            /** Revision Number */
+            readonly revision_number: number;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            readonly saved_at: string;
+            /** Title */
+            readonly title: string;
+        };
+        /** StorySummary */
+        readonly StorySummary: {
+            /** Excerpt */
+            readonly excerpt: string;
+            /** Revision Count */
+            readonly revision_count: number;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            readonly saved_at: string;
+            /** Title */
+            readonly title: string;
+        };
         /**
          * SuggestionAcceptance
          * @description The story as the editor wants it; omitted, the visitor's text is used.
          */
         readonly SuggestionAcceptance: {
-            readonly story?: components["schemas"]["BlogRevisionInput"] | null;
+            readonly story?: components["schemas"]["StoryRevisionInput"] | null;
         };
         /**
          * SuggestionCreate
@@ -499,7 +570,7 @@ export interface components {
              * Format: date-time
              */
             readonly created_at: string;
-            readonly current_revision: components["schemas"]["BlogRevisionResponse"] | null;
+            readonly current_revision: components["schemas"]["StoryRevisionResponse"] | null;
             /** Excerpt */
             readonly excerpt: string | null;
             /** Id */
@@ -573,7 +644,7 @@ export interface operations {
             };
         };
     };
-    readonly list_blog_revisions_api_admin_people__person_id__blog_revisions_get: {
+    readonly list_story_revisions_api_admin_people__person_id__story_revisions_get: {
         readonly parameters: {
             readonly query?: never;
             readonly header?: never;
@@ -590,11 +661,67 @@ export interface operations {
                     readonly [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/json": readonly components["schemas"]["BlogRevisionResponse"][];
+                    readonly "application/json": readonly components["schemas"]["StoryRevisionDetail"][];
                 };
             };
             /** @description Person or story not found */
             readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            readonly 422: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readonly restore_revision_api_admin_people__person_id__story_revisions__revision_number__restore_post: {
+        readonly parameters: {
+            readonly query?: never;
+            readonly header?: {
+                readonly "X-Authentik-Username"?: string;
+            };
+            readonly path: {
+                readonly person_id: string;
+                readonly revision_number: number;
+            };
+            readonly cookie?: never;
+        };
+        readonly requestBody: {
+            readonly content: {
+                readonly "application/json": components["schemas"]["RevisionRestore"];
+            };
+        };
+        readonly responses: {
+            /** @description Successful Response */
+            readonly 200: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["EditedStoryResponse"];
+                };
+            };
+            /** @description Person or story not found */
+            readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflicts with stored data */
+            readonly 409: {
                 headers: {
                     readonly [name: string]: unknown;
                 };
@@ -1054,7 +1181,7 @@ export interface operations {
             };
         };
     };
-    readonly read_blog_api_people__person_id__blog_get: {
+    readonly read_story_api_people__person_id__story_get: {
         readonly parameters: {
             readonly query?: never;
             readonly header?: never;
@@ -1071,7 +1198,7 @@ export interface operations {
                     readonly [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/json": components["schemas"]["BlogResponse"];
+                    readonly "application/json": components["schemas"]["StoryResponse"];
                 };
             };
             /** @description Person or story not found */
@@ -1094,10 +1221,12 @@ export interface operations {
             };
         };
     };
-    readonly save_blog_api_people__person_id__blog_put: {
+    readonly save_story_api_people__person_id__story_put: {
         readonly parameters: {
             readonly query?: never;
-            readonly header?: never;
+            readonly header?: {
+                readonly "X-Authentik-Username"?: string;
+            };
             readonly path: {
                 readonly person_id: string;
             };
@@ -1105,7 +1234,7 @@ export interface operations {
         };
         readonly requestBody: {
             readonly content: {
-                readonly "application/json": components["schemas"]["BlogRevisionInput"];
+                readonly "application/json": components["schemas"]["StoryRevisionInput"];
             };
         };
         readonly responses: {
@@ -1115,11 +1244,20 @@ export interface operations {
                     readonly [name: string]: unknown;
                 };
                 content: {
-                    readonly "application/json": components["schemas"]["BlogResponse"];
+                    readonly "application/json": components["schemas"]["EditedStoryResponse"];
                 };
             };
             /** @description Person or story not found */
             readonly 404: {
+                headers: {
+                    readonly [name: string]: unknown;
+                };
+                content: {
+                    readonly "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflicts with stored data */
+            readonly 409: {
                 headers: {
                     readonly [name: string]: unknown;
                 };

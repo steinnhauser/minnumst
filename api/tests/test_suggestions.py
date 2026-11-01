@@ -44,7 +44,7 @@ def test_a_suggestion_changes_nothing_until_an_editor_accepts_it(
 
     assert receipt["status"] == "pending"
     assert set(receipt) == {"id", "status"}
-    assert client.get(f"/api/people/{person['id']}").json()["current_blog"] is None
+    assert client.get(f"/api/people/{person['id']}").json()["current_story"] is None
 
     [item] = queue(client)["items"]
     assert (item["person_name"], item["content"]) == ("Ásta Jónsdóttir", "New text.")
@@ -57,7 +57,7 @@ def test_a_suggestion_changes_nothing_until_an_editor_accepts_it(
 
     assert accepted.status_code == 200
     public = client.get(f"/api/people/{person['id']}").json()
-    assert public["current_blog"]["content"] == "New text."
+    assert public["current_story"]["content"] == "New text."
     assert accepted.json()["status"] == "accepted"
     assert accepted.json()["reviewed_by"] == "editor"
     assert accepted.json()["content"] is None
@@ -76,7 +76,44 @@ def test_an_editor_can_change_the_text_before_accepting(
     )
 
     public = client.get(f"/api/people/{person['id']}").json()
-    assert public["current_blog"]["content"] == "Edited text."
+    assert public["current_story"]["content"] == "Edited text."
+
+
+def test_an_accepted_edit_is_a_version_by_the_editor(
+    client: TestClient, person: dict
+) -> None:
+    receipt = suggest(client, person)
+
+    client.post(
+        f"/api/admin/suggestions/{receipt['id']}/accept",
+        json={},
+        headers={"X-Authentik-Username": "editor"},
+    )
+
+    [version] = client.get(f"/api/admin/people/{person['id']}/story/revisions").json()
+    assert version["created_by"] == "editor"
+    assert version["change_note"] == "Accepted a visitor's suggestion"
+
+
+def test_accepting_after_the_story_moved_on_is_refused_and_stays_pending(
+    client: TestClient, person: dict
+) -> None:
+    receipt = suggest(client, person)
+    client.put(
+        f"/api/people/{person['id']}/story", json={"title": "T", "content": "New"}
+    )
+
+    response = client.post(
+        f"/api/admin/suggestions/{receipt['id']}/accept",
+        json={
+            "story": {"title": "T", "content": "Old", "base_revision_number": 0},
+        },
+    )
+
+    assert response.status_code == 409
+    assert queue(client)["total"] == 1
+    public = client.get(f"/api/people/{person['id']}").json()
+    assert public["current_story"]["content"] == "New"
 
 
 def test_rejecting_deletes_the_text_and_keeps_who_decided(
@@ -93,7 +130,7 @@ def test_rejecting_deletes_the_text_and_keeps_who_decided(
     assert rejected["reviewed_by"] == "editor"
     assert rejected["reviewed_at"]
     assert (rejected["note"], rejected["source_url"]) == (None, None)
-    assert client.get(f"/api/people/{person['id']}").json()["current_blog"] is None
+    assert client.get(f"/api/people/{person['id']}").json()["current_story"] is None
 
 
 def test_accepting_a_request_marks_it_handled_without_a_revision(
@@ -134,6 +171,7 @@ def test_a_decision_is_final_and_needs_a_real_suggestion(
         {**REQUEST, "source_url": "not a link"},
         {**REQUEST, "note": "x" * 2001},
         {**EDIT, "content": "x" * 50001},
+        {**EDIT, "base_revision_number": 2**31},
     ],
 )
 def test_incomplete_or_oversized_suggestions_are_rejected(
@@ -142,6 +180,19 @@ def test_incomplete_or_oversized_suggestions_are_rejected(
     response = client.post(f"/api/people/{person['id']}/suggestions", json=body)
 
     assert response.status_code == 422
+
+
+def test_a_refused_suggestion_is_not_repeated_back(
+    client: TestClient, person: dict
+) -> None:
+    body = {"kind": "request", "note": "Private text", "source_url": "not a link"}
+
+    response = client.post(f"/api/people/{person['id']}/suggestions", json=body)
+
+    assert response.status_code == 422
+    assert "Private text" not in response.text
+    assert "not a link" not in response.text
+    assert response.json()["detail"][0]["msg"]
 
 
 def test_an_empty_source_counts_as_none(client: TestClient, person: dict) -> None:
@@ -189,7 +240,7 @@ def test_hiding_a_person_removes_them_from_every_public_read(
     client: TestClient, person: dict
 ) -> None:
     client.put(
-        f"/api/people/{person['id']}/blog", json={"title": "T", "content": "Text"}
+        f"/api/people/{person['id']}/story", json={"title": "T", "content": "Text"}
     )
     hide = f"/api/admin/people/{person['id']}/visibility"
 
@@ -198,14 +249,14 @@ def test_hiding_a_person_removes_them_from_every_public_read(
     assert client.get("/api/people").json()["total"] == 0
     for path in (
         f"/api/people/{person['id']}",
-        f"/api/people/{person['id']}/blog",
+        f"/api/people/{person['id']}/story",
         f"/api/people/by-slug/{person['slug']}",
     ):
         assert client.get(path).status_code == 404, path
     [hidden] = client.get("/api/admin/people/hidden").json()
     assert hidden["id"] == person["id"]
     assert (
-        client.get(f"/api/admin/people/{person['id']}/blog/revisions").status_code
+        client.get(f"/api/admin/people/{person['id']}/story/revisions").status_code
         == 200
     )
 
@@ -224,7 +275,8 @@ def test_hiding_a_person_removes_them_from_every_public_read(
 def test_story_history_is_only_served_to_editors(client: TestClient) -> None:
     paths = [path for path in client.app.openapi()["paths"] if "revisions" in path]
 
-    assert paths == ["/api/admin/people/{person_id}/blog/revisions"]
+    assert paths
+    assert all(path.startswith("/api/admin/") for path in paths)
 
 
 def test_deleting_a_person_takes_their_open_suggestions_along(

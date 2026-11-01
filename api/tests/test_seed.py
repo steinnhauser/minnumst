@@ -11,7 +11,7 @@ from minnumst_api import seed
 from minnumst_api.config import settings
 from minnumst_api.database import make_engine
 from minnumst_api.migrate import upgrade
-from minnumst_api.models import BlogPost, Person, PersonSource
+from minnumst_api.models import Person, PersonSource, Story
 from minnumst_api.seed import import_batch, read_batch, remove_batch
 
 
@@ -92,7 +92,7 @@ def test_remove_keeps_anyone_with_a_story(engine: Engine) -> None:
     import_batch(engine, BATCH, apply=True)
     with Session(engine) as session:
         person = session.scalar(select(Person).where(Person.slug == "jon-jonsson"))
-        session.add(BlogPost(person_id=person.id))
+        session.add(Story(person_id=person.id))
         session.commit()
 
     report = remove_batch(engine, [*BATCH[:2], record("Q99")])

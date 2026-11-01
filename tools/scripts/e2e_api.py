@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from minnumst_api.config import settings
 from minnumst_api.database import make_engine
-from minnumst_api.models import BlogPost, BlogRevision, Person, PersonSource, Suggestion
+from minnumst_api.models import Person, PersonSource, Story, StoryRevision, Suggestion
 
 API_URL = os.environ.get("MINNUMST_E2E_API_URL", "http://127.0.0.1:8000").rstrip("/")
 # Every (method, path) this run called, to check that no route goes untested.
@@ -109,14 +109,16 @@ def cleanup(person_ids: list[str]) -> None:
     if not person_ids:
         return
     engine = make_engine()
-    blog_ids = select(BlogPost.id).where(BlogPost.person_id.in_(person_ids))
+    story_ids = select(Story.id).where(Story.person_id.in_(person_ids))
     with Session(engine) as session:
         session.execute(delete(Suggestion).where(Suggestion.person_id.in_(person_ids)))
         session.execute(
             delete(PersonSource).where(PersonSource.person_id.in_(person_ids))
         )
-        session.execute(delete(BlogRevision).where(BlogRevision.blog_id.in_(blog_ids)))
-        session.execute(delete(BlogPost).where(BlogPost.person_id.in_(person_ids)))
+        session.execute(
+            delete(StoryRevision).where(StoryRevision.story_id.in_(story_ids))
+        )
+        session.execute(delete(Story).where(Story.person_id.in_(person_ids)))
         session.execute(delete(Person).where(Person.id.in_(person_ids)))
         session.commit()
     engine.dispose()
@@ -190,9 +192,9 @@ def main() -> None:
         )
         detail = expect_status("GET", f"/api/people/{person['id']}", 200)
         assert detail["id"] == person["id"]
-        assert detail["current_blog"] is None
-        expect_status("GET", f"/api/people/{person['id']}/blog", 404)
-        expect_status("GET", f"/api/admin/people/{person['id']}/blog/revisions", 404)
+        assert detail["current_story"] is None
+        expect_status("GET", f"/api/people/{person['id']}/story", 404)
+        expect_status("GET", f"/api/admin/people/{person['id']}/story/revisions", 404)
         print("PASS normalized duplicate rejection, person read and no story yet")
 
         updated = expect_status(
@@ -220,18 +222,18 @@ def main() -> None:
             "content": "Second revision body.",
         }
         saved_first = expect_status(
-            "PUT", f"/api/people/{person['id']}/blog", 200, first
+            "PUT", f"/api/people/{person['id']}/story", 200, first
         )
         saved_second = expect_status(
-            "PUT", f"/api/people/{person['id']}/blog", 200, second
+            "PUT", f"/api/people/{person['id']}/story", 200, second
         )
         assert saved_first["id"] == saved_second["id"]
         assert saved_second["revision_count"] == 2
 
-        blog = expect_status("GET", f"/api/people/{person['id']}/blog", 200)
-        assert blog["current_revision"]["content"] == second["content"]
+        story = expect_status("GET", f"/api/people/{person['id']}/story", 200)
+        assert story["current_revision"]["content"] == second["content"]
         history = expect_status(
-            "GET", f"/api/admin/people/{person['id']}/blog/revisions", 200
+            "GET", f"/api/admin/people/{person['id']}/story/revisions", 200
         )
         assert [item["revision_number"] for item in history] == [2, 1]
         assert [item["content"] for item in history] == [
@@ -241,12 +243,28 @@ def main() -> None:
         public_profile = expect_status(
             "GET", f"/api/people/by-slug/{person['slug']}", 200
         )
-        assert public_profile["current_blog"]["content"] == second["content"]
+        assert public_profile["current_story"]["content"] == second["content"]
         expect_status("DELETE", f"/api/people/{person['id']}", 409)
         print(
-            "PASS blog write/read, append-only revisions, public read, "
+            "PASS story write/read, append-only revisions, public read, "
             "and delete protection"
         )
+
+        restored = expect_status(
+            "POST",
+            f"/api/admin/people/{person['id']}/story/revisions/1/restore",
+            200,
+            {},
+        )
+        assert restored["current_revision"]["restored_from"] == 1
+        assert restored["current_revision"]["content"] == first["content"]
+        expect_status(
+            "PUT",
+            f"/api/people/{person['id']}/story",
+            409,
+            {**second, "base_revision_number": 1},
+        )
+        print("PASS restoring a version and refusing a stale save")
 
         suggestions = f"/api/people/{person['id']}/suggestions"
         edit = {"kind": "edit", "title": "Suggested", "content": "Suggested body."}
@@ -264,7 +282,7 @@ def main() -> None:
         public_profile = expect_status(
             "GET", f"/api/people/by-slug/{person['slug']}", 200
         )
-        assert public_profile["current_blog"]["content"] == edit["content"]
+        assert public_profile["current_story"]["content"] == edit["content"]
         print("PASS suggestions wait for review, then accept and reject")
 
         visibility = f"/api/admin/people/{person['id']}/visibility"
@@ -285,7 +303,7 @@ def main() -> None:
         person_ids.remove(disposable["id"])
         expect_status("GET", f"/api/people/{disposable['id']}", 404)
         expect_status("GET", "/api/people/00000000-0000-0000-0000-000000000000", 404)
-        print("PASS unblogged person deletion and not-found responses")
+        print("PASS storyless person deletion and not-found responses")
     finally:
         cleanup(person_ids)
 

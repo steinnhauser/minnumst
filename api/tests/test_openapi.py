@@ -18,8 +18,8 @@ def test_openapi_spec_exposes_public_and_admin_operations() -> None:
 
     assert {"get", "post"} <= paths["/api/people"].keys()
     assert "patch" in paths["/api/people/{person_id}"]
-    assert "put" in paths["/api/people/{person_id}/blog"]
+    assert "put" in paths["/api/people/{person_id}/story"]
     assert "get" in paths["/api/people/by-slug/{slug}"]
-    assert "get" in paths["/api/admin/people/{person_id}/blog/revisions"]
+    assert "get" in paths["/api/admin/people/{person_id}/story/revisions"]
     assert "post" in paths["/api/people/{person_id}/suggestions"]
     assert "get" in paths["/api/admin/suggestions"]

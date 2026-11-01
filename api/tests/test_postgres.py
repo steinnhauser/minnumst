@@ -65,16 +65,16 @@ def test_runtime_role_cannot_rewrite_history_or_the_schema(
         "/api/people", json={"name": "Jón Jónsson", "birth_date": "1850"}
     ).json()
     saved = postgres_client.put(
-        f"/api/people/{person['id']}/blog",
+        f"/api/people/{person['id']}/story",
         json={"title": "A story", "content": "The first version."},
     )
     assert saved.status_code == 200
 
     runtime = make_engine(database_urls[1])
     for statement in (
-        "UPDATE blog_revisions SET content = 'rewritten'",
-        "DELETE FROM blog_revisions",
-        "DELETE FROM blog_posts",
+        "UPDATE story_revisions SET content = 'rewritten'",
+        "DELETE FROM story_revisions",
+        "DELETE FROM stories",
         "DROP TABLE people",
         "CREATE TABLE intruder (id int)",
     ):
@@ -83,7 +83,7 @@ def test_runtime_role_cannot_rewrite_history_or_the_schema(
         assert error.value.orig.sqlstate == INSUFFICIENT_PRIVILEGE, statement
     runtime.dispose()
 
-    history = postgres_client.get(f"/api/admin/people/{person['id']}/blog/revisions")
+    history = postgres_client.get(f"/api/admin/people/{person['id']}/story/revisions")
     assert [revision["content"] for revision in history.json()] == [
         "The first version."
     ]
@@ -99,7 +99,7 @@ def test_admin_writes_persist_and_public_reads_return_current_data(
     person = created.json()
 
     first_save = postgres_client.put(
-        f"/api/people/{person['id']}/blog",
+        f"/api/people/{person['id']}/story",
         json={
             "title": "A life in Reykjavík",
             "excerpt": "An introduction",
@@ -107,7 +107,7 @@ def test_admin_writes_persist_and_public_reads_return_current_data(
         },
     )
     second_save = postgres_client.put(
-        f"/api/people/{person['id']}/blog",
+        f"/api/people/{person['id']}/story",
         json={
             "title": "A life in Reykjavík",
             "excerpt": "A revised introduction",
@@ -121,13 +121,13 @@ def test_admin_writes_persist_and_public_reads_return_current_data(
 
     search = postgres_client.get("/api/people", params={"query": "sigridur"})
     public_page = postgres_client.get(f"/api/people/by-slug/{person['slug']}")
-    history = postgres_client.get(f"/api/admin/people/{person['id']}/blog/revisions")
+    history = postgres_client.get(f"/api/admin/people/{person['id']}/story/revisions")
 
     assert search.status_code == 200
     assert search.json()["total"] == 1
-    assert search.json()["items"][0]["blog"]["title"] == "A life in Reykjavík"
+    assert search.json()["items"][0]["story"]["title"] == "A life in Reykjavík"
     assert public_page.status_code == 200
-    assert public_page.json()["current_blog"]["content"] == (
+    assert public_page.json()["current_story"]["content"] == (
         "The updated story, with more detail."
     )
     assert [revision["content"] for revision in history.json()] == [
@@ -202,3 +202,26 @@ def test_runtime_role_can_review_suggestions(
     )
     assert hidden.status_code == 200
     assert postgres_client.get(f"/api/people/{person['id']}").status_code == 404
+
+
+def test_postgresql_refuses_nothing_the_api_lets_through(
+    postgres_client: TestClient,
+) -> None:
+    longest = "\u00fe" * 255  # Folds to twice its length.
+    person = postgres_client.post(
+        "/api/people", json={"name": longest, "birth_date": "1850"}
+    )
+    assert person.status_code == 201
+    assert postgres_client.get("/api/people?query=a%00b").status_code == 422
+    assert postgres_client.get("/api/people/by-slug/a%00b").status_code == 404
+    assert postgres_client.get(f"/api/people?offset={2**40}").status_code == 422
+
+    saved = postgres_client.put(
+        f"/api/people/{person.json()['id']}/story",
+        json={"title": "A title", "content": "Text", "change_note": "N" * 500},
+    )
+    assert saved.status_code == 200
+    restored = postgres_client.post(
+        f"/api/admin/people/{person.json()['id']}/story/revisions/1/restore", json={}
+    )
+    assert restored.status_code == 409

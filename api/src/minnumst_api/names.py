@@ -8,6 +8,20 @@ from minnumst_api.models import Person
 
 # Letters that are not accented variants, so Unicode decomposition keeps them.
 TRANSLITERATION = str.maketrans({"þ": "th", "ð": "d", "æ": "ae", "ø": "o", "ß": "ss"})
+# Column limits. Folding can lengthen a name, and a slug gets a suffix when taken.
+MAX_NORMALIZED_NAME = 600
+MAX_BASE_SLUG = 200
+
+
+def storable_text(value: str) -> bool:
+    """Whether PostgreSQL can hold it: no NUL characters or lone surrogates."""
+    if "\x00" in value:
+        return False
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 def ascii_folded(value: str) -> str:
@@ -37,7 +51,7 @@ def unique_person_slug(
     def taken(slug: str) -> bool:
         return session.scalar(select(Person.id).where(Person.slug == slug)) is not None
 
-    name_slug = person_slug(name) or "person"
+    name_slug = person_slug(name)[:MAX_BASE_SLUG].rstrip("-") or "person"
     if not taken(name_slug):
         return name_slug
     base_slug = f"{name_slug}-{birth_date[:4]}" if birth_date else name_slug

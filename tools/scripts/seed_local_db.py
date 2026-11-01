@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create or refresh deterministic sample people and append-only blog revisions."""
+"""Create or refresh deterministic sample people and append-only story revisions."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from minnumst_api.config import settings
 from minnumst_api.database import make_engine
 from minnumst_api.migrate import downgrade, upgrade
-from minnumst_api.models import BlogPost, BlogRevision, Person
+from minnumst_api.models import Person, Story, StoryRevision
 from minnumst_api.names import new_person, normalized_person_name
 
 SAMPLE_RECORDS = (
@@ -24,11 +24,9 @@ SAMPLE_RECORDS = (
         "title": "A life shaped by the coast",
         "excerpt": "A sample archive entry for local development.",
         "content": (
-            "## Early years\n\n"
             "This fictional sample entry is here to exercise the public profile "
             "and editorial workflows. Replace or remove it when testing with "
             "real archive content.\n\n"
-            "## Community\n\n"
             "This paragraph demonstrates longer-form story rendering without "
             "making claims about a real person."
         ),
@@ -39,10 +37,8 @@ SAMPLE_RECORDS = (
         "title": "Notes from a working life",
         "excerpt": "Another fictional entry for search and revision testing.",
         "content": (
-            "## A beginning\n\n"
             "Use this fictional profile to test search, public details, and "
             "revision history. The seeded content is intentionally generic.\n\n"
-            "## Archive note\n\n"
             "Updating the template appends a new revision; it never replaces "
             "the saved sample history."
         ),
@@ -55,7 +51,6 @@ SAMPLE_RECORDS = (
         "title": "A farm under the glacier",
         "excerpt": "A fictional entry with an Icelandic name.",
         "content": (
-            "## The farm\n\n"
             "This fictional profile exercises names with accents and Icelandic "
             "letters. Searching for Sólveig, solveig or thorgrimsdottir finds it."
         ),
@@ -79,7 +74,7 @@ def require_local_database() -> None:
 
 def populate(session: Session) -> tuple[int, int, int]:
     people_created = 0
-    blogs_created = 0
+    stories_created = 0
     revisions_added = 0
 
     for record in SAMPLE_RECORDS:
@@ -95,17 +90,17 @@ def populate(session: Session) -> tuple[int, int, int]:
             session.flush()
             people_created += 1
 
-        blog = session.scalar(select(BlogPost).where(BlogPost.person_id == person.id))
-        if blog is None:
-            blog = BlogPost(person_id=person.id)
-            session.add(blog)
+        story = session.scalar(select(Story).where(Story.person_id == person.id))
+        if story is None:
+            story = Story(person_id=person.id)
+            session.add(story)
             session.flush()
-            blogs_created += 1
+            stories_created += 1
 
         latest = session.scalar(
-            select(BlogRevision)
-            .where(BlogRevision.blog_id == blog.id)
-            .order_by(BlogRevision.revision_number.desc())
+            select(StoryRevision)
+            .where(StoryRevision.story_id == story.id)
+            .order_by(StoryRevision.revision_number.desc())
             .limit(1)
         )
         if latest is not None and all(
@@ -115,18 +110,19 @@ def populate(session: Session) -> tuple[int, int, int]:
             continue
 
         session.add(
-            BlogRevision(
-                blog_id=blog.id,
+            StoryRevision(
+                story_id=story.id,
                 revision_number=(latest.revision_number if latest else 0) + 1,
                 title=record["title"],
                 excerpt=record["excerpt"],
                 content=record["content"],
+                created_by="sample data",
             )
         )
         revisions_added += 1
 
     session.commit()
-    return people_created, blogs_created, revisions_added
+    return people_created, stories_created, revisions_added
 
 
 def main() -> None:
@@ -149,12 +145,12 @@ def main() -> None:
             return
 
     with Session(engine) as session:
-        people_created, blogs_created, revisions_added = populate(session)
+        people_created, stories_created, revisions_added = populate(session)
 
     print(
         "Sample data ready: "
         f"{people_created} people created, "
-        f"{blogs_created} blogs created, "
+        f"{stories_created} stories created, "
         f"{revisions_added} revisions appended."
     )
 

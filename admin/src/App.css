@@ -1261,10 +1261,6 @@
   white-space: pre-wrap;
 }
 
-.version-diff
-
-.version-diff
-
 /* RevisionHistory builds these class names from each line's kind. */
 .version-diff .diff-added {
   background: var(--sage);

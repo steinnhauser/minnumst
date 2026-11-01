@@ -47,8 +47,8 @@ function PageDetails({
       <div className="details-warning">
         <AlertTriangle size={15} aria-hidden="true" />
         <p>
-          Each save creates a new revision; previous versions remain available
-          in history.
+          Each save publishes a new version straight away. Earlier versions stay
+          in the history.
         </p>
       </div>
     </aside>

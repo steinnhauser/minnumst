@@ -104,9 +104,9 @@ export function errorMessage(
   return requestId ? `${message} (request ID: ${requestId})` : message;
 }
 
-// Letters folded as the API folds names, so the desk's filter finds Sólveig
-// from "solveig" and Þóra from "thora".
-export function foldName(name: string): string {
+// The API's search key (names.py), so the desk's filter finds Sólveig from
+// "solveig", and Þóra from "thora" or "tora".
+export function searchKey(name: string): string {
   return name
     .toLocaleLowerCase("is")
     .replaceAll("þ", "th")
@@ -115,7 +115,10 @@ export function foldName(name: string): string {
     .replaceAll("ø", "o")
     .replaceAll("ß", "ss")
     .normalize("NFKD")
-    .replace(/\p{Mn}/gu, "");
+    .replace(/[\p{Mn}\p{Cf}]/gu, "")
+    .replaceAll("th", "t")
+    .replaceAll("ae", "a")
+    .replaceAll("y", "i");
 }
 
 export function currentRevision(page: PersonPage) {

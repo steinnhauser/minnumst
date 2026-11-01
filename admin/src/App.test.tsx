@@ -254,10 +254,13 @@ describe("the page filter", () => {
     render(<App />);
     await screen.findByRole("button", { name: /Björk/ });
 
-    await user.type(screen.getByPlaceholderText("Find a person"), "gudmunds");
-
-    expect(screen.getByRole("button", { name: /Björk/ })).toBeVisible();
-    expect(screen.queryByRole("button", { name: /Ada/ })).toBeNull();
+    const filter = screen.getByPlaceholderText("Find a person");
+    for (const typed of ["gudmunds", "GUÐMUNDS", "bjork", "dottir bjork"]) {
+      await user.clear(filter);
+      await user.type(filter, typed);
+      expect(screen.getByRole("button", { name: /Björk/ })).toBeVisible();
+      expect(screen.queryByRole("button", { name: /Ada/ })).toBeNull();
+    }
   });
 });
 

@@ -18,12 +18,12 @@ import {
   createPerson,
   currentRevision,
   errorMessage,
-  foldName,
   loadPeople,
   loadPersonRevisions,
   loadSuggestions,
   restoreRevision,
   savePersonRevision,
+  searchKey,
   setPersonHidden,
   updatePerson,
   type PersonPage,
@@ -87,8 +87,11 @@ function App() {
     selectedPage?.story?.revisionCount ?? selectedPage?.revisions.length ?? 0;
   const lastSavedAt = activeRevision?.savedAt ?? selectedPage?.story?.savedAt;
   const visiblePages = useMemo(() => {
-    const query = foldName(filter.trim());
-    return pages.filter((page) => foldName(page.personName).includes(query));
+    const words = searchKey(filter).split(/\s+/).filter(Boolean);
+    return pages.filter((page) => {
+      const name = searchKey(page.personName);
+      return words.every((word) => name.includes(word));
+    });
   }, [filter, pages]);
 
   useEffect(() => {
@@ -595,6 +598,7 @@ function App() {
                   <input
                     className="text-field person-field"
                     id="person-name"
+                    maxLength={255}
                     autoComplete="off"
                     placeholder="e.g. Sigríður Jónsdóttir"
                     value={personName}
@@ -609,6 +613,7 @@ function App() {
                       <input
                         className="text-field"
                         id="person-born"
+                        maxLength={10}
                         autoComplete="off"
                         placeholder="e.g. 1850"
                         value={birthDate}
@@ -622,6 +627,7 @@ function App() {
                       <input
                         className="text-field"
                         id="person-died"
+                        maxLength={10}
                         autoComplete="off"
                         placeholder="e.g. 1921-03-14"
                         value={deathDate}
@@ -666,6 +672,7 @@ function App() {
                   <input
                     className="text-field title-field"
                     id="page-title-input"
+                    maxLength={255}
                     placeholder="Give this story a title"
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
@@ -677,6 +684,7 @@ function App() {
                   <textarea
                     className="text-field excerpt-field"
                     id="page-excerpt"
+                    maxLength={10000}
                     placeholder="A short introduction to the story"
                     rows={2}
                     value={excerpt}
@@ -689,6 +697,7 @@ function App() {
                   <textarea
                     className="text-field story-field"
                     id="page-content"
+                    maxLength={200000}
                     placeholder="Write the story here..."
                     rows={10}
                     value={content}

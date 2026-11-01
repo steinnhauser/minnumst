@@ -43,7 +43,12 @@ export function getRequestId(headers) {
 }
 
 export function safeRoute(url) {
-  const pathname = new URL(url ?? "/", "http://localhost").pathname;
+  let pathname;
+  try {
+    pathname = new URL(url ?? "/", "http://localhost").pathname;
+  } catch {
+    return "/app/*";
+  }
   if (pathname === "/" || pathname === "/runtime-config.js") return pathname;
   if (pathname.startsWith("/assets/")) return "/assets/*";
   return "/app/*";

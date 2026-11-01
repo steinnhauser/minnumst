@@ -35,6 +35,7 @@ describe("container logging", () => {
     expect(safeRoute("/assets/index-123.js?cache=1")).toBe("/assets/*");
     expect(safeRoute("/runtime-config.js?v=2")).toBe("/runtime-config.js");
     expect(safeRoute(undefined)).toBe("/");
+    expect(safeRoute("//")).toBe("/app/*");
   });
 
   it("preserves safe request IDs and replaces unsafe values", () => {

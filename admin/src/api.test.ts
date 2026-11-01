@@ -11,8 +11,8 @@ import {
   apiPerson,
   apiResponse,
   apiRevision,
-  blogResponse,
-  blogSummary,
+  storyResponse,
+  storySummary,
   peoplePage,
 } from "./test/fixtures";
 
@@ -40,7 +40,7 @@ describe("admin API client", () => {
         slug: "asta-jonsdottir",
         birthDate: "",
         deathDate: "",
-        blog: null,
+        story: null,
         revisions: [],
       },
     ]);
@@ -66,7 +66,7 @@ describe("admin API client", () => {
               id: "person-1",
               name: "Ada Lovelace",
               slug: "ada-lovelace",
-              blog: blogSummary(revision),
+              story: storySummary(revision),
             }),
           ]),
         ),
@@ -75,7 +75,7 @@ describe("admin API client", () => {
 
     await expect(loadPeople()).resolves.toMatchObject([
       {
-        blog: {
+        story: {
           title: "A life in letters",
           excerpt: "Letters home",
           savedAt: "2026-09-28T13:00:00Z",
@@ -217,6 +217,9 @@ describe("admin API client", () => {
         title: "First",
         excerpt: "An excerpt",
         content: "First version",
+        createdBy: "editor",
+        changeNote: null,
+        restoredFrom: null,
       },
       {
         id: "revision-2",
@@ -225,18 +228,21 @@ describe("admin API client", () => {
         title: "Second",
         excerpt: "",
         content: "Second version",
+        createdBy: "editor",
+        changeNote: null,
+        restoredFrom: null,
       },
     ]);
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:8000/api/admin/people/person-1/blog/revisions",
+      "http://127.0.0.1:8000/api/admin/people/person-1/story/revisions",
       expect.anything(),
     );
   });
 
-  it("saves a revision using the API's append-only blog endpoint", async () => {
+  it("saves a revision using the API's append-only story endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       apiResponse(
-        blogResponse(
+        storyResponse(
           "person-1",
           apiRevision(2, {
             saved_at: "2026-09-28T11:00:00Z",
@@ -250,23 +256,30 @@ describe("admin API client", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      savePersonRevision("person-1", {
-        title: " Updated story ",
-        excerpt: " An excerpt ",
-        content: " Updated content ",
-      }),
+      savePersonRevision(
+        "person-1",
+        {
+          title: " Updated story ",
+          excerpt: " An excerpt ",
+          content: " Updated content ",
+        },
+        1,
+        " A note ",
+      ),
     ).resolves.toMatchObject({
       revisionCount: 2,
       revision: { revisionNumber: 2, content: "Updated content" },
     });
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:8000/api/people/person-1/blog",
+      "http://127.0.0.1:8000/api/people/person-1/story",
       expect.objectContaining({
         method: "PUT",
         body: JSON.stringify({
           title: "Updated story",
           excerpt: "An excerpt",
           content: "Updated content",
+          change_note: "A note",
+          base_revision_number: 1,
         }),
       }),
     );

@@ -1,14 +1,13 @@
 import { AlertTriangle } from "lucide-react";
-import type { PersonPost } from "./api";
-import { appConfig } from "./config";
+import type { PersonPage } from "./api";
 
 function PageDetails({
-  post,
+  page,
   personName,
   revisionCount,
   lastSavedAt,
 }: {
-  post: PersonPost | null;
+  page: PersonPage | null;
   personName: string;
   revisionCount: number;
   lastSavedAt: string | undefined;
@@ -17,9 +16,6 @@ function PageDetails({
     <aside className="details-panel" aria-label="Page details">
       <div className="details-heading">
         <h2>Page details</h2>
-        <span className="detail-status">
-          <span /> API
-        </span>
       </div>
       <div className="detail-block">
         <span className="detail-label">PERSON</span>
@@ -29,15 +25,13 @@ function PageDetails({
         <span className="detail-label">PAGE ADDRESS</span>
         <code>
           /people/
-          {post?.slug || (personName ? "..." : "person-name")}
+          {page?.slug || (personName ? "..." : "person-name")}
         </code>
-        <span className="detail-note">Preview route · not published</span>
+        <span className="detail-note">
+          {page ? "The public address" : "Set when the page is saved"}
+        </span>
       </div>
-      <div className="detail-block">
-        <span className="detail-label">API BASE URL</span>
-        <strong>{appConfig.apiUrl}</strong>
-        <span className="detail-note">Shared API origin</span>
-      </div>
+
       <div className="detail-block">
         <span className="detail-label">HISTORY</span>
         <strong>
@@ -57,7 +51,6 @@ function PageDetails({
           in history.
         </p>
       </div>
-      <p className="main-site-link">Public profiles read from this archive.</p>
     </aside>
   );
 }

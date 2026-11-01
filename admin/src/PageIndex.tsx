@@ -1,9 +1,9 @@
 import { FilePlus2, Search } from "lucide-react";
-import { currentRevision, type PersonPost } from "./api";
+import { currentRevision, type PersonPage } from "./api";
 
 function PageIndex({
-  posts,
-  visiblePosts,
+  pages,
+  visiblePages,
   selectedId,
   filter,
   emptyMessage,
@@ -11,21 +11,21 @@ function PageIndex({
   onNewPage,
   onSelect,
 }: {
-  posts: readonly PersonPost[];
-  visiblePosts: readonly PersonPost[];
+  pages: readonly PersonPage[];
+  visiblePages: readonly PersonPage[];
   selectedId: string | null;
   filter: string;
   emptyMessage: string;
   onFilterChange: (filter: string) => void;
   onNewPage: () => void;
-  onSelect: (post: PersonPost) => void;
+  onSelect: (page: PersonPage) => void;
 }) {
   return (
     <aside className="page-index" aria-label="Saved pages">
       <div className="index-heading">
         <div>
           <h2>Pages</h2>
-          <span>{posts.length} total</span>
+          <span>{pages.length} total</span>
         </div>
         <button
           className="index-add-button"
@@ -48,23 +48,23 @@ function PageIndex({
         />
       </label>
       <div className="page-list">
-        {visiblePosts.map((post) => {
-          const revision = currentRevision(post);
+        {visiblePages.map((page) => {
+          const revision = currentRevision(page);
           return (
             <button
-              className={`page-list-item${selectedId === post.id ? " selected" : ""}`}
+              className={`page-list-item${selectedId === page.id ? " selected" : ""}`}
               type="button"
-              key={post.id}
-              onClick={() => onSelect(post)}
-              aria-current={selectedId === post.id ? "page" : undefined}
+              key={page.id}
+              onClick={() => onSelect(page)}
+              aria-current={selectedId === page.id ? "page" : undefined}
             >
               <span className="page-initial" aria-hidden="true">
-                {post.personName.charAt(0).toLocaleUpperCase()}
+                {page.personName.charAt(0).toLocaleUpperCase()}
               </span>
               <span className="page-list-copy">
-                <strong>{post.personName}</strong>
+                <strong>{page.personName}</strong>
                 <span>
-                  {revision?.title || post.blog?.title || "Untitled page"}
+                  {revision?.title || page.story?.title || "No story yet"}
                 </span>
               </span>
               <span
@@ -74,13 +74,9 @@ function PageIndex({
             </button>
           );
         })}
-        {visiblePosts.length === 0 && (
+        {visiblePages.length === 0 && (
           <p className="index-empty">{emptyMessage}</p>
         )}
-      </div>
-      <div className="index-footer">
-        <span className="draft-indicator" aria-hidden="true" />
-        <span>Shared archive</span>
       </div>
     </aside>
   );

@@ -417,22 +417,6 @@
   line-height: 1.55;
 }
 
-.index-footer {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: auto;
-  padding: 12px 14px;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.index-footer .draft-indicator {
-  width: 6px;
-  height: 6px;
-}
-
 .editor-column {
   min-width: 0;
 }
@@ -884,23 +868,6 @@
   border-bottom: 1px solid var(--line);
 }
 
-.detail-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: #a25e5d;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-}
-
-.detail-status > span {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--coral);
-}
-
 .detail-block {
   display: grid;
   gap: 6px;
@@ -956,16 +923,6 @@
   color: #7d6949;
   font-size: 9px;
   line-height: 1.55;
-}
-
-.main-site-link {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: auto 0 0;
-  padding-top: 20px;
-  color: #6a726c;
-  font-size: 10px;
 }
 
 .main-footer {
@@ -1041,10 +998,6 @@
     align-self: stretch;
     margin-top: 0;
   }
-
-  .main-site-link {
-    display: none;
-  }
 }
 
 @media (max-width: 760px) {
@@ -1113,10 +1066,6 @@
 
   .page-list-item {
     flex: 0 0 190px;
-  }
-
-  .index-footer {
-    display: none;
   }
 
   .details-panel {
@@ -1283,4 +1232,57 @@
   gap: 12px;
   align-items: center;
   justify-content: space-between;
+}
+
+.revision-author,
+.revision-note {
+  margin: 2px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.revision-note {
+  font-style: italic;
+}
+
+.revision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.version-diff {
+  margin: 12px 0 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  list-style: none;
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.version-diff
+
+.version-diff
+
+/* A long list scrolls by itself, so the editor beside it stays in view. */
+.page-index {
+  position: sticky;
+  top: 8px;
+  align-self: start;
+}
+
+.page-list {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .page-index {
+    position: static;
+  }
+
+  .page-list {
+    max-height: 320px;
+  }
 }

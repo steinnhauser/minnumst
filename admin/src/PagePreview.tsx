@@ -1,21 +1,21 @@
-import type { PersonPost } from "./api";
+import type { PersonPage } from "./api";
 
 function PagePreview({
-  post,
+  page,
   title,
   excerpt,
   content,
 }: {
-  post: PersonPost | null;
+  page: PersonPage | null;
   title: string;
   excerpt: string;
   content: string;
 }) {
   return (
     <article className="article-preview" aria-label="Page preview">
-      {post && (
+      {page && (
         <p className="preview-person">
-          A STORY ABOUT {post.personName.toLocaleUpperCase()}
+          A STORY ABOUT {page.personName.toLocaleUpperCase()}
         </p>
       )}
       <h2>{title || "Your page title"}</h2>
@@ -24,8 +24,8 @@ function PagePreview({
       <p className="preview-body">
         {content || "Your story will appear here as you write."}
       </p>
-      {post && (
-        <span className="preview-route">Public story · {post.slug}</span>
+      {page && (
+        <span className="preview-route">Public story · {page.slug}</span>
       )}
     </article>
   );

@@ -107,6 +107,7 @@ describe("the review queue", () => {
             title: "A proposed title!",
             excerpt: "Intro",
             content: "A proposed story. Tidied.",
+            base_revision_number: 2,
           },
         }),
       },
@@ -181,7 +182,7 @@ describe("the review queue", () => {
     const { onEditAccepted } = renderQueue();
 
     await user.click(
-      await screen.findByRole("button", { name: "Reject and delete" }),
+      await screen.findByRole("button", { name: "Decline and delete" }),
     );
 
     expect(
@@ -204,15 +205,51 @@ describe("the review queue", () => {
     renderQueue();
 
     await user.click(
-      await screen.findByRole("button", { name: "Reject and delete" }),
+      await screen.findByRole("button", { name: "Decline and delete" }),
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "already been decided",
     );
     expect(
-      screen.getByRole("button", { name: "Reject and delete" }),
+      screen.getByRole("button", { name: "Decline and delete" }),
     ).toBeEnabled();
+  });
+
+  it("loads the next page once the loaded one is worked through", async () => {
+    const user = userEvent.setup();
+    let pages = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const path = new URL(String(input)).pathname;
+        if (init?.method === "POST") {
+          return Promise.resolve(
+            apiResponse(apiSuggestion({ status: "rejected" })),
+          );
+        }
+        if (path.endsWith("/hidden")) return Promise.resolve(apiResponse([]));
+        pages += 1;
+        return Promise.resolve(
+          apiResponse(
+            pages === 1
+              ? { ...suggestionPage([apiSuggestion()]), total: 2 }
+              : suggestionPage([apiSuggestion({ id: "next", title: "Next" })]),
+          ),
+        );
+      }),
+    );
+    renderQueue();
+
+    expect(
+      await screen.findByText("2 waiting for review."),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Decline and delete" }),
+    );
+
+    expect(await screen.findByDisplayValue("Next")).toBeInTheDocument();
+    expect(screen.getByText("1 waiting for review.")).toBeInTheDocument();
   });
 
   it("explains when the queue can't load", async () => {

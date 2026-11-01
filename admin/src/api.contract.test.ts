@@ -30,15 +30,15 @@ const personFields = {
   slug: "string",
   birthDate: "string",
   deathDate: "string",
-  blog: "object",
+  story: "object",
   revisions: "object",
-} satisfies FieldTypes<Api.PersonPost>;
-const blogSummaryFields = {
+} satisfies FieldTypes<Api.PersonPage>;
+const storySummaryFields = {
   title: "string",
   excerpt: "string",
   savedAt: "string",
   revisionCount: "number",
-} satisfies FieldTypes<NonNullable<Api.PersonPost["blog"]>>;
+} satisfies FieldTypes<NonNullable<Api.PersonPage["story"]>>;
 const revisionFields = {
   id: "string",
   revisionNumber: "number",
@@ -46,7 +46,10 @@ const revisionFields = {
   title: "string",
   excerpt: "string",
   content: "string",
-} satisfies FieldTypes<Api.PostRevision>;
+  createdBy: "string",
+  changeNote: "object",
+  restoredFrom: "object",
+} satisfies FieldTypes<Api.Revision>;
 
 function expectFields(value: unknown, fields: Record<string, string>) {
   expect(value).toBeTypeOf("object");
@@ -57,9 +60,9 @@ function expectFields(value: unknown, fields: Record<string, string>) {
   }
 }
 
-function expectPerson(person: Api.PersonPost) {
+function expectPerson(person: Api.PersonPage) {
   expectFields(person, personFields);
-  if (person.blog !== null) expectFields(person.blog, blogSummaryFields);
+  if (person.story !== null) expectFields(person.story, storySummaryFields);
 }
 
 // PostgreSQL returns saved timestamps in UTC with a zone; SQLite (a local
@@ -70,14 +73,14 @@ function instant(timestamp: string) {
   return Date.parse(zoned ? timestamp : `${timestamp}Z`);
 }
 
-function expectRevision(revision: Api.PostRevision) {
+function expectRevision(revision: Api.Revision) {
   expectFields(revision, revisionFields);
   expect(Number.isNaN(instant(revision.savedAt))).toBe(false);
 }
 
 function expectSameRevision(
-  actual: Api.PostRevision | undefined,
-  expected: Api.PostRevision,
+  actual: Api.Revision | undefined,
+  expected: Api.Revision,
 ) {
   const { savedAt, ...rest } = expected;
   expect(actual).toMatchObject(rest);
@@ -102,7 +105,7 @@ async function expectError(
   expect(error.requestId).toMatch(requestId);
 }
 
-const story = (n: number): Api.PostInput => ({
+const story = (n: number): Api.StoryInput => ({
   title: `Revision ${n}`,
   excerpt: `Excerpt ${n}`,
   content: `## Part ${n}\n\nStory body ${n}.`,
@@ -125,7 +128,7 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
     expectPerson(created);
     expect(created).toMatchObject({
       personName: `${run} Ödön Á`,
-      blog: null,
+      story: null,
       revisions: [],
     });
     expect(created.slug).toMatch(/^contract-test-[0-9a-f]{8}-odon-a(-\d+)?$/);
@@ -178,6 +181,7 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
       title: "Edited",
       excerpt: "",
       content: "Edited by an editor.",
+      base_revision_number: 0,
     });
     expect(accepted.status).toBe("accepted");
     expect(accepted.content).toBeNull();
@@ -199,6 +203,28 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
       person.id,
     );
     await api.setPersonHidden(person.id, false);
+  });
+
+  it("restores an earlier version and refuses a stale save", async () => {
+    const person = await api.createPerson(`${run} Restore`, "1850");
+    await api.savePersonRevision(person.id, story(1), 0, "First");
+    await api.savePersonRevision(person.id, story(2), 1);
+
+    const restored = await api.restoreRevision(person.id, 1, 2);
+    expect(restored).toMatchObject({
+      revisionNumber: 3,
+      restoredFrom: 1,
+      content: story(1).content,
+      changeNote: "Restored version 1",
+    });
+
+    const stale = await failure(api.savePersonRevision(person.id, story(4), 2));
+    expect(stale.status).toBe(409);
+    await expectError(
+      api.restoreRevision(person.id, 9, 3),
+      404,
+      "Version not found",
+    );
   });
 
   it("refuses people who fail the five-year rule", async () => {
@@ -234,7 +260,7 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
   it("appends revisions and never changes earlier ones", async () => {
     const person = await api.createPerson(`${run} Story`, "1850");
 
-    const first = await api.savePersonRevision(person.id, story(1));
+    const first = await api.savePersonRevision(person.id, story(1), 0);
     expectRevision(first.revision);
     expect(first).toMatchObject({
       revisionCount: 1,
@@ -242,11 +268,15 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
     });
 
     // The client trims what it sends; the stored revision has no padding.
-    const second = await api.savePersonRevision(person.id, {
-      title: `  ${story(2).title}  `,
-      excerpt: story(2).excerpt,
-      content: `\n${story(2).content}\n`,
-    });
+    const second = await api.savePersonRevision(
+      person.id,
+      {
+        title: `  ${story(2).title}  `,
+        excerpt: story(2).excerpt,
+        content: `\n${story(2).content}\n`,
+      },
+      1,
+    );
     expect(second).toMatchObject({
       revisionCount: 2,
       revision: { revisionNumber: 2, ...story(2) },
@@ -266,12 +296,12 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
     const listed = (await api.loadPeople()).find(
       (candidate) => candidate.id === person.id,
     );
-    expect(listed!.blog).toMatchObject({
+    expect(listed!.story).toMatchObject({
       title: story(2).title,
       excerpt: story(2).excerpt,
       revisionCount: 2,
     });
-    expect(instant(listed!.blog!.savedAt)).toBe(
+    expect(instant(listed!.story!.savedAt)).toBe(
       instant(second.revision.savedAt),
     );
   });
@@ -283,14 +313,14 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
     const person = await api.createPerson(`${run} Validation`, "1850");
     await expectError(api.updatePerson(person.id, " \t ", "1850"), 422, blank);
     await expectError(
-      api.savePersonRevision(person.id, { ...story(1), title: "   " }),
+      api.savePersonRevision(person.id, { ...story(1), title: "   " }, 0),
       422,
       blank,
     );
     await expectError(
       api.loadPersonRevisions(person.id),
       404,
-      "Blog not found",
+      "Story not found",
     );
   });
 
@@ -302,7 +332,7 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
       notFound,
     );
     await expectError(
-      api.savePersonRevision(unknownId, story(1)),
+      api.savePersonRevision(unknownId, story(1), 0),
       404,
       notFound,
     );

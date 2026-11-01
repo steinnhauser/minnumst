@@ -1,6 +1,6 @@
 # Minnumst editorial desk
 
-The React frontend editors use to create and update people, write stories, review visitors' suggestions and hide people from the public. Every save appends a new revision through the API; earlier revisions stay readable in the history tab.
+The React frontend editors use to create and update people, write stories, review visitors' suggestions and hide people from the public. Every save adds a new version through the API. The history tab shows who saved each version and why, compares it with the one before, and can publish an earlier version again as a new one. A save that started from an older version is refused rather than overwriting newer text.
 
 Setup, checks and the local stack are documented in the [repository README](../README.md) and [CONTRIBUTING](../CONTRIBUTING.md). From the repository root, with the API running (`make dev-api`):
 
@@ -10,7 +10,7 @@ make dev-admin        # http://127.0.0.1:5174
 
 ## API usage
 
-The client in [`src/api.ts`](src/api.ts) loads people with `GET /api/people` (paging through everyone), creates them with `POST /api/people`, updates their name and dates with `PATCH /api/people/{person_id}`, saves revisions with `PUT /api/people/{person_id}/blog` and loads history from `GET /api/admin/people/{person_id}/blog/revisions`. The Suggestions view reviews what visitors propose through `/api/admin/suggestions`, and hides people or shows them again through `/api/admin/people`. Person IDs, never names or slugs, identify the person being changed.
+The client in [`src/api.ts`](src/api.ts) loads people with `GET /api/people` (paging through everyone), creates them with `POST /api/people`, updates their name and dates with `PATCH /api/people/{person_id}`, saves revisions with `PUT /api/people/{person_id}/story` and loads history from `GET /api/admin/people/{person_id}/story/revisions`. The Suggestions view reviews what visitors propose through `/api/admin/suggestions`, and hides people or shows them again through `/api/admin/people`. Person IDs, never names or slugs, identify the person being changed.
 
 The API has no image upload, revision restore or revision delete routes, so the desk doesn't offer them.
 

@@ -18,14 +18,17 @@ import {
   createPerson,
   currentRevision,
   errorMessage,
+  foldName,
   loadPeople,
   loadPersonRevisions,
   loadSuggestions,
+  restoreRevision,
   savePersonRevision,
   setPersonHidden,
   updatePerson,
-  type PersonPost,
-  type PostInput,
+  type PersonPage,
+  type Revision,
+  type StoryInput,
   type Suggestion,
 } from "./api";
 import { appConfig } from "./config";
@@ -39,14 +42,15 @@ import "./App.css";
 type EditorTab = "write" | "preview" | "history";
 
 const nameConflict = "A person with this name and these dates already exists";
-const emptyDraft: PostInput = { title: "", excerpt: "", content: "" };
+const cleanName = (name: string) => name.trim().replace(/\s+/g, " ");
+const emptyDraft: StoryInput = { title: "", excerpt: "", content: "" };
 
 function viewFromAddress() {
   return window.location.hash === "#suggestions" ? "suggestions" : "pages";
 }
 
 function App() {
-  const [posts, setPosts] = useState<PersonPost[]>([]);
+  const [pages, setPages] = useState<PersonPage[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<EditorTab>("write");
   const [filter, setFilter] = useState("");
@@ -58,6 +62,7 @@ function App() {
   const [title, setTitle] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [content, setContent] = useState("");
+  const [changeNote, setChangeNote] = useState("");
   const [message, setMessage] = useState("");
   const [messageIsError, setMessageIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,35 +70,32 @@ function App() {
   const [loadError, setLoadError] = useState("");
   // The story as last loaded or saved; the editor has unsaved changes when
   // its fields differ from it.
-  const [savedDraft, setSavedDraft] = useState<PostInput>(emptyDraft);
+  const [savedDraft, setSavedDraft] = useState<StoryInput>(emptyDraft);
   const selectionRequest = useRef(0);
+  const selectedPage = pages.find((page) => page.id === selectedId) ?? null;
+  const personIsUnchanged =
+    cleanName(personName) === (selectedPage?.personName ?? "") &&
+    birthDate.trim() === (selectedPage?.birthDate ?? "") &&
+    deathDate.trim() === (selectedPage?.deathDate ?? "");
   const hasUnsavedChanges =
+    !personIsUnchanged ||
     title !== savedDraft.title ||
     excerpt !== savedDraft.excerpt ||
     content !== savedDraft.content;
-
-  const selectedPost = posts.find((post) => post.id === selectedId) ?? null;
-  const personIsUnchanged =
-    selectedPost !== null &&
-    personName.trim().replace(/\s+/g, " ") === selectedPost.personName &&
-    birthDate.trim() === selectedPost.birthDate &&
-    deathDate.trim() === selectedPost.deathDate;
-  const activeRevision = selectedPost ? currentRevision(selectedPost) : null;
+  const activeRevision = selectedPage ? currentRevision(selectedPage) : null;
   const revisionCount =
-    selectedPost?.blog?.revisionCount ?? selectedPost?.revisions.length ?? 0;
-  const lastSavedAt = activeRevision?.savedAt ?? selectedPost?.blog?.savedAt;
-  const visiblePosts = useMemo(() => {
-    const query = filter.trim().toLocaleLowerCase();
-    return posts.filter((post) =>
-      post.personName.toLocaleLowerCase().includes(query),
-    );
-  }, [filter, posts]);
+    selectedPage?.story?.revisionCount ?? selectedPage?.revisions.length ?? 0;
+  const lastSavedAt = activeRevision?.savedAt ?? selectedPage?.story?.savedAt;
+  const visiblePages = useMemo(() => {
+    const query = foldName(filter.trim());
+    return pages.filter((page) => foldName(page.personName).includes(query));
+  }, [filter, pages]);
 
   useEffect(() => {
     let active = true;
     void loadPeople()
       .then((people) => {
-        if (active) setPosts(people);
+        if (active) setPages(people);
       })
       .catch((error: unknown) => {
         if (active) {
@@ -122,8 +124,8 @@ function App() {
       .catch(() => undefined);
   }, []);
 
-  const handlePersonRestored = useCallback((person: PersonPost) => {
-    setPosts((current) =>
+  const handlePersonRestored = useCallback((person: PersonPage) => {
+    setPages((current) =>
       [...current, person].sort((a, b) =>
         a.personName.localeCompare(b.personName),
       ),
@@ -140,15 +142,16 @@ function App() {
   function confirmDiscard() {
     return (
       !hasUnsavedChanges ||
-      window.confirm("Discard the unsaved changes to this story?")
+      window.confirm("Discard the unsaved changes to this page?")
     );
   }
 
-  function loadDraft(draft: PostInput) {
+  function loadDraft(draft: StoryInput) {
     setTitle(draft.title);
     setExcerpt(draft.excerpt);
     setContent(draft.content);
     setSavedDraft(draft);
+    setChangeNote("");
   }
 
   function startNewPage() {
@@ -163,36 +166,36 @@ function App() {
     setMessage("");
   }
 
-  async function selectPost(post: PersonPost) {
+  async function selectPost(page: PersonPage) {
     if (!confirmDiscard()) return;
     const requestId = ++selectionRequest.current;
-    const revision = currentRevision(post);
-    setSelectedId(post.id);
-    setPersonName(post.personName);
-    setBirthDate(post.birthDate);
-    setDeathDate(post.deathDate);
+    const revision = currentRevision(page);
+    setSelectedId(page.id);
+    setPersonName(page.personName);
+    setBirthDate(page.birthDate);
+    setDeathDate(page.deathDate);
     loadDraft({
-      title: revision?.title ?? post.blog?.title ?? "",
-      excerpt: revision?.excerpt ?? post.blog?.excerpt ?? "",
+      title: revision?.title ?? page.story?.title ?? "",
+      excerpt: revision?.excerpt ?? page.story?.excerpt ?? "",
       content: revision?.content ?? "",
     });
     setTab("write");
     setMessage("");
 
-    if (post.blog && post.revisions.length === 0) {
+    if (page.story && page.revisions.length === 0) {
       setMessage("Loading saved revisions...");
       try {
-        const revisions = await loadPersonRevisions(post.id);
+        const revisions = await loadPersonRevisions(page.id);
         if (selectionRequest.current !== requestId) return;
-        setPosts((current) =>
+        setPages((current) =>
           current.map((item) =>
-            item.id === post.id ? { ...item, revisions } : item,
+            item.id === page.id ? { ...item, revisions } : item,
           ),
         );
         const latest = revisions.at(-1);
         loadDraft({
-          title: latest?.title ?? post.blog.title,
-          excerpt: latest?.excerpt ?? post.blog.excerpt,
+          title: latest?.title ?? page.story.title,
+          excerpt: latest?.excerpt ?? page.story.excerpt,
           content: latest?.content ?? "",
         });
         setMessage("");
@@ -209,10 +212,7 @@ function App() {
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (
-      selectedPost &&
-      personName.trim().replace(/\s+/g, " ") !== selectedPost.personName
-    ) {
+    if (selectedPage && cleanName(personName) !== selectedPage.personName) {
       setMessage("Update the person name before saving a story revision.");
       setMessageIsError(true);
       return;
@@ -224,20 +224,29 @@ function App() {
     }
 
     const draft = { title, excerpt, content };
+    const baseRevision =
+      activeRevision?.revisionNumber ?? selectedPage?.story?.revisionCount ?? 0;
     setIsSaving(true);
     try {
-      let person = selectedPost;
+      let person = selectedPage;
       if (!person) {
         person = await createPerson(personName, birthDate, deathDate);
-        setPosts((current) => [person!, ...current]);
+        setPages((current) => [person!, ...current]);
         setSelectedId(person.id);
         setPersonName(person.personName);
+        setBirthDate(person.birthDate);
+        setDeathDate(person.deathDate);
       }
 
-      const saved = await savePersonRevision(person.id, draft);
-      const savedPost: PersonPost = {
+      const saved = await savePersonRevision(
+        person.id,
+        draft,
+        baseRevision,
+        changeNote,
+      );
+      const savedPage: PersonPage = {
         ...person,
-        blog: {
+        story: {
           title: saved.revision.title,
           excerpt: saved.revision.excerpt,
           savedAt: saved.revision.savedAt,
@@ -245,18 +254,17 @@ function App() {
         },
         revisions: [...person.revisions, saved.revision],
       };
-      setPosts((current) =>
-        current.some((item) => item.id === savedPost.id)
-          ? current.map((item) => (item.id === savedPost.id ? savedPost : item))
-          : [savedPost, ...current],
+      setPages((current) =>
+        current.some((item) => item.id === savedPage.id)
+          ? current.map((item) => (item.id === savedPage.id ? savedPage : item))
+          : [savedPage, ...current],
       );
-      setSelectedId(savedPost.id);
-      setPersonName(savedPost.personName);
+      setSelectedId(savedPage.id);
+      setPersonName(savedPage.personName);
       // Edits made while the save was in flight stay unsaved.
       setSavedDraft(draft);
-      setMessage(
-        `Saved to the shared archive as revision ${saved.revision.revisionNumber}.`,
-      );
+      setChangeNote("");
+      setMessage(`Saved as version ${saved.revision.revisionNumber}.`);
       setMessageIsError(false);
     } catch (error) {
       setMessage(
@@ -274,29 +282,31 @@ function App() {
 
   // Only the "Update name" button calls this, and it is disabled unless the
   // selected person's name has changed to a non-empty one.
-  async function handleRenamePerson(post: PersonPost) {
+  async function handleRenamePerson(page: PersonPage) {
     setIsSaving(true);
     try {
       const updated = await updatePerson(
-        post.id,
+        page.id,
         personName,
         birthDate,
         deathDate,
       );
-      const renamedPost = {
-        ...post,
+      const renamedPage = {
+        ...page,
         personName: updated.personName,
         slug: updated.slug,
         birthDate: updated.birthDate,
         deathDate: updated.deathDate,
       };
-      setPosts((current) =>
-        current.map((post) =>
-          post.id === renamedPost.id ? renamedPost : post,
+      setPages((current) =>
+        current.map((page) =>
+          page.id === renamedPage.id ? renamedPage : page,
         ),
       );
-      setPersonName(renamedPost.personName);
-      setMessage("Person updated in the shared archive.");
+      setPersonName(renamedPage.personName);
+      setBirthDate(renamedPage.birthDate);
+      setDeathDate(renamedPage.deathDate);
+      setMessage("Person updated.");
       setMessageIsError(false);
     } catch (error) {
       setMessage(
@@ -312,15 +322,63 @@ function App() {
     }
   }
 
+  async function handleRestore(revision: Revision) {
+    if (!confirmDiscard()) return;
+    if (
+      !window.confirm(
+        `Publish version ${revision.revisionNumber} again? It becomes the text readers see. If later versions removed something at a family's request or for privacy, this brings it back.`,
+      )
+    ) {
+      return;
+    }
+    // The history only offers this for a page whose versions have loaded.
+    const page = selectedPage!;
+    setIsSaving(true);
+    try {
+      const restored = await restoreRevision(
+        page.id,
+        revision.revisionNumber,
+        activeRevision!.revisionNumber,
+      );
+      const refreshed: PersonPage = {
+        ...page,
+        story: {
+          title: restored.title,
+          excerpt: restored.excerpt,
+          savedAt: restored.savedAt,
+          revisionCount: restored.revisionNumber,
+        },
+        revisions: [...page.revisions, restored],
+      };
+      setPages((current) =>
+        current.map((item) => (item.id === page.id ? refreshed : item)),
+      );
+      loadDraft({
+        title: restored.title,
+        excerpt: restored.excerpt,
+        content: restored.content,
+      });
+      setMessage(
+        `Version ${revision.revisionNumber} is published again as version ${restored.revisionNumber}.`,
+      );
+      setMessageIsError(false);
+    } catch (error) {
+      setMessage(errorMessage(error, "The version could not be restored."));
+      setMessageIsError(true);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   // An accepted edit is a new revision, so the desk's copy of that story is stale:
   // drop the loaded history, and reload it if the person is open in the editor.
   function handleSuggestionAccepted(suggestion: Suggestion) {
-    const post = posts.find((item) => item.id === suggestion.person_id);
+    const page = pages.find((item) => item.id === suggestion.person_id);
     const revision = suggestion.current_revision;
-    if (!post || !revision) return;
-    const updated: PersonPost = {
-      ...post,
-      blog: {
+    if (!page || !revision) return;
+    const updated: PersonPage = {
+      ...page,
+      story: {
         title: revision.title,
         excerpt: revision.excerpt,
         savedAt: revision.saved_at,
@@ -328,26 +386,26 @@ function App() {
       },
       revisions: [],
     };
-    setPosts((current) =>
-      current.map((item) => (item.id === post.id ? updated : item)),
+    setPages((current) =>
+      current.map((item) => (item.id === page.id ? updated : item)),
     );
-    if (post.id === selectedId) void selectPost(updated);
+    if (page.id === selectedId) void selectPost(updated);
   }
 
   // A removal request is met by hiding the page: everything stays on record.
-  async function handleHidePerson(post: PersonPost) {
+  async function handleHidePerson(page: PersonPage) {
     if (!confirmDiscard()) return;
     setIsSaving(true);
     try {
-      await setPersonHidden(post.id, true);
-      setPosts((current) => current.filter((item) => item.id !== post.id));
+      await setPersonHidden(page.id, true);
+      setPages((current) => current.filter((item) => item.id !== page.id));
       selectionRequest.current += 1;
       setSelectedId(null);
       setPersonName("");
       setBirthDate("");
       setDeathDate("");
       loadDraft(emptyDraft);
-      setMessage(`${post.personName} is now hidden from the public.`);
+      setMessage(`${page.personName} is now hidden from the public.`);
       setMessageIsError(false);
     } catch (error) {
       setMessage(errorMessage(error, "The person could not be hidden."));
@@ -375,8 +433,8 @@ function App() {
             aria-current={view === "pages" ? "page" : undefined}
           >
             <BookOpenText size={17} aria-hidden="true" />
-            <span>Blog pages</span>
-            <span className="nav-count">{posts.length}</span>
+            <span>People</span>
+            <span className="nav-count">{pages.length}</span>
           </a>
           <a
             className={`nav-item${view === "suggestions" ? " nav-item-active" : ""}`}
@@ -422,10 +480,10 @@ function App() {
         <div className="main-inner" hidden={view !== "pages"}>
           <section className="page-heading" aria-labelledby="page-title">
             <div>
-              <p className="eyebrow">STORY COLLECTION</p>
-              <h1 id="page-title">Blog pages</h1>
+              <p className="eyebrow">PEOPLE AND STORIES</p>
+              <h1 id="page-title">People and stories</h1>
               <p className="heading-copy">
-                A page for every person, with each edit kept in its history.
+                A page for every person, with every version of their story kept.
               </p>
             </div>
             <button
@@ -441,28 +499,29 @@ function App() {
           <div className="local-notice" role="note">
             <Info size={17} aria-hidden="true" />
             <p>
-              <strong>Shared archive.</strong> People and story revisions are
-              loaded from and saved through the central API.
+              <strong>Please write with care.</strong> These are real people,
+              and someone&apos;s family will read this. Cite your sources, and
+              leave out living people and private matters.
             </p>
           </div>
 
-          <section className="workbench" aria-label="Blog page editor">
+          <section className="workbench" aria-label="Page editor">
             <PageIndex
-              posts={posts}
-              visiblePosts={visiblePosts}
+              pages={pages}
+              visiblePages={visiblePages}
               selectedId={selectedId}
               filter={filter}
               emptyMessage={
                 isLoading
                   ? "Loading people..."
                   : loadError ||
-                    (posts.length === 0
+                    (pages.length === 0
                       ? "No people have been added yet."
                       : "No matching names.")
               }
               onFilterChange={setFilter}
               onNewPage={startNewPage}
-              onSelect={(post) => void selectPost(post)}
+              onSelect={(page) => void selectPost(page)}
             />
 
             <div className="editor-column">
@@ -508,7 +567,7 @@ function App() {
                   >
                     <History size={14} aria-hidden="true" />
                     History
-                    {selectedPost && <span>{revisionCount}</span>}
+                    {selectedPage && <span>{revisionCount}</span>}
                   </button>
                 </div>
               </div>
@@ -517,10 +576,9 @@ function App() {
                 <form className="editor-form" onSubmit={handleSave}>
                   <div className="form-heading">
                     <div>
-                      <h2>{selectedPost ? "Edit page" : "Create a page"}</h2>
+                      <h2>{selectedPage ? "Edit page" : "Create a page"}</h2>
                       <p>Start with the person this story belongs to.</p>
                     </div>
-                    <span className="draft-tag">API VERSION</span>
                   </div>
 
                   <label className="field-label" htmlFor="person-name">
@@ -567,7 +625,7 @@ function App() {
                     Only people who died more than five years and two months ago
                     or, with no known death, were born at least 128 years ago.
                   </p>
-                  {selectedPost && (
+                  {selectedPage && (
                     <div className="person-name-actions">
                       <p className="person-name-note">
                         Updates the shared public profile without changing story
@@ -579,7 +637,7 @@ function App() {
                         disabled={
                           isSaving || !personName.trim() || personIsUnchanged
                         }
-                        onClick={() => void handleRenamePerson(selectedPost)}
+                        onClick={() => void handleRenamePerson(selectedPage)}
                       >
                         Update person
                       </button>
@@ -587,7 +645,7 @@ function App() {
                         className="name-update-button"
                         type="button"
                         disabled={isSaving}
-                        onClick={() => void handleHidePerson(selectedPost)}
+                        onClick={() => void handleHidePerson(selectedPage)}
                       >
                         Hide from public
                       </button>
@@ -629,6 +687,19 @@ function App() {
                     onChange={(event) => setContent(event.target.value)}
                   />
 
+                  <label className="field-label" htmlFor="change-note">
+                    What changed? <span>Optional, for the history</span>
+                  </label>
+                  <input
+                    className="text-field"
+                    id="change-note"
+                    maxLength={500}
+                    autoComplete="off"
+                    placeholder="e.g. Added the year of the move to Akureyri"
+                    value={changeNote}
+                    onChange={(event) => setChangeNote(event.target.value)}
+                  />
+
                   <div className="form-bottom">
                     <p
                       className={`save-message${messageIsError ? " error" : ""}`}
@@ -643,7 +714,7 @@ function App() {
                       disabled={isSaving}
                     >
                       <Save size={16} aria-hidden="true" />
-                      <span>{isSaving ? "Saving..." : "Save revision"}</span>
+                      <span>{isSaving ? "Saving..." : "Save new version"}</span>
                     </button>
                   </div>
                 </form>
@@ -651,7 +722,7 @@ function App() {
 
               {tab === "preview" && (
                 <PagePreview
-                  post={selectedPost}
+                  page={selectedPage}
                   title={title}
                   excerpt={excerpt}
                   content={content}
@@ -659,12 +730,19 @@ function App() {
               )}
 
               {tab === "history" && (
-                <RevisionHistory post={selectedPost} count={revisionCount} />
+                <RevisionHistory
+                  page={selectedPage}
+                  count={revisionCount}
+                  isBusy={isSaving}
+                  message={message}
+                  messageIsError={messageIsError}
+                  onRestore={(revision) => void handleRestore(revision)}
+                />
               )}
             </div>
 
             <PageDetails
-              post={selectedPost}
+              page={selectedPage}
               personName={personName}
               revisionCount={revisionCount}
               lastSavedAt={lastSavedAt}
@@ -676,7 +754,7 @@ function App() {
               STORY DESK <span aria-hidden="true">·</span> SHARED ARCHIVE
             </span>
             <span>
-              {posts.length} {posts.length === 1 ? "PAGE" : "PAGES"}
+              {pages.length} {pages.length === 1 ? "PAGE" : "PAGES"}
             </span>
           </footer>
         </div>

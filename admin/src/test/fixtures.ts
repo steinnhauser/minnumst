@@ -4,7 +4,7 @@ import type { components } from "@minnumst/api-client";
 // api/openapi.json, so a fixture can't describe a shape the API doesn't return.
 type Schemas = components["schemas"];
 export type ApiPerson = Schemas["PersonResponse"];
-export type ApiRevision = Schemas["BlogRevisionResponse"];
+export type ApiRevision = Schemas["StoryRevisionDetail"];
 export type ErrorResponse = Schemas["ErrorResponse"];
 export type ValidationErrorResponse = Schemas["HTTPValidationError"];
 
@@ -14,7 +14,7 @@ export function apiPerson(
   fields: Pick<ApiPerson, "id" | "name" | "slug"> & Partial<ApiPerson>,
 ): ApiPerson {
   return {
-    blog: null,
+    story: null,
     created_at: timestamp,
     updated_at: timestamp,
     ...fields,
@@ -32,13 +32,16 @@ export function apiRevision(
     title: `Revision ${revisionNumber}`,
     excerpt: "",
     content: `Version ${revisionNumber}`,
+    created_by: "editor",
+    change_note: null,
+    restored_from: null,
     ...fields,
   };
 }
 
 // The summary the people list carries for a person whose latest revision is
 // `revision`.
-export function blogSummary(revision: ApiRevision): Schemas["BlogSummary"] {
+export function storySummary(revision: ApiRevision): Schemas["StorySummary"] {
   return {
     title: revision.title,
     excerpt: revision.excerpt,
@@ -54,12 +57,12 @@ export function peoplePage(
   return { items, total: items.length, offset: 0, limit: 100, ...fields };
 }
 
-export function blogResponse(
+export function storyResponse(
   personId: string,
   revision: ApiRevision,
-): Schemas["BlogResponse"] {
+): Schemas["EditedStoryResponse"] {
   return {
-    id: `blog-${personId}`,
+    id: `story-${personId}`,
     person_id: personId,
     revision_count: revision.revision_number,
     current_revision: revision,
@@ -100,7 +103,7 @@ type ApiBody =
   | Schemas["PersonPage"]
   | ApiPerson
   | readonly ApiRevision[]
-  | Schemas["BlogResponse"]
+  | Schemas["EditedStoryResponse"]
   | Schemas["SuggestionPage"]
   | Schemas["SuggestionResponse"]
   | readonly ApiPerson[]

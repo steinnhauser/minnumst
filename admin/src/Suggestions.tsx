@@ -6,7 +6,7 @@ import {
   loadSuggestions,
   rejectSuggestion,
   setPersonHidden,
-  type PersonPost,
+  type PersonPage,
   type Suggestion,
 } from "./api";
 
@@ -123,7 +123,7 @@ function SuggestionCard({
           disabled={isBusy}
           onClick={() => void decide(() => rejectSuggestion(suggestion.id))}
         >
-          Reject and delete
+          Decline and delete
         </button>
         <button
           className="save-button"
@@ -133,7 +133,14 @@ function SuggestionCard({
             void decide(() =>
               acceptSuggestion(
                 suggestion.id,
-                isEdit ? { title, excerpt, content } : undefined,
+                isEdit
+                  ? {
+                      title,
+                      excerpt,
+                      content,
+                      base_revision_number: current?.revision_number ?? 0,
+                    }
+                  : undefined,
               ),
             )
           }
@@ -153,12 +160,14 @@ function Suggestions({
 }: {
   onPendingChange: (pending: number) => void;
   onEditAccepted: (suggestion: Suggestion) => void;
-  onPersonRestored: (person: PersonPost) => void;
+  onPersonRestored: (person: PersonPage) => void;
 }) {
   const [items, setItems] = useState<Suggestion[]>([]);
   const [total, setTotal] = useState(0);
-  const [hidden, setHidden] = useState<PersonPost[]>([]);
+  const [hidden, setHidden] = useState<PersonPage[]>([]);
   const [message, setMessage] = useState("Loading suggestions...");
+  // Bumped to fetch the next page once the loaded one has been worked through.
+  const [loadCount, setLoadCount] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -179,18 +188,20 @@ function Suggestions({
     return () => {
       active = false;
     };
-  }, [onPendingChange]);
+  }, [loadCount, onPendingChange]);
 
   function handleDecided(decided: Suggestion) {
-    setItems((current) => current.filter((item) => item.id !== decided.id));
+    const remaining = items.filter((item) => item.id !== decided.id);
+    setItems(remaining);
     setTotal(total - 1);
     onPendingChange(total - 1);
+    if (remaining.length === 0 && total > 1) setLoadCount(loadCount + 1);
     if (decided.status === "accepted" && decided.kind === "edit") {
       onEditAccepted(decided);
     }
   }
 
-  async function restore(person: PersonPost) {
+  async function restore(person: PersonPage) {
     try {
       const restored = await setPersonHidden(person.id, false);
       setHidden((current) => current.filter((item) => item.id !== person.id));
@@ -207,8 +218,9 @@ function Suggestions({
           <p className="eyebrow">REVIEW</p>
           <h1 id="suggestions-title">Suggestions</h1>
           <p className="heading-copy">
-            Changes proposed by visitors. Nothing is public until you accept it.
-            Check that they name no living people and hold nothing private, such
+            Changes proposed by visitors, often about their own family. Nothing
+            is public until you accept it. Please read each one with care, and
+            check that it names no living people and holds nothing private, such
             as health, crime, adoption or paternity.
           </p>
         </div>

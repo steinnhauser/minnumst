@@ -15,8 +15,8 @@ import {
   apiResponse,
   apiRevision,
   apiSuggestion,
-  blogResponse,
-  blogSummary,
+  storyResponse,
+  storySummary,
   peoplePage,
   suggestionPage,
 } from "./test/fixtures";
@@ -91,7 +91,175 @@ const adaRevisions = [
     content: "Second version",
   }),
 ];
-const adaWithStory = apiPerson({ ...ada, blog: blogSummary(adaRevisions[1]) });
+const adaWithStory = apiPerson({
+  ...ada,
+  story: storySummary(adaRevisions[1]),
+});
+
+describe("the version history", () => {
+  const restored = apiRevision(3, {
+    title: "A life in letters",
+    content: "First version",
+    restored_from: 1,
+    change_note: "Restored version 1",
+    created_by: "steinn",
+  });
+
+  function stubHistory(restore: () => Response) {
+    return stubApi(({ path }) => {
+      if (path.endsWith("/restore")) return restore();
+      return path === "/api/admin/people/person-1/story/revisions"
+        ? apiResponse(adaRevisions)
+        : apiResponse(peoplePage([adaWithStory, bjork]));
+    });
+  }
+
+  async function openHistory(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(
+      await screen.findByRole("button", { name: /Ada Lovelace/ }),
+    );
+    await screen.findByDisplayValue("Second version");
+    await user.click(screen.getByRole("tab", { name: /History/ }));
+  }
+
+  it("shows who saved each version and what changed between them", async () => {
+    const user = userEvent.setup();
+    stubHistory(() => apiResponse(storyResponse("person-1", restored)));
+    render(<App />);
+    await openHistory(user);
+
+    const [latest, first] = within(screen.getByRole("list")).getAllByRole(
+      "listitem",
+    );
+    expect(latest).toHaveTextContent("Version 2 (current)");
+    expect(latest).toHaveTextContent("Saved by editor");
+    expect(
+      within(latest).queryByRole("button", { name: /Publish/ }),
+    ).toBeNull();
+    expect(
+      within(first).queryByRole("button", { name: /Show changes/ }),
+    ).toBeNull();
+
+    const show = within(latest).getByRole("button", {
+      name: "Show changes from version 1",
+    });
+    await user.click(show);
+    const changes = screen.getByRole("list", {
+      name: "Changes from version 1 to 2",
+    });
+    expect(changes).toHaveTextContent("Removed: First version");
+    expect(changes).toHaveTextContent("Added: Second version");
+    expect(changes).toHaveTextContent("Added: Numbers and engines");
+
+    await user.click(show);
+    expect(screen.queryByRole("list", { name: /Changes from/ })).toBeNull();
+  });
+
+  it("publishes an earlier version again as a new one, after a warning", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    const fetchMock = stubHistory(() =>
+      apiResponse(storyResponse("person-1", restored)),
+    );
+    render(<App />);
+    await openHistory(user);
+
+    await user.click(
+      screen.getByRole("button", { name: "Publish version 1 again" }),
+    );
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Version 1 is published again as version 3.",
+    );
+    expect(confirm.mock.lastCall).toEqual([
+      expect.stringContaining("at a family's request"),
+    ]);
+    expect(callsTo(fetchMock, "POST")[0][1]?.body).toBe(
+      JSON.stringify({ base_revision_number: 2 }),
+    );
+    const [latest] = within(
+      screen.getByRole("list", { name: "" }),
+    ).getAllByRole("listitem");
+    expect(latest).toHaveTextContent("Version 3 (current)");
+    expect(latest).toHaveTextContent("Saved by steinn");
+    expect(latest).toHaveTextContent("restored from version 1");
+    expect(latest).toHaveTextContent("Restored version 1");
+
+    await user.click(screen.getByRole("tab", { name: "Write" }));
+    expect(screen.getByLabelText(/^Story/)).toHaveValue("First version");
+  });
+
+  it("does nothing if the editor declines the warning", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("confirm", () => false);
+    const fetchMock = stubHistory(() =>
+      apiResponse(storyResponse("x", restored)),
+    );
+    render(<App />);
+    await openHistory(user);
+
+    await user.click(
+      screen.getByRole("button", { name: "Publish version 1 again" }),
+    );
+
+    expect(callsTo(fetchMock, "POST")).toHaveLength(0);
+  });
+
+  it("asks about unsaved text first, and keeps it if the editor says no", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirm);
+    stubHistory(() => apiResponse(storyResponse("x", restored)));
+    render(<App />);
+    await user.click(
+      await screen.findByRole("button", { name: /Ada Lovelace/ }),
+    );
+    await user.type(await screen.findByDisplayValue("Second version"), "!");
+    await user.click(screen.getByRole("tab", { name: /History/ }));
+
+    await user.click(
+      screen.getByRole("button", { name: "Publish version 1 again" }),
+    );
+
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(confirm.mock.lastCall).toEqual([
+      "Discard the unsaved changes to this page?",
+    ]);
+  });
+
+  it("explains when a version can't be restored", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("confirm", () => true);
+    stubHistory(() =>
+      apiResponse({ detail: "This story has changed" }, { status: 409 }),
+    );
+    render(<App />);
+    await openHistory(user);
+
+    await user.click(
+      screen.getByRole("button", { name: "Publish version 1 again" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This story has changed",
+    );
+  });
+});
+
+describe("the page filter", () => {
+  it("ignores accents and Icelandic letters", async () => {
+    const user = userEvent.setup();
+    stubApi(() => apiResponse(peoplePage([ada, bjork])));
+    render(<App />);
+    await screen.findByRole("button", { name: /Björk/ });
+
+    await user.type(screen.getByPlaceholderText("Find a person"), "gudmunds");
+
+    expect(screen.getByRole("button", { name: /Björk/ })).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Ada/ })).toBeNull();
+  });
+});
 
 describe("people's details and visibility", () => {
   it("creates a person with their dates and updates them later", async () => {
@@ -115,7 +283,7 @@ describe("people's details and visibility", () => {
     await user.click(update);
 
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Person updated in the shared archive.",
+      "Person updated.",
     );
     expect(callsTo(fetchMock, "PATCH")[0][1]?.body).toBe(
       JSON.stringify({
@@ -218,7 +386,7 @@ describe("the desk's navigation", () => {
     );
     expect(await screen.findByText("Nobody is hidden.")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("link", { name: /Blog pages/ }));
+    await user.click(screen.getByRole("link", { name: /^People/ }));
     await waitFor(() =>
       expect(screen.queryByText("1 waiting for review.")).toBeNull(),
     );
@@ -288,7 +456,7 @@ describe("the desk's navigation", () => {
         await screen.findByRole("button", { name: "Accept and publish" }),
       );
       await screen.findByText("0 waiting for review.");
-      await user.click(screen.getByRole("link", { name: /Blog pages/ }));
+      await user.click(screen.getByRole("link", { name: /^People/ }));
 
       if (!openFirst) {
         await user.click(await screen.findByRole("button", { name: /Ada/ }));
@@ -360,7 +528,7 @@ describe("the desk's navigation", () => {
   });
 });
 
-describe("blog page editor", () => {
+describe("story page editor", () => {
   it("lists people and filters them by name", async () => {
     const user = userEvent.setup();
     stubApi(() => apiResponse(peoplePage([adaWithStory, bjork])));
@@ -374,7 +542,7 @@ describe("blog page editor", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: /Björk Guðmundsdóttir\s*Untitled page/,
+        name: /Björk Guðmundsdóttir\s*No story yet/,
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("2 PAGES")).toBeInTheDocument();
@@ -404,7 +572,6 @@ describe("blog page editor", () => {
     expect(screen.getByText("/people/person-name")).toBeInTheDocument();
     expect(screen.getByText("0 saved versions")).toBeInTheDocument();
     expect(screen.getByText("No versions saved")).toBeInTheDocument();
-    expect(screen.getByText("http://127.0.0.1:8000")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Update person" }),
     ).not.toBeInTheDocument();
@@ -440,7 +607,7 @@ describe("blog page editor", () => {
   it("loads a page's immutable history when it is selected", async () => {
     const user = userEvent.setup();
     const fetchMock = stubApi(({ path }) =>
-      path === "/api/admin/people/person-1/blog/revisions"
+      path === "/api/admin/people/person-1/story/revisions"
         ? apiResponse(adaRevisions)
         : apiResponse(peoplePage([adaWithStory, bjork])),
     );
@@ -472,10 +639,10 @@ describe("blog page editor", () => {
     await user.click(screen.getByRole("tab", { name: /History\s*2/ }));
     const revisions = within(screen.getByRole("list")).getAllByRole("listitem");
     expect(revisions).toHaveLength(2);
-    expect(revisions[0]).toHaveTextContent("Current version");
+    expect(revisions[0]).toHaveTextContent("(current)");
     expect(revisions[0]).toHaveTextContent("A life in mathematics");
     expect(revisions[0]).toHaveTextContent("Numbers and engines");
-    expect(revisions[1]).toHaveTextContent("Saved version");
+    expect(revisions[1]).toHaveTextContent("Version 1");
     expect(revisions[1]).toHaveTextContent("A life in letters");
     // Without an introduction, the history shows the story itself.
     expect(revisions[1]).toHaveTextContent("First version");
@@ -507,7 +674,7 @@ describe("blog page editor", () => {
     expect(screen.getByRole("status")).toHaveTextContent("");
     expect(
       fetchMock.mock.calls.filter(([url]) =>
-        String(url).endsWith("/blog/revisions"),
+        String(url).endsWith("/story/revisions"),
       ),
     ).toHaveLength(1);
   });
@@ -519,10 +686,10 @@ describe("blog page editor", () => {
       excerpt: "Letters home",
     });
     stubApi(({ path }) =>
-      path === "/api/admin/people/person-1/blog/revisions"
+      path === "/api/admin/people/person-1/story/revisions"
         ? apiResponse([])
         : apiResponse(
-            peoplePage([apiPerson({ ...ada, blog: blogSummary(revision) })]),
+            peoplePage([apiPerson({ ...ada, story: storySummary(revision) })]),
           ),
     );
     render(<App />);
@@ -545,7 +712,7 @@ describe("blog page editor", () => {
   it("shows why a page's history could not be loaded", async () => {
     const user = userEvent.setup();
     stubApi(({ path }) =>
-      path === "/api/admin/people/person-1/blog/revisions"
+      path === "/api/admin/people/person-1/story/revisions"
         ? apiResponse({ detail: "Person not found" }, { status: 404 })
         : apiResponse(peoplePage([adaWithStory])),
     );
@@ -565,7 +732,7 @@ describe("blog page editor", () => {
     const pending = [deferred<Response>(), deferred<Response>()];
     let revisionRequests = 0;
     stubApi(({ path }) =>
-      path === "/api/admin/people/person-1/blog/revisions"
+      path === "/api/admin/people/person-1/story/revisions"
         ? pending[revisionRequests++].promise
         : apiResponse(peoplePage([adaWithStory, bjork])),
     );
@@ -673,11 +840,12 @@ describe("blog page editor", () => {
       "The person could not be updated.",
     );
 
+    vi.stubGlobal("confirm", () => true);
     await user.click(screen.getByRole("button", { name: "New page" }));
     await user.type(screen.getByLabelText(/Person name/), "Sigríður");
     await user.type(screen.getByLabelText(/Page title/), "A farm by the sea");
     await user.type(screen.getByLabelText(/Story/), "She kept the farm.");
-    await user.click(screen.getByRole("button", { name: "Save revision" }));
+    await user.click(screen.getByRole("button", { name: "Save new version" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "The page could not be saved.",
     );
@@ -766,7 +934,7 @@ describe("blog page editor", () => {
     await user.clear(nameInput);
     await user.type(nameInput, "  Ada   Byron ");
     expect(updateName).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: "Save revision" }));
+    await user.click(screen.getByRole("button", { name: "Save new version" }));
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Update the person name before saving a story revision.",
     );
@@ -775,7 +943,7 @@ describe("blog page editor", () => {
     await user.click(updateName);
 
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Person updated in the shared archive.",
+      "Person updated.",
     );
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/people/person-1",
@@ -853,7 +1021,7 @@ describe("blog page editor", () => {
       .mockResolvedValueOnce(apiResponse(ada))
       .mockResolvedValueOnce(
         apiResponse(
-          blogResponse(
+          storyResponse(
             "person-1",
             apiRevision(1, {
               title: "A life in letters",
@@ -864,7 +1032,7 @@ describe("blog page editor", () => {
       )
       .mockResolvedValueOnce(
         apiResponse(
-          blogResponse(
+          storyResponse(
             "person-1",
             apiRevision(2, {
               title: "A life in mathematics",
@@ -880,10 +1048,10 @@ describe("blog page editor", () => {
     await user.type(screen.getByLabelText(/Person name/), "Ada Lovelace");
     await user.type(screen.getByLabelText(/Page title/), "A life in letters");
     await user.type(screen.getByLabelText(/Story/), "First version");
-    await user.click(screen.getByRole("button", { name: "Save revision" }));
+    await user.click(screen.getByRole("button", { name: "Save new version" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Saved to the shared archive as revision 1.",
+      "Saved as version 1.",
     );
     expect(screen.getByText("/people/ada-lovelace")).toBeInTheDocument();
 
@@ -894,9 +1062,9 @@ describe("blog page editor", () => {
     );
     await user.clear(screen.getByLabelText(/Story/));
     await user.type(screen.getByLabelText(/Story/), "Second version");
-    await user.click(screen.getByRole("button", { name: "Save revision" }));
+    await user.click(screen.getByRole("button", { name: "Save new version" }));
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Saved to the shared archive as revision 2.",
+      "Saved as version 2.",
     );
     await user.click(screen.getByRole("tab", { name: /History/ }));
 
@@ -913,7 +1081,7 @@ describe("blog page editor", () => {
     const fetchMock = stubApi(({ method, path }) => {
       if (method === "PUT")
         return apiResponse(
-          blogResponse(
+          storyResponse(
             "person-1",
             apiRevision(3, {
               title: "A life in mathematics",
@@ -922,7 +1090,7 @@ describe("blog page editor", () => {
             }),
           ),
         );
-      return path === "/api/admin/people/person-1/blog/revisions"
+      return path === "/api/admin/people/person-1/story/revisions"
         ? apiResponse(adaRevisions)
         : apiResponse(peoplePage([adaWithStory, bjork]));
     });
@@ -934,27 +1102,35 @@ describe("blog page editor", () => {
     const story = await screen.findByDisplayValue("Second version");
     await user.clear(story);
     await user.type(story, "Third version");
-    await user.click(screen.getByRole("button", { name: "Save revision" }));
+    await user.type(screen.getByLabelText(/What changed/), "Added a year");
+    await user.click(screen.getByRole("button", { name: "Save new version" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Saved to the shared archive as revision 3.",
+      "Saved as version 3.",
     );
+    expect(screen.getByLabelText(/What changed/)).toHaveValue("");
     expect(callsTo(fetchMock, "POST")).toHaveLength(0);
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:8000/api/people/person-1/blog",
+      "http://127.0.0.1:8000/api/people/person-1/story",
       expect.objectContaining({
         method: "PUT",
         body: JSON.stringify({
           title: "A life in mathematics",
           excerpt: "Numbers and engines",
           content: "Third version",
+          change_note: "Added a year",
+          base_revision_number: 2,
         }),
       }),
     );
     await user.click(screen.getByRole("tab", { name: /History\s*3/ }));
     const revisions = within(screen.getByRole("list")).getAllByRole("listitem");
     expect(
-      revisions.map((item) => item.querySelector("p")?.textContent),
+      revisions.map(
+        (item) =>
+          item.querySelector("p:not(.revision-author, .revision-note)")
+            ?.textContent,
+      ),
     ).toEqual(["Numbers and engines", "Numbers and engines", "First version"]);
     expect(
       screen.getAllByRole("button", { name: /Ada Lovelace/ }),
@@ -976,7 +1152,7 @@ describe("blog page editor", () => {
     await user.type(screen.getByLabelText(/Person name/), "Ada Lovelace");
     await user.type(screen.getByLabelText(/Page title/), "A life in letters");
     await user.type(screen.getByLabelText(/Story/), "First version");
-    await user.click(screen.getByRole("button", { name: "Save revision" }));
+    await user.click(screen.getByRole("button", { name: "Save new version" }));
     expect(screen.getByRole("button", { name: "Saving..." })).toBeDisabled();
     await vi.waitFor(() => expect(callsTo(fetchMock, "PUT")).toHaveLength(1));
 
@@ -989,7 +1165,7 @@ describe("blog page editor", () => {
     await act(async () =>
       saved.resolve(
         apiResponse(
-          blogResponse(
+          storyResponse(
             "person-1",
             apiRevision(1, {
               title: "A life in letters",
@@ -1000,9 +1176,7 @@ describe("blog page editor", () => {
       ),
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Saved to the shared archive as revision 1.",
-    );
+    expect(screen.getByRole("status")).toHaveTextContent("Saved as version 1.");
     expect(
       screen.getByRole("button", { name: /Ada Lovelace\s*A life in letters/ }),
     ).toHaveAttribute("aria-current", "page");
@@ -1040,18 +1214,20 @@ describe("blog page editor", () => {
     await user.type(screen.getByLabelText(/Person name/), "Ada Lovelace");
     await user.type(screen.getByLabelText(/Page title/), "A life in letters");
     await user.type(screen.getByLabelText(/Story/), "First version");
-    await user.click(screen.getByRole("button", { name: "Save revision" }));
+    await user.click(screen.getByRole("button", { name: "Save new version" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "A person with this name and these dates already exists. Select them from the pages list and save the story there. (request ID: req-409)",
     );
 
-    await user.click(screen.getByRole("button", { name: "Save revision" }));
+    await user.click(screen.getByRole("button", { name: "Save new version" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "String should have at least 1 character",
     );
     expect(callsTo(fetchMock, "PUT")).toHaveLength(0);
-    expect(screen.getByRole("button", { name: "Save revision" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Save new version" }),
+    ).toBeEnabled();
   });
 
   it("requires a name, title, and story before creating a person", async () => {
@@ -1059,7 +1235,9 @@ describe("blog page editor", () => {
     const fetchMock = stubApi(() => apiResponse(peoplePage([])));
     render(<App />);
 
-    const save = await screen.findByRole("button", { name: "Save revision" });
+    const save = await screen.findByRole("button", {
+      name: "Save new version",
+    });
     await user.click(save);
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Add a person name, page title, and story before saving.",
@@ -1093,7 +1271,7 @@ describe("unsaved changes", () => {
     return stubApi(({ method, path }) => {
       if (method === "PUT")
         return apiResponse(
-          blogResponse(
+          storyResponse(
             "person-1",
             apiRevision(3, {
               title: "A life in mathematics",
@@ -1102,7 +1280,7 @@ describe("unsaved changes", () => {
             }),
           ),
         );
-      return path === "/api/admin/people/person-1/blog/revisions"
+      return path === "/api/admin/people/person-1/story/revisions"
         ? apiResponse(adaRevisions)
         : apiResponse(peoplePage([adaWithStory, bjork]));
     });
@@ -1120,8 +1298,6 @@ describe("unsaved changes", () => {
     );
     await screen.findByDisplayValue("Second version");
     expect(beforeUnloadIsBlocked()).toBe(false);
-    // A name change is saved with "Update name", not with the story.
-    await user.type(screen.getByLabelText(/Person name/), " Byron");
     await user.click(screen.getByRole("button", { name: /Björk/ }));
     await user.click(screen.getByRole("button", { name: "New page" }));
 
@@ -1146,7 +1322,7 @@ describe("unsaved changes", () => {
     // Cancelling keeps the edit and the selection.
     await user.click(screen.getByRole("button", { name: /Björk/ }));
     expect(confirm).toHaveBeenCalledWith(
-      "Discard the unsaved changes to this story?",
+      "Discard the unsaved changes to this page?",
     );
     expect(story).toHaveValue("Second version with notes");
     expect(screen.getByLabelText(/Person name/)).toHaveValue("Ada Lovelace");
@@ -1192,9 +1368,9 @@ describe("unsaved changes", () => {
     await user.clear(story);
     await user.type(story, "Third version");
     expect(beforeUnloadIsBlocked()).toBe(true);
-    await user.click(screen.getByRole("button", { name: "Save revision" }));
+    await user.click(screen.getByRole("button", { name: "Save new version" }));
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Saved to the shared archive as revision 3.",
+      "Saved as version 3.",
     );
 
     expect(beforeUnloadIsBlocked()).toBe(false);
@@ -1218,7 +1394,7 @@ describe("unsaved changes", () => {
     await user.type(screen.getByLabelText(/Person name/), "Ada Lovelace");
     await user.type(screen.getByLabelText(/Page title/), "A life in letters");
     await user.type(screen.getByLabelText(/Story/), "First version");
-    await user.click(screen.getByRole("button", { name: "Save revision" }));
+    await user.click(screen.getByRole("button", { name: "Save new version" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Database unavailable (request ID:",

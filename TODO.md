@@ -63,7 +63,6 @@ Fill the archive from open sources while keeping to the [data protection rules](
 ## `web/`
 
 - [ ] Show portraits once the API's media contract exists.
-- [ ] Replace the landing photograph with one taken in Iceland.
 
 ## `admin/`
 

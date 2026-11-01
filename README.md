@@ -11,19 +11,20 @@ Minnumst has a public archive for reading stories, an editorial desk for writing
 It is self-hosted with OpenTofu, Ansible and Docker Compose behind Traefik, with Authentik guarding the editorial desk and everything editors do, on a host hardened against the CIS and NIST security frameworks.
 
 <p align="center">
-  <img src="docs/assets/screenshot-web.jpg" alt="Public archive on desktop: name search with a person's profile and story" width="72%">
+  <img src="docs/assets/screenshot-web.jpg" alt="Public archive: search beside a photograph of a turf-roofed church" width="72%">
   &nbsp;
   <img src="docs/assets/screenshot-mobile.jpg" alt="Public archive on a phone: search result and story" width="22%">
 </p>
 <p align="center">
-  <img src="docs/assets/screenshot-admin.png" alt="Editorial desk: list of pages and the revision history of one story" width="95%">
+  <img src="docs/assets/screenshot-admin.png" alt="Editorial desk: list of people and the version history of one story" width="95%">
 </p>
-<p align="center"><sub>The public archive (desktop and phone) and the editorial desk with a story's revision history. All people and stories shown are fictional sample data.</sub></p>
+<p align="center"><sub>The public archive (desktop and phone) and the editorial desk with a story's version history. All people and stories shown are fictional sample data.</sub></p>
 
 ## Project goals
 
 - **Preserve stories for generations.** Every version of a story is kept, with who saved it and why. Readers see the current one, and editors can compare versions and publish an earlier one again.
 - **Let anyone contribute.** Visitors can suggest an edit without an account, and editors review every suggestion before it is published. The archive never asks who they are.
+- **Speak Icelandic first.** The archive opens in Icelandic, its search forgives how Icelandic letters are typed, and English is one click away.
 - **Protect people.** The archive only ever holds people who died more than five years ago, under the rules in [Data protection and sources](#data-protection-and-sources).
 - **Build to recognised security frameworks.** The host follows the CIS Ubuntu Linux 24.04 LTS Benchmark and NIST SP 800-53 Rev. 5, and the containers the CIS Docker Benchmark and NIST SP 800-190. Controls cite their sections in the code, and each deviation is documented with its reason. These are the baselines the project follows, not a certification.
 - **Verify, don't just configure.** CI applies the hardening to a real Ubuntu VM, requires a second run to change nothing, and scores the result with Lynis. See [Security and networking](#security-and-networking).
@@ -100,6 +101,7 @@ Every host setting in [`deploy/`](deploy/) cites the CIS section and NIST contro
 - **Accessible.** Text meets WCAG 2.2 AA contrast, and every browser test runs an axe audit that fails on serious problems.
 - **A hardened database.** PostgreSQL authenticates every connection with SCRAM-SHA-256. Migrations run as a separate role that owns the schema; the API connects as a runtime role that can't change the schema and can only read and insert story revisions, so history is append-only in the database itself, verified by a test that tries to rewrite it. The schema enforces the rules too: native UUID keys, a unique name and dates for each person, positive revision numbers, and foreign keys that refuse to delete a person with a story or a story with revisions.
 - **Privacy-preserving logs.** Every service logs JSON with a request ID that follows a request from the browser through the API. Query strings, request bodies, credentials and person slugs are never logged.
+- **Consistent, harmless input.** All text is normalised to composed Unicode on the way in, and control and text-direction characters are removed. It reaches SQL only as bound parameters and pages only as escaped text, so tests can put SQL and markup in every field and find them stored as plain text.
 - **Append-only data.** Story versions are immutable: no route edits or deletes them, restoring adds a new version, and a person with a story can't be deleted, only hidden from the public.
 
 **Host**

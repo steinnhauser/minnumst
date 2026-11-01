@@ -8,6 +8,7 @@ Thanks for contributing to Minnumst. Minnumst holds stories about people's famil
 - Never commit credentials, `.env` files, vault passwords, decrypted secrets, real inventories, or local databases. The root `.gitignore` covers the usual paths; check `git status` before committing anyway.
 - Follow the [data protection rules](README.md#data-protection-and-sources) in every change and every sample. Only people who died more than five years and two months ago or were born at least 128 years ago, no living people (including relatives named in obituaries), nothing confidential, and links with our own summaries instead of copied text. Test data and screenshots stay fictional.
 - Story history is immutable: every save appends a version, and restoring publishes an old text as a new version. Don't add routes or UI that overwrite or delete versions.
+- Interface text lives in `web/src/i18n.ts` in Icelandic and English, and a test fails if either lacks a text. No Icelandic sentence puts a name inside it, because names inflect.
 - Update documentation when behaviour, setup or operator steps change. Include screenshots for visual changes.
 
 ## Setup

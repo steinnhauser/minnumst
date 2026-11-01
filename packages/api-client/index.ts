@@ -6,6 +6,8 @@ type ClientOptions = {
   baseUrl: string;
   // "include" sends the Authentik session cookie to the API's own hostname.
   credentials?: RequestCredentials;
+  // What to say when no answer comes back.
+  unreachableMessage?: string;
 };
 
 // One fetch wrapper for both frontends. Every request carries an X-Request-ID
@@ -14,6 +16,7 @@ type ClientOptions = {
 export function createRequest({
   baseUrl,
   credentials = "same-origin",
+  unreachableMessage = "Could not reach the Minnumst API. Check that it is running.",
 }: ClientOptions) {
   let root = baseUrl;
   while (root.endsWith("/")) root = root.slice(0, -1);
@@ -36,10 +39,7 @@ export function createRequest({
         credentials,
       });
     } catch {
-      throw apiError(
-        "Could not reach the Minnumst API. Check that it is running.",
-        requestId,
-      );
+      throw apiError(unreachableMessage, requestId);
     }
     if (!response.ok) throw await errorFromResponse(response, requestId);
     return (response.status === 204 ? undefined : await response.json()) as T;

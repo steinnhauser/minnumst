@@ -52,6 +52,9 @@ export type Suggestion = Schemas["SuggestionResponse"];
 const request = createRequest({
   baseUrl: appConfig.apiUrl,
   credentials: "include",
+  // An expired login looks like this too: the browser blocks the redirect to it.
+  unreachableMessage:
+    "Could not reach the archive. If you have been away for a while, reload the page to sign in again.",
 });
 
 function mapPerson(person: ApiPerson): PersonPage {

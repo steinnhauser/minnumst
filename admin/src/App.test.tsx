@@ -790,11 +790,11 @@ describe("story page editor", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<App />);
 
-    await screen.findByText(/^Could not reach the Minnumst API\./);
+    await screen.findByText(/^Could not reach the archive\./);
     const sent = new Headers(fetchMock.mock.calls[0][1].headers);
     expect(
       screen.getByText(
-        `Could not reach the Minnumst API. Check that it is running. (request ID: ${sent.get("X-Request-ID")})`,
+        `Could not reach the archive. If you have been away for a while, reload the page to sign in again. (request ID: ${sent.get("X-Request-ID")})`,
       ),
     ).toBeInTheDocument();
   });

@@ -4,5 +4,4 @@
 package-lock.json
 uv.lock
 api/openapi.json
-deploy/templates/
 packages/api-client/openapi.d.ts

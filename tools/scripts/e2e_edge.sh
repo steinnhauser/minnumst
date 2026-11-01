@@ -87,6 +87,10 @@ done
 for path in suggestions people/hidden people/00000000-0000-4000-8000-000000000000/blog/revisions; do
   check "reading /api/admin/$path requires authentication" 401 "$(status "$api/api/admin/$path")"
 done
+# Spellings of the path that a router rule could miss but a backend might still serve.
+for path in //api/admin/suggestions /api/./admin/suggestions /api/%61dmin/suggestions /api/admin%2Fsuggestions; do
+  check "no spelling of an editor route gets past the login: $path" "[345]??" "$(status --path-as-is "$api$path")"
+done
 check "the suggestion queue opens with authentication" 200 "$(status --header "$token" "$api/api/admin/suggestions")"
 
 name="Edge check $(date +%s)-$RANDOM"

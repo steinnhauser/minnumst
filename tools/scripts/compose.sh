@@ -78,6 +78,11 @@ case "$action" in
   e2e)
     "${compose[@]}" run --rm --no-deps -e MINNUMST_ALLOW_E2E=1 -e MINNUMST_E2E_API_URL=http://api:8000 \
       migrate python /opt/minnumst/e2e_api.py
+    # The template's import service, as the API's role. A plan changes nothing.
+    report=$(printf '%s\n' '{"name": "E2E Import", "birth_date": "1850", "sources": [{"source": "e2e", "external_id": "1", "title": "E2E", "url": "https://example.org/1"}]}' \
+      | "${compose[@]}" --profile seed run --rm --no-deps -T seed python -m minnumst_api.seed plan /dev/stdin)
+    [[ $report == *'"imported": 1'* ]] || { printf 'FAIL import plan: %s\n' "$report" >&2; exit 1; }
+    printf 'PASS the import service plans a batch as the API role\n'
     ;;
   contract-cleanup)
     "${compose[@]}" run --rm --no-deps -e MINNUMST_ALLOW_E2E=1 migrate python /opt/minnumst/e2e_api.py cleanup-contract

@@ -72,6 +72,12 @@ services:
     environment:
       CORS_ORIGINS: http://127.0.0.1:5173,http://127.0.0.1:5174
 
+  # The import service from the template, with this stack's image and no batch
+  # directory: `make e2e` passes a small batch on stdin.
+  seed:
+    image: minnumst-local/api:dev
+    volumes: !reset []
+
   # The seed and end-to-end scripts run here (`docker compose run migrate …`):
   # it holds the schema owner's credentials and reaches the API on `backend`.
   migrate:

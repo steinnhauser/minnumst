@@ -20,8 +20,9 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
-  # Documentation-only changes skip the slower jobs. Tags, the weekly schedule
-  # and manual runs always run everything.
+  # Documentation-only changes skip the slower jobs, and the host job runs only
+  # when what it applies changes. Tags, the weekly schedule and manual runs always
+  # run everything.
   changes:
     name: changes
     runs-on: ubuntu-latest
@@ -30,6 +31,7 @@ jobs:
       contents: read
     outputs:
       code: ${{ steps.diff.outputs.code }}
+      host: ${{ steps.diff.outputs.host }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -49,11 +51,17 @@ jobs:
             range="$BEFORE..HEAD"
           fi
           # No pipe into grep -q: with pipefail, its early exit would fail git diff.
-          if [[ -z $range ]] || grep -vE '(\.md$|^docs/|^LICENSE$)' <<<"$(git diff --name-only "$range")" > /dev/null; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "code=false" >> "$GITHUB_OUTPUT"
+          changed=""
+          [[ -z $range ]] || changed=$(git diff --name-only "$range")
+          code=false
+          host=false
+          if [[ -z $range ]] || grep -vE '(\.md$|^docs/|^LICENSE$)' <<<"$changed" > /dev/null; then
+            code=true
           fi
+          if [[ -z $range ]] || grep -E '^(deploy/(roles/host/|site\.yml|ansible\.cfg|pyproject\.toml)|uv\.lock$|Makefile$|\.github/)' <<<"$changed" > /dev/null; then
+            host=true
+          fi
+          { echo "code=$code"; echo "host=$host"; } >> "$GITHUB_OUTPUT"
 
   checks:
     name: checks (format, lint, OpenAPI, build)
@@ -223,7 +231,7 @@ jobs:
   host:
     name: host (hardening on Ubuntu 24.04, idempotence, Lynis)
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.host == 'true'
     # Applies the host role to this runner: a real Ubuntu 24.04 VM.
     runs-on: ubuntu-24.04
     timeout-minutes: 40

@@ -15,7 +15,7 @@ INVENTORY ?= deploy/inventory/hosts.ini
 VAULT_ARGS ?= $(if $(wildcard deploy/inventory/group_vars/all/vault.yml),--ask-vault-pass)
 # The batch of people `make import` works on, read first and kept out of Git.
 IMPORT_BATCH ?= deploy/seed/wikidata-2026-11.jsonl
-# Where `make infra-backup` keeps its copies of the encrypted state.
+# Where `make infra backup` keeps its copies of the encrypted state.
 INFRA_BACKUP_DIR ?= $(HOME)/.local/share/minnumst/infra-state
 # The API that `make contract` tests; the local stack publishes it here.
 MINNUMST_API_URL ?= http://127.0.0.1:8000
@@ -27,7 +27,7 @@ unexport VIRTUAL_ENV
 	openapi openapi-check migration build validate clean ci \
 	dev-api dev-web dev-admin \
 	stack-config up wait seed e2e contract edge backup-test browser stack-test ps logs down db-update db-clear db-reset \
-	deploy-check deploy release infra-check infra-plan infra-apply infra-inventory infra-backup ssh import preview
+	deploy-check deploy release infra infra-check infra-plan infra-apply infra-inventory infra-backup ssh import preview
 
 help:
 	@printf '%s\n' \
@@ -77,11 +77,11 @@ help:
 	  '                  COMPONENT=api|web|admin|deploy [INCREMENT=MAJOR|MINOR|PATCH] [DRY_RUN=1]' \
 	  '' \
 	  'Infrastructure (OpenTofu, Hetzner Cloud; see infra/README.md)' \
-	  '  infra-check     Format check, validate and Trivy scan of infra/ (part of lint)' \
-	  '  infra-plan      Plan changes to the server, firewall and volume (needs credentials)' \
-	  '  infra-apply     Apply the saved plan' \
-	  '  infra-inventory Write deploy/inventory/hosts.ini from the infrastructure outputs' \
-	  '  infra-backup    Copy the encrypted state to INFRA_BACKUP_DIR, with a timestamp' \
+	  '  infra check     Format check, validate and Trivy scan of infra/ (part of lint)' \
+	  '  infra plan      Plan changes to the server, firewall and volume (needs credentials)' \
+	  '  infra apply     Apply the saved plan' \
+	  '  infra inventory Write deploy/inventory/hosts.ini from the infrastructure outputs' \
+	  '  infra backup    Copy the encrypted state to INFRA_BACKUP_DIR, with a timestamp' \
 	  '  ssh open        Open SSH in the Hetzner firewall for this machine only (also: ssh close, ssh status)' \
 	  '' \
 	  'Deployment' \
@@ -105,7 +105,9 @@ format-check:
 	npm run format:check
 
 lint: deploy-check infra-check
+	docker compose --file tools/compose/preview.yml config --quiet
 	$(UV_RUN) ruff check .
+	$(UV_RUN) mypy
 	npm run lint
 	$(UV_RUN) shellcheck tools/scripts/*.sh deploy/roles/*/files/*.sh
 	$(UV_RUN) zizmor --offline .github
@@ -231,6 +233,18 @@ deploy:
 release:
 	@test -n "$(COMPONENT)" || { echo 'Usage: make release COMPONENT=api|web|admin|deploy [INCREMENT=…] [DRY_RUN=1]'; exit 2; }
 	$(UV_RUN) python tools/scripts/release.py bump $(COMPONENT) $(if $(INCREMENT),--increment $(INCREMENT)) $(if $(DRY_RUN),--dry-run)
+
+# `make infra plan`: the word after `infra` is its subcommand, not another target.
+ifeq (infra,$(firstword $(MAKECMDGOALS)))
+check plan apply inventory backup:
+	@:
+endif
+
+infra:
+	@case "$(filter-out infra,$(MAKECMDGOALS))" in \
+	  check|plan|apply|inventory|backup) $(MAKE) --no-print-directory infra-$(filter-out infra,$(MAKECMDGOALS)) ;; \
+	  *) echo 'Usage: make infra check|plan|apply|inventory|backup'; exit 2 ;; \
+	esac
 
 infra-check:
 	$(TOFU) fmt -check -recursive

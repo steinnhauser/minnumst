@@ -19,6 +19,7 @@ export const ada = {
 
 export const adaProfile = {
   ...ada,
+  sources: [],
   current_blog: {
     id: "revision-1",
     revision_number: 1,

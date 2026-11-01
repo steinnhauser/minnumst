@@ -7,6 +7,8 @@ export type BlogRevision = Schemas["BlogRevisionResponse"];
 export type Person = Schemas["PersonResponse"];
 export type PersonDetail = Schemas["PersonDetail"];
 type PersonPage = Schemas["PersonPage"];
+export type SuggestionInput = Schemas["SuggestionCreate"];
+type SuggestionReceipt = Schemas["SuggestionReceipt"];
 
 const apiBaseUrl =
   window.__MINNUMST_ENV__?.VITE_API_URL?.trim() ||
@@ -33,5 +35,17 @@ export function searchPeople(
 export function getPersonBySlug(slug: string): Promise<PersonDetail> {
   return request<PersonDetail>(
     `/api/people/by-slug/${encodeURIComponent(slug)}`,
+  );
+}
+
+// The one write the public can make. It needs no login, and nothing changes on
+// the page until an editor accepts it.
+export function submitSuggestion(
+  personId: string,
+  suggestion: SuggestionInput,
+): Promise<SuggestionReceipt> {
+  return request<SuggestionReceipt>(
+    `/api/people/${encodeURIComponent(personId)}/suggestions`,
+    { method: "POST", body: JSON.stringify(suggestion) },
   );
 }

@@ -589,3 +589,69 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+.person-dates {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.person-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 16px 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The profile panel scrolls a story, but a form needs its full height. */
+.person-detail:has(.suggestion-form) {
+  max-height: none;
+}
+
+.suggestion-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.suggestion-form p,
+.suggestion-form label,
+.suggestion-form legend,
+.suggestion-sent {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.suggestion-form fieldset {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.suggestion-form fieldset label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.suggestion-form input:not([type="radio"]),
+.suggestion-form textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--muted);
+  font: inherit;
+  color: inherit;
+  background: var(--paper);
+}
+
+.suggestion-form [role="alert"] {
+  color: var(--coral-dark);
+}
+
+.suggestion-sent {
+  margin-top: 16px;
+  font-weight: 600;
+}

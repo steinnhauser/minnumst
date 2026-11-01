@@ -108,12 +108,12 @@ describe("profile URLs", () => {
 
   it("says when a profile has no published story", async () => {
     window.history.replaceState(null, "", "/people/ada-lovelace");
-    stubApi([ada], { ...ada, current_blog: null });
+    stubApi([ada], { ...ada, current_blog: null, sources: [] });
 
     render(<App />);
 
     expect(
-      await screen.findByText("There is no published story yet."),
+      await screen.findByText(/there is no published story yet/),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("article", { name: "Person details" }),
@@ -200,6 +200,7 @@ describe("public people search", () => {
     } satisfies PersonResponse;
     const fetchMock = stubApi([person], {
       ...person,
+      sources: [],
       current_blog: {
         ...adaProfile.current_blog,
         excerpt: "Notes and correspondence",
@@ -304,6 +305,33 @@ describe("site footer", () => {
     expect(
       screen.getByRole("link", { name: "contact@minnumst.org" }),
     ).toHaveAttribute("href", "mailto:contact@minnumst.org");
+  });
+});
+
+describe("a person's page", () => {
+  it("shows their dates and links to their sources", async () => {
+    window.history.replaceState(null, "", "/people/ada-lovelace");
+    stubApi([ada], {
+      ...adaProfile,
+      birth_date: "1815-12-10",
+      death_date: "1852",
+      sources: [
+        { title: "Wikidata", url: "https://www.wikidata.org/wiki/Q7259" },
+      ],
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByText("Born 1815-12-10 · Died 1852"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Wikidata" })).toHaveAttribute(
+      "href",
+      "https://www.wikidata.org/wiki/Q7259",
+    );
+    expect(
+      screen.getByRole("button", { name: "Suggest an edit" }),
+    ).toBeInTheDocument();
   });
 });
 

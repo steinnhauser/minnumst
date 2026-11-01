@@ -102,6 +102,22 @@ describe.skipIf(!apiUrl)("public API contract", () => {
     expectFields(profile.current_blog, revisionFields);
   });
 
+  it("accepts a visitor's suggestion and refuses an empty one", async () => {
+    const [person] = (await api.searchPeople("Sample Person", 1)).items;
+
+    const receipt = await api.submitSuggestion(person.id, {
+      kind: "request",
+      note: "Contract test: please check this.",
+    });
+    expect(receipt.status).toBe("pending");
+
+    const error = await failure(
+      api.submitSuggestion(person.id, { kind: "request" }),
+    );
+    expect(error.status).toBe(422);
+    expect(error.message).toBe("A request needs a description");
+  });
+
   it("returns an empty page for a query that matches nobody", async () => {
     const page = await api.searchPeople("zzqx no such ancestor 7f3a");
     expect(page).toEqual({ items: [], total: 0, offset: 0, limit: 50 });

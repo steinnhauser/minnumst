@@ -12,6 +12,7 @@ import {
   type Person,
   type PersonDetail,
 } from "./api";
+import SuggestionForm from "./SuggestionForm";
 import "./App.css";
 
 const REPOSITORY = "https://github.com/steinnhauser/minnumst";
@@ -26,6 +27,12 @@ const RESULTS_PAGE_SIZE = 50;
 function profileSlug(pathname: string): string | null {
   const match = PROFILE_PATH.exec(pathname);
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+function lifespan(person: Person): string {
+  const born = person.birth_date ? `Born ${person.birth_date}` : "";
+  const died = person.death_date ? `Died ${person.death_date}` : "";
+  return [born, died].filter(Boolean).join(" · ");
 }
 
 function App() {
@@ -388,6 +395,7 @@ function App() {
               <div className="person-detail-heading">
                 <p className="eyebrow">PERSON PROFILE</p>
                 <h2>{selectedPerson.name}</h2>
+                <p className="person-dates">{lifespan(selectedPerson)}</p>
               </div>
               {selectedPerson.current_blog ? (
                 <div className="person-story">
@@ -402,8 +410,27 @@ function App() {
                   </p>
                 </div>
               ) : (
-                <p className="no-story">There is no published story yet.</p>
+                <p className="no-story">
+                  This is a short page: there is no published story yet. If you
+                  know this person&apos;s story, you can suggest one.
+                </p>
               )}
+              {selectedPerson.sources.length > 0 && (
+                <ul className="person-sources" aria-label="Sources">
+                  {selectedPerson.sources.map((source) => (
+                    <li key={source.url}>
+                      <a href={source.url} rel="noreferrer">
+                        {source.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <SuggestionForm
+                key={selectedPerson.id}
+                person={selectedPerson}
+                contact={CONTACT}
+              />
             </article>
           )}
 

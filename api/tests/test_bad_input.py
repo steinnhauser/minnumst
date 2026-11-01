@@ -54,7 +54,9 @@ def test_sql_in_every_field_stays_plain_text(client: TestClient, attack: str) ->
     person = create(client, "Anna Jónsdóttir")
     story = {"title": attack, "excerpt": attack, "content": attack}
 
-    assert client.get("/api/people", params={"query": attack}).json()["total"] == 0
+    # Either refused as too short, or searched for as plain text and not found.
+    searched = client.get("/api/people", params={"query": attack})
+    assert searched.status_code == 422 or searched.json()["total"] == 0
     assert client.get(f"/api/people/by-slug/{attack}").status_code in {404, 405}
     named = create(client, f"Anna {attack}")
     assert named["name"] == " ".join(f"Anna {attack}".split())
@@ -231,7 +233,7 @@ def test_a_reversed_or_oversized_search_is_harmless(client: TestClient) -> None:
     create(client, "Anna")
 
     assert client.get("/api/people", params={"query": "a" * 256}).status_code == 422
-    assert names(client, "\u0301") == ["Anna"]
+    assert client.get("/api/people", params={"query": "\u0301"}).status_code == 422
     assert client.get("/api/people", params={"limit": "1; DROP"}).status_code == 422
 
 

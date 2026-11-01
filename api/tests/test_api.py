@@ -70,7 +70,7 @@ def test_search_folds_icelandic_letters_independently_of_the_database(
     assert duplicate.status_code == 409
 
 
-@pytest.mark.parametrize("query", ["%", "_", "a%a", "a_a"])
+@pytest.mark.parametrize("query", ["abc%", "abc_", "a%bc", "a_bc", "%%%abc"])
 def test_search_treats_wildcards_as_plain_characters(
     client: TestClient, query: str
 ) -> None:
@@ -79,6 +79,37 @@ def test_search_treats_wildcards_as_plain_characters(
     page = client.get("/api/people", params={"query": query}).json()
 
     assert page["total"] == 0
+
+
+@pytest.mark.parametrize(
+    "query", ["a", "jo", " j o ", "%%", "...", "a%", "\u0301", "á\u0301", "þ.ó"]
+)
+def test_a_search_needs_at_least_three_letters(client: TestClient, query: str) -> None:
+    create_person(client, "Jón")
+
+    response = client.get("/api/people", params={"query": query})
+
+    assert response.status_code == 422
+    assert "at least 3 letters" in response.text
+
+
+@pytest.mark.parametrize("query", ["jón", "j o n", "  JÓN  ", "jo\u0301n", "þór"])
+def test_three_letters_are_enough_however_they_are_typed(
+    client: TestClient, query: str
+) -> None:
+    create_person(client, "Jón")
+    create_person(client, "Þór")
+
+    response = client.get("/api/people", params={"query": query})
+
+    assert response.status_code == 200
+
+
+def test_an_empty_search_still_lists_everyone(client: TestClient) -> None:
+    create_person(client, "Jón")
+
+    for params in ({}, {"query": ""}, {"query": "   "}):
+        assert client.get("/api/people", params=params).json()["total"] == 1
 
 
 def test_lists_summarise_stories_without_loading_their_text(

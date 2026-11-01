@@ -65,6 +65,8 @@ def editor_name(
 
 EditorDep = Annotated[str, Depends(editor_name)]
 logger = logging.getLogger(__name__)
+# Shorter searches match nearly everyone, for no use and at some cost.
+MIN_SEARCH_LETTERS = 3
 # Keeps a flood of suggestions from filling the disk or burying the queue.
 MAX_PENDING_SUGGESTIONS = 500
 IDENTITY_CONFLICT = "A person with this name and these dates already exists"
@@ -79,8 +81,13 @@ WITH_STORY_SUMMARY = WITH_STORY.defer(StoryRevision.content)
 
 
 def searchable(value: str | None) -> str | None:
-    if value is not None and not storable_text(value):
+    """A search the database should run: an empty one lists everyone, page by page."""
+    if value is None or not value.strip():
+        return value
+    if not storable_text(value):
         raise ValueError("The search contains characters that can't be stored")
+    if sum(char.isalnum() for char in value) < MIN_SEARCH_LETTERS:
+        raise ValueError(f"A search needs at least {MIN_SEARCH_LETTERS} letters")
     return value
 
 
@@ -229,9 +236,10 @@ def append_revision(
     "/people",
     response_model=PersonPage,
     description=(
-        "Search people by name, ordered by name. The search ignores case, accents "
-        "and repeated spaces and matches any part of the name. An empty or "
-        "missing `query` returns everyone. Results come in pages of `limit` "
+        "Search people by name, in Icelandic alphabetical order. The search forgives "
+        "how Icelandic letters are typed and every word must appear, in any order. "
+        "A search needs at least 3 letters or digits; an empty or missing `query` "
+        "returns everyone. Results come in pages of `limit` "
         "people (1 to 100, default 50) starting at `offset` (0 or more); "
         "`total` counts every match, so clients can page through them with `offset`."
     ),

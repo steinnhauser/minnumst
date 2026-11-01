@@ -147,7 +147,7 @@ export interface paths {
         };
         /**
          * List People
-         * @description Search people by name, ordered by name. The search ignores case, accents and repeated spaces and matches any part of the name. An empty or missing `query` returns everyone. Results come in pages of `limit` people (1 to 100, default 50) starting at `offset` (0 or more); `total` counts every match, so clients can page through them with `offset`.
+         * @description Search people by name, in Icelandic alphabetical order. The search forgives how Icelandic letters are typed and every word must appear, in any order. A search needs at least 3 letters or digits; an empty or missing `query` returns everyone. Results come in pages of `limit` people (1 to 100, default 50) starting at `offset` (0 or more); `total` counts every match, so clients can page through them with `offset`.
          */
         readonly get: operations["list_people_api_people_get"];
         readonly put?: never;

@@ -99,3 +99,32 @@ test("the about section and footer aren't hidden behind the photo", async ({
   }
   await audit();
 });
+
+test("the archive reads in Icelandic under /is, and its links stay in Icelandic", async ({
+  page,
+  audit,
+}) => {
+  await page.goto(archive);
+  await page.getByRole("link", { name: "Íslenska" }).click();
+  await expect(page).toHaveURL(/\/is$/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "is");
+  await expect(
+    page.getByRole("heading", { name: "Hverra viltu minnast?" }),
+  ).toBeVisible();
+  await audit();
+
+  await page.getByLabel("Leita eftir nafni").fill("Sample Person");
+  await page.getByRole("button", { name: "Leita", exact: true }).click();
+  await page
+    .getByLabel("Leitarniðurstöður")
+    .getByRole("button")
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/is\/people\/[a-z0-9-]+$/);
+  await expect(page.getByText("TIL MINNINGAR")).toBeVisible();
+  await audit();
+
+  await page.getByRole("link", { name: "English" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.getByText("IN MEMORY OF")).toBeVisible();
+});

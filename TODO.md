@@ -62,7 +62,6 @@ Fill the archive from open sources while keeping to the [data protection rules](
 
 ## `web/`
 
-- [ ] Localise the interface in Icelandic and English. Keep names and story text as authored, and test labels, validation messages, empty states and narrow layouts in both languages.
 - [ ] Show portraits once the API's media contract exists.
 - [ ] Replace the landing photograph with one taken in Iceland.
 

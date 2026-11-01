@@ -1,0 +1,184 @@
+import { createContext, useContext } from "react";
+
+// The interface in two languages, chosen by the address: /is/... is Icelandic.
+// Names and stories stay as they were written. No sentence puts a name inside
+// Icelandic text, because names inflect and these strings can't decline them.
+export type Language = "en" | "is";
+
+const en = {
+  locale: "en-GB",
+  otherLanguageName: "Íslenska",
+  title: "Minnumst | A shared history of ancestors",
+  home: "Minnumst home",
+  tagline: "A SHARED HISTORY OF ANCESTORS",
+  eyebrow: "LET US REMEMBER",
+  heading: "Find someone to remember.",
+  intro:
+    "Minnumst means “let us remember”. Read the stories of Icelanders who have passed away, and help keep their memory.",
+  searchLabel: "Search by name",
+  searchPlaceholder: "Type a name...",
+  searchButton: "Search",
+  suggestionsLabel: "Search suggestions",
+  resultsLabel: "Search results",
+  enterName: "Enter a name to search the archive.",
+  searching: "Searching the archive...",
+  noResults: "We found no one by that name. Try another spelling.",
+  loadingMore: "Loading more people...",
+  showMore: "Show more people",
+  showing: (shown: number, total: number) =>
+    `Showing ${shown} of ${total} people.`,
+  shortPage: "A short page",
+  publicNote: "Open to everyone · No sign-in needed",
+  about: "About the archive",
+  panelFooter: "ICELAND · PEOPLE · MEMORY",
+  photoAlt: "A group of hikers crossing a green mountain trail",
+  photoEyebrow: "THE STORIES THAT MAKE A PLACE",
+  photoCaption: ["Remembered", "together."],
+  photoIndex: "01 / PEOPLE & PLACE",
+  aboutEyebrow: "A SHARED RECORD",
+  aboutText:
+    "A growing collection of the stories of those who came before us, kept with care by the people who remember them.",
+  notFound: "We could not find this page. It may have moved or been removed.",
+  unreachable:
+    "We could not reach the archive just now. Please try again soon.",
+  failed: "Something went wrong. Please try again.",
+  personLabel: "Person details",
+  inMemoryOf: "IN MEMORY OF",
+  born: "Born",
+  died: "Died",
+  noStory: (name: string) =>
+    `No story has been written yet. If you know something of ${name}'s life, you are welcome to suggest one.`,
+  sources: "Sources",
+  suggestEdit: "Suggest an edit",
+  sent: (name: string) =>
+    `Thank you for helping to remember ${name}. An editor will read your suggestion before anything changes on this page.`,
+  formIntro:
+    "These stories are about people's family members, so please write with care and in your own words. Leave out living people and private matters such as health, crime, adoption or paternity. We don't ask who you are and keep no record of who sent it. If you would like a reply, write to",
+  formQuestion: "What would you like to do?",
+  kindEdit: "Write or improve the story",
+  kindRequest: "Report a mistake or ask for a removal",
+  storyTitle: "Title",
+  storyExcerpt: "Introduction (optional)",
+  storyContent: "Story",
+  noteForEditor: "Anything the editor should know (optional)",
+  noteRequest: "What is wrong, or what should be removed?",
+  sourceLink: "Link to a source (optional)",
+  send: "Send for review",
+  tooMany:
+    "Many suggestions have arrived just now. Please wait a few minutes and try again; your text is still here.",
+  tooLong:
+    "This is longer than we can accept at once. Please shorten it and try again.",
+  copyright: "© 2026 Steinn Hauser Magnússon",
+  storiesRemain: "Stories remain with their authors and sources.",
+  openSource: "OPEN SOURCE",
+  projectLabel: "Project",
+  sourceCode: "Source code on GitHub",
+  licence: "Code licensed under Apache-2.0",
+  security: "Report a security issue",
+  peopleAndData: "PEOPLE AND DATA",
+  dataPromise:
+    "This archive only holds people who died more than five years ago, and it uses no tracking or analytics. To correct or remove something, use “Suggest an edit” on a person's page or write to us.",
+  dataLink: "Data protection and sources",
+  photoCredit: "Landing photograph from Unsplash",
+};
+
+const is: typeof en = {
+  locale: "is-IS",
+  otherLanguageName: "English",
+  title: "Minnumst | Sameiginleg saga forfeðra",
+  home: "Minnumst, forsíða",
+  tagline: "SAMEIGINLEG SAGA FORFEÐRA",
+  eyebrow: "MINNUMST ÞEIRRA",
+  heading: "Hverra viltu minnast?",
+  intro:
+    "Hér geturðu lesið sögur genginna Íslendinga og hjálpað til við að varðveita minningu þeirra.",
+  searchLabel: "Leita eftir nafni",
+  searchPlaceholder: "Sláðu inn nafn...",
+  searchButton: "Leita",
+  suggestionsLabel: "Tillögur að leit",
+  resultsLabel: "Leitarniðurstöður",
+  enterName: "Sláðu inn nafn til að leita í safninu.",
+  searching: "Leita í safninu...",
+  noResults: "Enginn fannst með þessu nafni. Prófaðu annan rithátt.",
+  loadingMore: "Sæki fleiri...",
+  showMore: "Sýna fleiri",
+  showing: (shown: number, total: number) => `Sýni ${shown} af ${total}.`,
+  shortPage: "Stutt síða",
+  publicNote: "Öllum opið · Engin innskráning",
+  about: "Um safnið",
+  panelFooter: "ÍSLAND · FÓLK · MINNING",
+  photoAlt: "Hópur göngufólks á grænum fjallaslóða",
+  photoEyebrow: "SÖGURNAR SEM MÓTA STAÐINN",
+  photoCaption: ["Minnumst", "saman."],
+  photoIndex: "01 / FÓLK OG STAÐUR",
+  aboutEyebrow: "SAMEIGINLEG HEIMILD",
+  aboutText:
+    "Vaxandi safn af sögum þeirra sem á undan okkur gengu, varðveitt af alúð af þeim sem minnast þeirra.",
+  notFound: "Þessi síða fannst ekki. Hún kann að hafa verið færð eða fjarlægð.",
+  unreachable:
+    "Ekki tókst að ná sambandi við safnið. Reyndu aftur innan skamms.",
+  failed: "Eitthvað fór úrskeiðis. Vinsamlegast reyndu aftur.",
+  personLabel: "Upplýsingar um manneskju",
+  inMemoryOf: "TIL MINNINGAR",
+  // The customary abbreviations, which also need no gendered form.
+  born: "f.",
+  died: "d.",
+  noStory: () =>
+    "Engin saga hefur enn verið skráð. Ef þú veist eitthvað um ævi viðkomandi er þér velkomið að leggja hana til.",
+  sources: "Heimildir",
+  suggestEdit: "Leggja til breytingu",
+  sent: () =>
+    "Takk fyrir að hjálpa okkur að varðveita þessa minningu. Ritstjóri les tillöguna þína áður en nokkru er breytt á þessari síðu.",
+  formIntro:
+    "Þessar sögur fjalla um ástvini fólks, svo við biðjum þig að skrifa af nærgætni og með eigin orðum. Slepptu lifandi fólki og einkamálum á borð við heilsufar, afbrot, ættleiðingu eða faðerni. Við spyrjum ekki hver þú ert og geymum engar upplýsingar um sendanda. Ef þú vilt fá svar geturðu skrifað á",
+  formQuestion: "Hvað viltu gera?",
+  kindEdit: "Skrifa eða bæta söguna",
+  kindRequest: "Tilkynna villu eða biðja um að eitthvað verði fjarlægt",
+  storyTitle: "Titill",
+  storyExcerpt: "Inngangur (valkvætt)",
+  storyContent: "Saga",
+  noteForEditor: "Eitthvað sem ritstjóri ætti að vita (valkvætt)",
+  noteRequest: "Hvað er rangt eða hvað ætti að fjarlægja?",
+  sourceLink: "Tengill á heimild (valkvætt)",
+  send: "Senda til yfirlestrar",
+  tooMany:
+    "Margar tillögur hafa borist rétt í þessu. Bíddu í nokkrar mínútur og reyndu aftur; textinn þinn er enn hér.",
+  tooLong:
+    "Þetta er lengra en við getum tekið við í einu. Styttu textann og reyndu aftur.",
+  copyright: "© 2026 Steinn Hauser Magnússon",
+  storiesRemain: "Sögurnar tilheyra höfundum sínum og heimildum.",
+  openSource: "OPINN HUGBÚNAÐUR",
+  projectLabel: "Verkefnið",
+  sourceCode: "Frumkóði á GitHub",
+  licence: "Kóði undir Apache-2.0 leyfi",
+  security: "Tilkynna öryggisgalla",
+  peopleAndData: "FÓLK OG GÖGN",
+  dataPromise:
+    "Hér eru aðeins skráðir einstaklingar sem létust fyrir meira en fimm árum, og engin rakning eða greining er notuð. Til að leiðrétta eða fjarlægja eitthvað geturðu notað „Leggja til breytingu“ á síðu viðkomandi eða skrifað til okkar.",
+  dataLink: "Persónuvernd og heimildir",
+  photoCredit: "Forsíðumynd frá Unsplash",
+};
+
+export const translations = { en, is };
+export type Translations = typeof en;
+
+const ICELANDIC_PATH = /^\/is(\/|$)/;
+
+export function languageFromPath(pathname: string): Language {
+  return ICELANDIC_PATH.test(pathname) ? "is" : "en";
+}
+
+// The address without its language prefix.
+export function withoutLanguage(pathname: string): string {
+  return pathname.replace(ICELANDIC_PATH, "/");
+}
+
+export function inLanguage(language: Language, path: string): string {
+  return language === "is" ? `/is${path === "/" ? "" : path}` : path;
+}
+
+export const LanguageContext = createContext<Language>("en");
+
+export function useTranslations(): Translations {
+  return translations[useContext(LanguageContext)];
+}

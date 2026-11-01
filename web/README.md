@@ -8,6 +8,10 @@ Setup, checks and the local stack are documented in the [repository README](../R
 make dev-web          # http://127.0.0.1:5173
 ```
 
+## Languages
+
+The interface is in English at `/` and Icelandic at `/is`, chosen by the address, so each language has its own links and nothing is stored in the browser. A link in the header goes to the same page in the other language. All interface text is in [`src/i18n.ts`](src/i18n.ts). Names and stories stay as they were written and aren't translated. Icelandic names inflect, so no Icelandic sentence puts a name inside its text, and born and died use the customary `f.` and `d.`, which need no gendered form.
+
 ## API usage
 
 Search calls `GET /api/people?query=…&offset=…&limit=…`: 8 suggestions while typing, and 50 results on submit. When there are more matches, a "Show more people" button loads the next 50 with `offset`, appends them, moves focus to the first new result and updates the announced count ("Showing 100 of 120 people."); it disappears once everyone is listed. Editing the search drops any page still loading. Selecting a person loads `GET /api/people/by-slug/{slug}`, shows the current revision of their story, and gives the profile its own address, `/people/<slug>`, which can be linked and bookmarked and works with the back and forward buttons. A profile also shows the person's dates and source links, and "Suggest an edit" sends a proposed story or a correction or removal request to `POST /api/people/{person_id}/suggestions`. It needs no login and asks for nothing about the visitor, and nothing changes until an editor accepts it. The client lives in [`src/api.ts`](src/api.ts).

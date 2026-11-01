@@ -1,5 +1,6 @@
 import type { PersonDetail } from "./api";
 import { lifespan } from "./dates";
+import { useTranslations } from "./i18n";
 import SuggestionForm from "./SuggestionForm";
 
 function PersonProfile({
@@ -9,12 +10,13 @@ function PersonProfile({
   person: PersonDetail;
   contact: string;
 }) {
+  const t = useTranslations();
   return (
-    <article className="person-detail" aria-label="Person details" tabIndex={0}>
+    <article className="person-detail" aria-label={t.personLabel} tabIndex={0}>
       <div className="person-detail-heading">
-        <p className="eyebrow">IN MEMORY OF</p>
+        <p className="eyebrow">{t.inMemoryOf}</p>
         <h2>{person.name}</h2>
-        <p className="person-dates">{lifespan(person)}</p>
+        <p className="person-dates">{lifespan(person, t)}</p>
       </div>
       {person.current_story ? (
         <div className="person-story">
@@ -25,13 +27,10 @@ function PersonProfile({
           <p className="story-content">{person.current_story.content}</p>
         </div>
       ) : (
-        <p className="no-story">
-          No story has been written yet. If you know something of {person.name}
-          &apos;s life, you are welcome to suggest one.
-        </p>
+        <p className="no-story">{t.noStory(person.name)}</p>
       )}
       {person.sources.length > 0 && (
-        <ul className="person-sources" aria-label="Sources">
+        <ul className="person-sources" aria-label={t.sources}>
           {person.sources.map((source) => (
             <li key={source.url}>
               <a href={source.url} rel="noreferrer">

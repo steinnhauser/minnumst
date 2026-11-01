@@ -5,7 +5,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { ArrowUpRight, Search } from "lucide-react";
+import { ArrowUpRight, Globe, Search } from "lucide-react";
 import type { ApiError } from "@minnumst/api-client";
 import {
   getPersonBySlug,
@@ -14,20 +14,28 @@ import {
   type PersonDetail,
 } from "./api";
 import { lifespan } from "./dates";
+import {
+  inLanguage,
+  LanguageContext,
+  languageFromPath,
+  translations,
+  withoutLanguage,
+  type Language,
+  type Translations,
+} from "./i18n";
 import PersonProfile from "./PersonProfile";
 import SiteFooter from "./SiteFooter";
 import "./App.css";
 
 const CONTACT = "contact@minnumst.org";
 
-const DEFAULT_TITLE = document.title;
 const PROFILE_PATH = /^\/people\/([^/]+)\/?$/;
 const RESULTS_PAGE_SIZE = 50;
 
 // Profiles live at /people/<slug>. Slugs are permanent: a rename keeps the
 // slug, so links and bookmarks keep working.
 function profileSlug(pathname: string): string | null {
-  const match = PROFILE_PATH.exec(pathname);
+  const match = PROFILE_PATH.exec(withoutLanguage(pathname));
   if (!match) return null;
   try {
     return decodeURIComponent(match[1]);
@@ -38,11 +46,24 @@ function profileSlug(pathname: string): string | null {
 }
 
 // What a search result says under a name.
-function resultDetail(person: Person): string {
-  return person.story?.title ?? (lifespan(person) || "A short page");
+function resultDetail(person: Person, t: Translations): string {
+  return person.story?.title ?? (lifespan(person, t) || t.shortPage);
+}
+
+// An API failure in the reader's words. The API's own messages are in English.
+function failureMessage(error: unknown, language: Language): string {
+  const t = translations[language];
+  const { status, message } = error as ApiError;
+  if (status === 404) return t.notFound;
+  if (status === undefined) return t.unreachable;
+  return language === "en" ? message : t.failed;
 }
 
 function App() {
+  // Changing language is a link to the other address, so this never changes
+  // while the page is open.
+  const [language] = useState(() => languageFromPath(window.location.pathname));
+  const t = translations[language];
   const [searchTerm, setSearchTerm] = useState("");
   const [searchMessage, setSearchMessage] = useState("");
   const [suggestions, setSuggestions] = useState<readonly Person[]>([]);
@@ -64,6 +85,10 @@ function App() {
   const searchRequest = useRef(0);
   const resultsList = useRef<HTMLDivElement>(null);
   const focusResultIndex = useRef(-1);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   // After "Show more", move focus to the first newly loaded person.
   useEffect(() => {
@@ -127,18 +152,13 @@ function App() {
         document.title = `${person.name} | Minnumst`;
       } catch (error) {
         if (requestId !== profileRequest.current) return;
-        const { status, message } = error as ApiError;
-        document.title = DEFAULT_TITLE;
-        setSearchMessage(
-          status === 404
-            ? "We could not find this page. It may have moved or been removed."
-            : message,
-        );
+        document.title = t.title;
+        setSearchMessage(failureMessage(error, language));
       } finally {
         if (requestId === profileRequest.current) setIsLoadingPerson(false);
       }
     },
-    [dismissSuggestions],
+    [dismissSuggestions, language, t.title],
   );
 
   // Follow the address bar: on first load and on the back and forward buttons.
@@ -149,23 +169,19 @@ function App() {
         void showProfile(slug);
       } else {
         closeProfile();
-        document.title = DEFAULT_TITLE;
+        document.title = t.title;
       }
     }
     followLocation();
     window.addEventListener("popstate", followLocation);
     return () => window.removeEventListener("popstate", followLocation);
-  }, [closeProfile, showProfile]);
+  }, [closeProfile, showProfile, t.title]);
 
   function resetResults() {
     searchRequest.current += 1;
     setPeople([]);
     setIsSearching(false);
     setIsLoadingMore(false);
-  }
-
-  function showingMessage(shown: number, total: number) {
-    return `Showing ${shown} of ${total} people.`;
   }
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
@@ -176,18 +192,19 @@ function App() {
     const query = searchTerm.trim();
     if (!query) {
       closeProfile();
-      setSearchMessage("Enter a name to search the archive.");
+      setSearchMessage(t.enterName);
       return;
     }
 
     const requestId = searchRequest.current;
     setIsSearching(true);
     closeProfile();
-    if (window.location.pathname !== "/") {
-      window.history.pushState(null, "", "/");
-      document.title = DEFAULT_TITLE;
+    const home = inLanguage(language, "/");
+    if (window.location.pathname !== home) {
+      window.history.pushState(null, "", home);
+      document.title = t.title;
     }
-    setSearchMessage("Searching the archive...");
+    setSearchMessage(t.searching);
     try {
       const page = await searchPeople(query, RESULTS_PAGE_SIZE);
       if (requestId !== searchRequest.current) return;
@@ -195,13 +212,12 @@ function App() {
       setResults({ query, total: page.total, next: page.items.length });
       setSearchMessage(
         page.total === 0
-          ? "We found no one by that name. Try another spelling."
-          : showingMessage(page.items.length, page.total),
+          ? t.noResults
+          : t.showing(page.items.length, page.total),
       );
     } catch (error) {
       if (requestId !== searchRequest.current) return;
-      // The API client only throws Errors carrying a reader-facing message.
-      setSearchMessage((error as Error).message);
+      setSearchMessage(failureMessage(error, language));
     } finally {
       if (requestId === searchRequest.current) setIsSearching(false);
     }
@@ -210,7 +226,7 @@ function App() {
   async function handleShowMore() {
     const requestId = searchRequest.current;
     setIsLoadingMore(true);
-    setSearchMessage("Loading more people...");
+    setSearchMessage(t.loadingMore);
     try {
       const page = await searchPeople(
         results.query,
@@ -228,13 +244,10 @@ function App() {
         total: page.total,
         next: page.items.length ? results.next + page.items.length : page.total,
       });
-      setSearchMessage(
-        showingMessage(people.length + added.length, page.total),
-      );
+      setSearchMessage(t.showing(people.length + added.length, page.total));
     } catch (error) {
       if (requestId !== searchRequest.current) return;
-      // The API client only throws Errors carrying a reader-facing message.
-      setSearchMessage((error as Error).message);
+      setSearchMessage(failureMessage(error, language));
     } finally {
       if (requestId === searchRequest.current) setIsLoadingMore(false);
     }
@@ -244,221 +257,227 @@ function App() {
     window.history.pushState(
       null,
       "",
-      `/people/${encodeURIComponent(person.slug)}`,
+      inLanguage(language, `/people/${encodeURIComponent(person.slug)}`),
     );
     await showProfile(person.slug);
   }
 
   return (
-    <main className="page-shell">
-      <section
-        className="search-panel"
-        id="search"
-        aria-labelledby="page-title"
-      >
-        <header className="site-header">
-          <a className="wordmark" href="#search" aria-label="Minnumst home">
-            MINNUMST<span>.</span>
-          </a>
-          <p className="header-note">A SHARED HISTORY OF ANCESTORS</p>
-        </header>
-
-        <div className="search-content">
-          <p className="eyebrow">
-            <span className="eyebrow-mark" aria-hidden="true" />
-            LET US REMEMBER
-          </p>
-          <h1 id="page-title">Find someone to remember.</h1>
-          <p className="intro-copy">
-            Minnumst means &ldquo;let us remember&rdquo;. Read the stories of
-            Icelanders who have passed away, and help keep their memory.
-          </p>
-
-          <form className="search-form" onSubmit={handleSearch} role="search">
-            <label htmlFor="person-search">Search by name</label>
-            <div className="search-autocomplete">
-              <div className="search-control">
-                <Search size={20} strokeWidth={1.8} aria-hidden="true" />
-                <input
-                  id="person-search"
-                  type="search"
-                  maxLength={255}
-                  role="combobox"
-                  aria-autocomplete="list"
-                  aria-expanded={suggestions.length > 0}
-                  aria-controls="person-suggestions"
-                  aria-activedescendant={
-                    activeSuggestionIndex >= 0
-                      ? `person-suggestion-${suggestions[activeSuggestionIndex]?.id}`
-                      : undefined
-                  }
-                  aria-busy={isLoadingSuggestions}
-                  placeholder="Type a name..."
-                  value={searchTerm}
-                  onChange={(event) => {
-                    dismissSuggestions();
-                    resetResults();
-                    setSearchTerm(event.target.value);
-                    setSearchMessage("");
-                    closeProfile();
-                  }}
-                  onKeyDown={(event) => {
-                    if (!suggestions.length) return;
-                    if (event.key === "ArrowDown") {
-                      event.preventDefault();
-                      setActiveSuggestionIndex((current) =>
-                        current < 0
-                          ? 0
-                          : Math.min(current + 1, suggestions.length - 1),
-                      );
-                    } else if (event.key === "ArrowUp") {
-                      event.preventDefault();
-                      setActiveSuggestionIndex((current) =>
-                        current <= 0 ? suggestions.length - 1 : current - 1,
-                      );
-                    } else if (
-                      event.key === "Enter" &&
-                      activeSuggestionIndex >= 0
-                    ) {
-                      event.preventDefault();
-                      void handleSelectPerson(
-                        suggestions[activeSuggestionIndex],
-                      );
-                    } else if (event.key === "Escape") {
-                      event.preventDefault();
-                      dismissSuggestions();
-                    }
-                  }}
-                  autoComplete="off"
-                />
-              </div>
-              <div
-                className="people-suggestions"
-                id="person-suggestions"
-                role="listbox"
-                aria-label="Search suggestions"
-                hidden={!suggestions.length}
+    <LanguageContext.Provider value={language}>
+      <main className="page-shell">
+        <section
+          className="search-panel"
+          id="search"
+          aria-labelledby="page-title"
+        >
+          <header className="site-header">
+            <a className="wordmark" href="#search" aria-label={t.home}>
+              MINNUMST<span>.</span>
+            </a>
+            <div className="header-actions">
+              <p className="header-note">{t.tagline}</p>
+              <a
+                className="language-link"
+                href={inLanguage(
+                  language === "en" ? "is" : "en",
+                  withoutLanguage(window.location.pathname),
+                )}
+                hrefLang={language === "en" ? "is" : "en"}
+                lang={language === "en" ? "is" : "en"}
               >
-                {suggestions.map((person, index) => (
+                <Globe size={14} aria-hidden="true" />
+                {t.otherLanguageName}
+              </a>
+            </div>
+          </header>
+
+          <div className="search-content">
+            <p className="eyebrow">
+              <span className="eyebrow-mark" aria-hidden="true" />
+              {t.eyebrow}
+            </p>
+            <h1 id="page-title">{t.heading}</h1>
+            <p className="intro-copy">{t.intro}</p>
+
+            <form className="search-form" onSubmit={handleSearch} role="search">
+              <label htmlFor="person-search">{t.searchLabel}</label>
+              <div className="search-autocomplete">
+                <div className="search-control">
+                  <Search size={20} strokeWidth={1.8} aria-hidden="true" />
+                  <input
+                    id="person-search"
+                    type="search"
+                    maxLength={255}
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={suggestions.length > 0}
+                    aria-controls="person-suggestions"
+                    aria-activedescendant={
+                      activeSuggestionIndex >= 0
+                        ? `person-suggestion-${suggestions[activeSuggestionIndex]?.id}`
+                        : undefined
+                    }
+                    aria-busy={isLoadingSuggestions}
+                    placeholder={t.searchPlaceholder}
+                    value={searchTerm}
+                    onChange={(event) => {
+                      dismissSuggestions();
+                      resetResults();
+                      setSearchTerm(event.target.value);
+                      setSearchMessage("");
+                      closeProfile();
+                    }}
+                    onKeyDown={(event) => {
+                      if (!suggestions.length) return;
+                      if (event.key === "ArrowDown") {
+                        event.preventDefault();
+                        setActiveSuggestionIndex((current) =>
+                          current < 0
+                            ? 0
+                            : Math.min(current + 1, suggestions.length - 1),
+                        );
+                      } else if (event.key === "ArrowUp") {
+                        event.preventDefault();
+                        setActiveSuggestionIndex((current) =>
+                          current <= 0 ? suggestions.length - 1 : current - 1,
+                        );
+                      } else if (
+                        event.key === "Enter" &&
+                        activeSuggestionIndex >= 0
+                      ) {
+                        event.preventDefault();
+                        void handleSelectPerson(
+                          suggestions[activeSuggestionIndex],
+                        );
+                      } else if (event.key === "Escape") {
+                        event.preventDefault();
+                        dismissSuggestions();
+                      }
+                    }}
+                    autoComplete="off"
+                  />
+                </div>
+                <div
+                  className="people-suggestions"
+                  id="person-suggestions"
+                  role="listbox"
+                  aria-label={t.suggestionsLabel}
+                  hidden={!suggestions.length}
+                >
+                  {suggestions.map((person, index) => (
+                    <button
+                      className="person-result"
+                      id={`person-suggestion-${person.id}`}
+                      key={person.id}
+                      type="button"
+                      role="option"
+                      aria-selected={index === activeSuggestionIndex}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => void handleSelectPerson(person)}
+                    >
+                      <span>
+                        <strong>{person.name}</strong>
+                        <span>{resultDetail(person, t)}</span>
+                      </span>
+                      <ArrowUpRight size={16} aria-hidden="true" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                className="search-button"
+                type="submit"
+                disabled={isSearching}
+              >
+                <span>{t.searchButton}</span>
+                <ArrowUpRight size={18} strokeWidth={2} aria-hidden="true" />
+              </button>
+              <p
+                className="search-message"
+                role="status"
+                aria-live="polite"
+                aria-busy={isSearching || isLoadingPerson || isLoadingMore}
+              >
+                {searchMessage}
+              </p>
+            </form>
+
+            {people.length > 0 && (
+              <div
+                className="people-results"
+                aria-label={t.resultsLabel}
+                ref={resultsList}
+              >
+                {people.map((person) => (
                   <button
                     className="person-result"
-                    id={`person-suggestion-${person.id}`}
                     key={person.id}
                     type="button"
-                    role="option"
-                    aria-selected={index === activeSuggestionIndex}
-                    onMouseDown={(event) => event.preventDefault()}
                     onClick={() => void handleSelectPerson(person)}
                   >
                     <span>
                       <strong>{person.name}</strong>
-                      <span>{resultDetail(person)}</span>
+                      <span>{resultDetail(person, t)}</span>
                     </span>
                     <ArrowUpRight size={16} aria-hidden="true" />
                   </button>
                 ))}
               </div>
-            </div>
-            <button
-              className="search-button"
-              type="submit"
-              disabled={isSearching}
-            >
-              <span>Search</span>
-              <ArrowUpRight size={18} strokeWidth={2} aria-hidden="true" />
-            </button>
-            <p
-              className="search-message"
-              role="status"
-              aria-live="polite"
-              aria-busy={isSearching || isLoadingPerson || isLoadingMore}
-            >
-              {searchMessage}
+            )}
+
+            {people.length > 0 && results.next < results.total && (
+              <button
+                className="show-more-button"
+                type="button"
+                disabled={isLoadingMore}
+                onClick={() => void handleShowMore()}
+              >
+                {t.showMore}
+              </button>
+            )}
+
+            {selectedPerson && (
+              <PersonProfile person={selectedPerson} contact={CONTACT} />
+            )}
+
+            <p className="public-note">
+              <span aria-hidden="true" />
+              {t.publicNote}
             </p>
-          </form>
+          </div>
 
-          {people.length > 0 && (
-            <div
-              className="people-results"
-              aria-label="Search results"
-              ref={resultsList}
-            >
-              {people.map((person) => (
-                <button
-                  className="person-result"
-                  key={person.id}
-                  type="button"
-                  onClick={() => void handleSelectPerson(person)}
-                >
-                  <span>
-                    <strong>{person.name}</strong>
-                    <span>{resultDetail(person)}</span>
-                  </span>
-                  <ArrowUpRight size={16} aria-hidden="true" />
-                </button>
-              ))}
-            </div>
-          )}
+          <footer className="panel-footer">
+            <a href="#about">
+              {t.about} <ArrowUpRight size={14} aria-hidden="true" />
+            </a>
+            <span>{t.panelFooter}</span>
+          </footer>
+        </section>
 
-          {people.length > 0 && results.next < results.total && (
-            <button
-              className="show-more-button"
-              type="button"
-              disabled={isLoadingMore}
-              onClick={() => void handleShowMore()}
-            >
-              Show more people
-            </button>
-          )}
+        <figure className="photo-panel">
+          <img src="/people-on-the-trail.jpg" alt={t.photoAlt} />
+          <figcaption className="photo-caption">
+            <span>{t.photoEyebrow}</span>
+            <p>
+              {t.photoCaption[0]}
+              <br />
+              {t.photoCaption[1]}
+            </p>
+          </figcaption>
+          <span className="photo-index">{t.photoIndex}</span>
+        </figure>
 
-          {selectedPerson && (
-            <PersonProfile person={selectedPerson} contact={CONTACT} />
-          )}
-
-          <p className="public-note">
-            <span aria-hidden="true" />
-            Open to everyone · No sign-in needed
-          </p>
-        </div>
-
-        <footer className="panel-footer">
-          <a href="#about">
-            About the archive <ArrowUpRight size={14} aria-hidden="true" />
-          </a>
-          <span>ICELAND · PEOPLE · MEMORY</span>
-        </footer>
-      </section>
-
-      <figure className="photo-panel">
-        <img
-          src="/people-on-the-trail.jpg"
-          alt="A group of hikers crossing a green mountain trail"
-        />
-        <figcaption className="photo-caption">
-          <span>THE STORIES THAT MAKE A PLACE</span>
+        <section className="about-strip" id="about" aria-label={t.about}>
+          <p className="eyebrow">{t.aboutEyebrow}</p>
           <p>
-            Remembered
-            <br />
-            together.
+            A growing collection of the stories of those who came before us,
+            kept with care by the people who remember them.
           </p>
-        </figcaption>
-        <span className="photo-index">01 / PEOPLE &amp; PLACE</span>
-      </figure>
+        </section>
 
-      <section
-        className="about-strip"
-        id="about"
-        aria-label="About the archive"
-      >
-        <p className="eyebrow">A SHARED RECORD</p>
-        <p>
-          A growing collection of the stories of those who came before us, kept
-          with care by the people who remember them.
-        </p>
-      </section>
-
-      <SiteFooter contact={CONTACT} />
-    </main>
+        <SiteFooter contact={CONTACT} />
+      </main>
+    </LanguageContext.Provider>
   );
 }
 

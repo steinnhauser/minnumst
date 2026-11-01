@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { LanguageContext } from "./i18n";
 import SuggestionForm from "./SuggestionForm";
 import { ada, adaProfile, type PersonDetail } from "./test/fixtures";
 
@@ -144,6 +145,48 @@ describe("suggesting an edit", () => {
     await user.click(screen.getByRole("button", { name: "Send for review" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(text);
+  });
+
+  it("explains a refused suggestion in Icelandic instead of the API's English", async () => {
+    stubFetch(Response.json({ detail: "Too many" }, { status: 400 }));
+    const user = userEvent.setup();
+    render(
+      <LanguageContext.Provider value="is">
+        <SuggestionForm person={adaProfile} contact="contact@example.org" />
+      </LanguageContext.Provider>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Leggja til breytingu" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Senda til yfirlestrar" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Eitthvað fór úrskeiðis",
+    );
+  });
+
+  it("thanks in Icelandic without declining the person's name", async () => {
+    stubFetch(receipt());
+    const user = userEvent.setup();
+    render(
+      <LanguageContext.Provider value="is">
+        <SuggestionForm person={adaProfile} contact="contact@example.org" />
+      </LanguageContext.Provider>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Leggja til breytingu" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Senda til yfirlestrar" }),
+    );
+
+    const thanks = await screen.findByRole("status");
+    expect(thanks).toHaveTextContent("varðveita þessa minningu");
+    expect(thanks).not.toHaveTextContent("Ada");
   });
 
   it("moves keyboard focus to the form it opens", async () => {

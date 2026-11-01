@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useContext, useEffect, useRef, useState, type FormEvent } from "react";
 import type { ApiError } from "@minnumst/api-client";
 import { submitSuggestion, type PersonDetail } from "./api";
+import { LanguageContext, useTranslations } from "./i18n";
 
 type Kind = "edit" | "request";
 
@@ -13,6 +14,8 @@ function SuggestionForm({
   person: PersonDetail;
   contact: string;
 }) {
+  const t = useTranslations();
+  const language = useContext(LanguageContext);
   const story = person.current_story;
   const [isOpen, setIsOpen] = useState(false);
   const [kind, setKind] = useState<Kind>("edit");
@@ -45,15 +48,17 @@ function SuggestionForm({
       });
       setIsSent(true);
     } catch (reason) {
-      // The API client only throws Errors carrying a reader-facing message, but
-      // the edge's own limits answer without one.
+      // The edge's own limits answer without a message for the reader, and the
+      // API's own are in English.
       const { status, message } = reason as ApiError;
       setError(
         status === 429
-          ? "Many suggestions have arrived just now. Please wait a few minutes and try again; your text is still here."
+          ? t.tooMany
           : status === 413
-            ? "This is longer than we can accept at once. Please shorten it and try again."
-            : message,
+            ? t.tooLong
+            : language === "en" && message
+              ? message
+              : t.failed,
       );
     } finally {
       setIsSending(false);
@@ -63,8 +68,7 @@ function SuggestionForm({
   if (isSent) {
     return (
       <p className="suggestion-sent" role="status">
-        Thank you for helping to remember {person.name}. An editor will read
-        your suggestion before anything changes on this page.
+        {t.sent(person.name)}
       </p>
     );
   }
@@ -76,7 +80,7 @@ function SuggestionForm({
         type="button"
         onClick={() => setIsOpen(true)}
       >
-        Suggest an edit
+        {t.suggestEdit}
       </button>
     );
   }
@@ -84,20 +88,16 @@ function SuggestionForm({
   return (
     <form
       className="suggestion-form"
-      aria-label="Suggest an edit"
+      aria-label={t.suggestEdit}
       ref={form}
       tabIndex={-1}
       onSubmit={(event) => void handleSubmit(event)}
     >
       <p>
-        These stories are about people&apos;s family members, so please write
-        with care and in your own words. Leave out living people and private
-        matters such as health, crime, adoption or paternity. We don&apos;t ask
-        who you are and don&apos;t keep your address. If you would like a reply,
-        write to <a href={`mailto:${contact}`}>{contact}</a>.
+        {t.formIntro} <a href={`mailto:${contact}`}>{contact}</a>.
       </p>
       <fieldset>
-        <legend>What would you like to do?</legend>
+        <legend>{t.formQuestion}</legend>
         <label>
           <input
             type="radio"
@@ -105,7 +105,7 @@ function SuggestionForm({
             checked={kind === "edit"}
             onChange={() => setKind("edit")}
           />
-          Write or improve the story
+          {t.kindEdit}
         </label>
         <label>
           <input
@@ -114,12 +114,12 @@ function SuggestionForm({
             checked={kind === "request"}
             onChange={() => setKind("request")}
           />
-          Report a mistake or ask for a removal
+          {t.kindRequest}
         </label>
       </fieldset>
       {kind === "edit" && (
         <>
-          <label htmlFor="suggestion-title">Title</label>
+          <label htmlFor="suggestion-title">{t.storyTitle}</label>
           <input
             id="suggestion-title"
             required
@@ -127,7 +127,7 @@ function SuggestionForm({
             value={title}
             onChange={(event) => setTitle(event.target.value)}
           />
-          <label htmlFor="suggestion-excerpt">Introduction (optional)</label>
+          <label htmlFor="suggestion-excerpt">{t.storyExcerpt}</label>
           <textarea
             id="suggestion-excerpt"
             rows={2}
@@ -135,7 +135,7 @@ function SuggestionForm({
             value={excerpt}
             onChange={(event) => setExcerpt(event.target.value)}
           />
-          <label htmlFor="suggestion-content">Story</label>
+          <label htmlFor="suggestion-content">{t.storyContent}</label>
           <textarea
             id="suggestion-content"
             required
@@ -147,9 +147,7 @@ function SuggestionForm({
         </>
       )}
       <label htmlFor="suggestion-note">
-        {kind === "edit"
-          ? "Anything the editor should know (optional)"
-          : "What is wrong, or what should be removed?"}
+        {kind === "edit" ? t.noteForEditor : t.noteRequest}
       </label>
       <textarea
         id="suggestion-note"
@@ -159,7 +157,7 @@ function SuggestionForm({
         value={note}
         onChange={(event) => setNote(event.target.value)}
       />
-      <label htmlFor="suggestion-source">Link to a source (optional)</label>
+      <label htmlFor="suggestion-source">{t.sourceLink}</label>
       <input
         id="suggestion-source"
         type="url"
@@ -169,7 +167,7 @@ function SuggestionForm({
       />
       {error && <p role="alert">{error}</p>}
       <button className="show-more-button" type="submit" disabled={isSending}>
-        Send for review
+        {t.send}
       </button>
     </form>
   );

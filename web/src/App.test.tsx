@@ -11,6 +11,12 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import {
+  inLanguage,
+  languageFromPath,
+  translations,
+  withoutLanguage,
+} from "./i18n";
+import {
   ada,
   adaProfile,
   pageOf,
@@ -20,7 +26,7 @@ import {
   type PersonResponse,
 } from "./test/fixtures";
 
-const defaultTitle = document.title;
+const defaultTitle = translations.en.title;
 
 const adaJonsdottir = {
   ...ada,
@@ -274,7 +280,7 @@ describe("public people search", () => {
 
     expect(
       await screen.findByText(
-        "Could not reach the Minnumst API. Check that it is running.",
+        "We could not reach the archive just now. Please try again soon.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Search" })).toBeEnabled();
@@ -306,6 +312,126 @@ describe("site footer", () => {
     expect(
       screen.getByRole("link", { name: "contact@minnumst.org" }),
     ).toHaveAttribute("href", "mailto:contact@minnumst.org");
+  });
+});
+
+describe("Icelandic", () => {
+  afterEach(() => {
+    document.documentElement.lang = "en";
+  });
+
+  it("serves the interface under /is, and links to the same page in the other language", async () => {
+    window.history.replaceState(null, "", "/is/people/ada-lovelace");
+    const fetchMock = stubApi([ada], {
+      ...adaProfile,
+      birth_date: "1815-12-10",
+      death_date: "1852",
+    });
+
+    render(<App />);
+
+    expect(
+      await screen.findByText("f. 10. desember 1815 · d. 1852"),
+    ).toBeVisible();
+    expect(document.documentElement.lang).toBe("is");
+    expect(
+      screen.getByRole("heading", { name: "Hverra viltu minnast?" }),
+    ).toBeVisible();
+    expect(document.title).toBe("Ada Lovelace | Minnumst");
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(
+      /\/api\/people\/by-slug\/ada-lovelace$/,
+    );
+    const toEnglish = screen.getByRole("link", { name: "English" });
+    expect(toEnglish).toHaveAttribute("href", "/people/ada-lovelace");
+    expect(toEnglish).toHaveAttribute("lang", "en");
+    expect(screen.getByText("A life in letters")).toBeVisible();
+  });
+
+  it("invites a first story on a short page without declining the name", async () => {
+    window.history.replaceState(null, "", "/is/people/ada-lovelace");
+    stubApi([ada], { ...ada, current_story: null, sources: [] });
+
+    render(<App />);
+
+    const invitation = await screen.findByText(/Engin saga hefur enn/);
+    expect(invitation).toHaveTextContent("viðkomandi");
+    expect(invitation).not.toHaveTextContent("Ada");
+  });
+
+  it("offers Icelandic from the English pages", async () => {
+    window.history.replaceState(null, "", "/people/ada-lovelace");
+    stubApi();
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Ada Lovelace" });
+    expect(screen.getByRole("link", { name: "Íslenska" })).toHaveAttribute(
+      "href",
+      "/is/people/ada-lovelace",
+    );
+  });
+
+  it("keeps the language when searching and opening a person", async () => {
+    window.history.replaceState(null, "", "/is/people/ada-lovelace");
+    stubApi();
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole("heading", { name: "Ada Lovelace" });
+
+    await user.type(
+      screen.getByRole("combobox", { name: "Leita eftir nafni" }),
+      "Ada",
+    );
+    await user.click(screen.getByRole("button", { name: "Leita" }));
+
+    expect(window.location.pathname).toBe("/is");
+    expect(await screen.findByText("Sýni 1 af 1.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "English" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+
+    await user.click(screen.getByRole("button", { name: /Ada Lovelace/ }));
+
+    expect(window.location.pathname).toBe("/is/people/ada-lovelace");
+  });
+
+  it("explains failures in Icelandic instead of the API's English", async () => {
+    window.history.replaceState(null, "", "/is/people/ada-lovelace");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          Response.json({ detail: "Out of order" }, { status: 503 }),
+        ),
+      ),
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByText(
+        "Eitthvað fór úrskeiðis. Vinsamlegast reyndu aftur.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText("Out of order")).toBeNull();
+  });
+
+  it("doesn't take /island or /issues for Icelandic", () => {
+    expect(languageFromPath("/is")).toBe("is");
+    expect(languageFromPath("/is/")).toBe("is");
+    expect(languageFromPath("/is/people/a")).toBe("is");
+    expect(languageFromPath("/island")).toBe("en");
+    expect(languageFromPath("/people/is")).toBe("en");
+    expect(withoutLanguage("/is")).toBe("/");
+    expect(inLanguage("is", "/")).toBe("/is");
+    expect(inLanguage("en", "/")).toBe("/");
+  });
+
+  it("has every text in both languages", () => {
+    expect(Object.keys(translations.is).sort()).toEqual(
+      Object.keys(translations.en).sort(),
+    );
   });
 });
 
@@ -654,7 +780,7 @@ describe("more search results", () => {
 
     expect(
       await screen.findByText(
-        "Could not reach the Minnumst API. Check that it is running.",
+        "We could not reach the archive just now. Please try again soon.",
       ),
     ).toBeInTheDocument();
     expect(results()).toHaveLength(50);

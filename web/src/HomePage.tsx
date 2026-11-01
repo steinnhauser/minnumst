@@ -5,6 +5,7 @@ import {
   LanguageContext,
   useTranslations,
 } from "./i18n";
+import ChurchPhotos from "./ChurchPhotos";
 import SearchBox from "./SearchBox";
 
 function HomePage({ englishPath }: { englishPath: string }) {
@@ -27,22 +28,11 @@ function HomePage({ englishPath }: { englishPath: string }) {
               </a>
             </p>
           )}
-          <p className="eyebrow">{t.eyebrow}</p>
           <h1 id="page-title">{t.heading}</h1>
           <p className="intro-copy">{t.intro}</p>
           <SearchBox />
         </section>
-        <figure className="photo-panel">
-          <img src="/grafarkirkja.jpg" alt={t.photoAlt} />
-          <figcaption className="photo-caption">
-            <span>{t.photoEyebrow}</span>
-            <p>
-              {t.photoCaption[0]}
-              <br />
-              {t.photoCaption[1]}
-            </p>
-          </figcaption>
-        </figure>
+        <ChurchPhotos />
       </div>
       <section className="about-strip" id="about" aria-label={t.about}>
         <p className="eyebrow">{t.aboutEyebrow}</p>

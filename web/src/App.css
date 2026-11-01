@@ -132,7 +132,6 @@
   width: 100%;
   max-width: 420px;
   aspect-ratio: 4 / 5;
-  max-height: 72svh;
   margin: 0;
   overflow: hidden;
   border-radius: 6px;
@@ -143,8 +142,9 @@
 
 .photo-panel::after {
   position: absolute;
-  inset: 45% 0 0;
-  background: linear-gradient(180deg, transparent, rgb(17 28 23 / 78%));
+  inset: 55% 0 0;
+  z-index: 1;
+  background: linear-gradient(180deg, transparent, rgb(17 28 23 / 85%));
   content: "";
   pointer-events: none;
 }
@@ -155,29 +155,91 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: 38% 50%;
+  opacity: 0;
+}
+
+.photo-panel img.photo-previous {
+  opacity: 1;
+}
+
+.photo-panel img.photo-current {
+  z-index: 1;
+  opacity: 1;
+}
+
+.photo-panel img.photo-fading {
+  animation: photo-fade 1400ms ease;
+}
+
+@keyframes photo-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.photo-toggle {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(17 28 23 / 55%);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.photo-toggle:hover {
+  background: rgb(17 28 23 / 80%);
+}
+
+.photo-toggle:focus-visible,
+.photo-caption a:focus-visible {
+  outline-color: #fff;
 }
 
 .photo-caption {
   position: absolute;
-  z-index: 1;
-  right: 24px;
-  bottom: 24px;
-  left: 24px;
+  z-index: 2;
+  right: 20px;
+  bottom: 18px;
+  left: 20px;
+  display: grid;
+  text-shadow: 0 1px 4px rgb(0 0 0 / 65%);
+}
+
+.photo-caption strong {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1.2;
 }
 
 .photo-caption > span {
-  color: rgb(255 255 255 / 88%);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-size: 1rem;
 }
 
-.photo-caption p {
-  margin: 6px 0 0;
-  font-family: var(--font-display);
-  font-size: 1.9rem;
-  line-height: 1.08;
+.photo-caption small {
+  margin-top: 6px;
+  color: rgb(255 255 255 / 88%);
+  font-size: 0.75rem;
+}
+
+.photo-caption a,
+.photo-caption a:hover {
+  color: inherit;
+  text-decoration-color: rgb(255 255 255 / 60%);
 }
 
 .about-strip {
@@ -712,14 +774,7 @@ a.pagination-page:hover {
   }
 
   .photo-panel {
-    justify-self: stretch;
-    max-width: none;
-    aspect-ratio: 16 / 10;
-    max-height: none;
-  }
-
-  .photo-panel::after {
-    inset: 20% 0 0;
+    justify-self: center;
   }
 
   .about-strip {
@@ -775,5 +830,6 @@ a.pagination-page:hover {
   *::before,
   *::after {
     transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

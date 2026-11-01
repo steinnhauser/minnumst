@@ -28,4 +28,17 @@ Typing at least 3 letters shows up to 8 suggestions, from `GET /api/people?query
 
 The typefaces are Newsreader and Source Sans 3, both under the SIL Open Font License and bundled, so loading the page involves no third party. Colours are tokens in [`src/index.css`](src/index.css), with a dark set for readers who prefer it.
 
-The landing photograph is [Grafarkirkja](https://commons.wikimedia.org/wiki/File:Grafarkirkja_02.jpg) by Syrio, under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), resized and credited in the footer. It is bundled, so the page doesn't depend on an image host.
+The front page shows churches from around the country, one every few seconds, each fading in over the last. Only the first loads with the page; each next one is fetched just before it appears, so visitors download only what they stay to see, and the images have hashed names and are cached for a year. A button pauses them. Visitors who ask for reduced motion or less data start on one still photograph, and a hidden tab fetches nothing. All are from Wikimedia Commons, cropped and resized, with the credit shown on each ([`src/churches.ts`](src/churches.ts)):
+
+- Grafarkirkja, Höfðaströnd: [photograph](https://commons.wikimedia.org/wiki/File:Grafarkirkja_02.jpg) by Syrio, CC BY-SA 4.0
+- Búðakirkja, Búðir, Snæfellsnes: [photograph](https://commons.wikimedia.org/wiki/File:Black_Church_and_Mountains_2021-10-04.jpg) by Eric Kilby, CC BY-SA 2.0
+- Seyðisfjarðarkirkja, Seyðisfjörður: [photograph](<https://commons.wikimedia.org/wiki/File:The_Blue_Church_in_Sey%C3%B0isfj%C3%B6r%C3%B0ur,_Iceland_(48359468331).jpg>) by Mustang Joe, CC0
+- Þingvallakirkja, Þingvellir: [photograph](https://commons.wikimedia.org/wiki/File:Thingvellir_church.jpg) by JD554, CC BY-SA 3.0
+- Húsavíkurkirkja, Húsavík: [photograph](https://commons.wikimedia.org/wiki/File:HusavikChurch.jpg) by Andreas Tille, CC BY-SA 4.0
+- Saurbæjarkirkja, Rauðisandur: [photograph](https://commons.wikimedia.org/wiki/File:Black_Church_at_Rau%C3%B0isandur.jpg) by Eric Kilby, CC BY-SA 2.0
+- Víkurkirkja, Vík í Mýrdal: [photograph](https://commons.wikimedia.org/wiki/File:201708_V%C3%ADkurkirkja_02.jpg) by Jonashtand, CC BY-SA 4.0
+- Akureyrarkirkja, Akureyri: [photograph](<https://commons.wikimedia.org/wiki/File:Akureyrarkirkja_-_panoramio_(1).jpg>) by Jon Gretarsson, CC BY-SA 3.0
+- Strandarkirkja, Selvogur: [photograph](https://commons.wikimedia.org/wiki/File:Strandarkirkja-Front.jpg) by JNC2, CC BY-SA 4.0
+- Stykkishólmskirkja, Stykkishólmur: [photograph](https://commons.wikimedia.org/wiki/File:Stykkisholmur_Church_2019_1.jpg) by Kasa Fue, CC BY-SA 4.0
+- Hóladómkirkja, Hólar í Hjaltadal: [photograph](https://commons.wikimedia.org/wiki/File:Holakirkja.jpg) by Michael Scaduto, CC BY-SA 2.0
+- Hallgrímskirkja, Reykjavík: [photograph](https://commons.wikimedia.org/wiki/File:Hallgr%C3%ADmskirkja_2018_HDR.jpg) by DimaXmarxist, CC0

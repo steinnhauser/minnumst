@@ -171,6 +171,30 @@ test("the archive opens in Icelandic, with English easy to find, and each stays 
   await expect(page).toHaveURL(/5173\/people\/[a-z0-9-]+$/);
 });
 
+test("the church photographs fade from one to the next, even the first time", async ({
+  page,
+}) => {
+  await page.goto(archive);
+  const caption = page.locator("figcaption strong");
+  const first = await caption.textContent();
+
+  // Caught as it happens: the new photograph animating, over the old one still solid.
+  await page.waitForFunction(() => {
+    const fading = document.querySelector("img.photo-current.photo-fading");
+    const below = document.querySelector("img.photo-previous");
+    return (
+      fading
+        ?.getAnimations()
+        .some((animation) => animation.playState === "running") &&
+      below !== null &&
+      getComputedStyle(below).opacity === "1"
+    );
+  });
+  await expect(caption).not.toHaveText(first ?? "");
+  // Both frames are the same shape, on every screen.
+  await expect(page.locator(".photo-panel")).toHaveCSS("aspect-ratio", "4 / 5");
+});
+
 test("every page reads well in dark mode", async ({ page, audit }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto(archive);

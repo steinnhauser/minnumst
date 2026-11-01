@@ -29,7 +29,6 @@ const en = {
   title: "Minnumst | A shared history of ancestors",
   home: "Minnumst home",
   tagline: "A SHARED HISTORY OF ANCESTORS",
-  eyebrow: "LET US REMEMBER",
   heading: "Find someone to remember.",
   intro:
     "Minnumst means “let us remember”. Read the stories of Icelanders who have passed away, and help keep their memory.",
@@ -53,10 +52,9 @@ const en = {
   backToResults: "← Back to the results",
   shortPage: "A short page",
   about: "About the archive",
-  photoAlt:
-    "Grafarkirkja, a small old church with a turf roof, under a pale sky",
-  photoEyebrow: "GRAFARKIRKJA, NEAR HOFSÓS",
-  photoCaption: ["Remembered", "together."],
+  photoBy: (name: string) => `Photo: ${name}`,
+  pausePhotos: "Pause the photographs",
+  playPhotos: "Play the photographs",
   aboutEyebrow: "A SHARED RECORD",
   aboutText:
     "A growing collection of the stories of those who came before us, kept with care by the people who remember them.",
@@ -103,7 +101,6 @@ const en = {
   dataPromise:
     "This archive only holds people who died more than five years ago, and it uses no tracking or analytics. To correct or remove something, use “Suggest an edit” on a person's page or write to us.",
   dataLink: "Data protection and sources",
-  photoCredit: "Photograph: Grafarkirkja, by Syrio",
 };
 
 const is: typeof en = {
@@ -128,7 +125,6 @@ const is: typeof en = {
   title: "Minnumst | Sameiginleg saga forfeðra",
   home: "Minnumst, forsíða",
   tagline: "SAMEIGINLEG SAGA FORFEÐRA",
-  eyebrow: "MINNUMST ÞEIRRA",
   heading: "Hverra viltu minnast?",
   intro:
     "Hér geturðu lesið sögur genginna Íslendinga og hjálpað til við að varðveita minningu þeirra.",
@@ -152,9 +148,9 @@ const is: typeof en = {
   backToResults: "← Aftur í niðurstöður",
   shortPage: "Stutt síða",
   about: "Um safnið",
-  photoAlt: "Grafarkirkja, lítil gömul kirkja með torfþaki, undir fölum himni",
-  photoEyebrow: "GRAFARKIRKJA VIÐ HOFSÓS",
-  photoCaption: ["Minnumst", "saman."],
+  photoBy: (name: string) => `Ljósmynd: ${name}`,
+  pausePhotos: "Stöðva myndirnar",
+  playPhotos: "Spila myndirnar",
   aboutEyebrow: "SAMEIGINLEG HEIMILD",
   aboutText:
     "Vaxandi safn af sögum þeirra sem á undan okkur gengu, varðveitt af alúð af þeim sem minnast þeirra.",
@@ -202,7 +198,6 @@ const is: typeof en = {
   dataPromise:
     "Hér eru aðeins skráðir einstaklingar sem létust fyrir meira en fimm árum, og engin rakning eða greining er notuð. Til að leiðrétta eða fjarlægja eitthvað geturðu notað „Leggja til breytingu“ á síðu viðkomandi eða skrifað til okkar.",
   dataLink: "Persónuvernd og heimildir",
-  photoCredit: "Ljósmynd: Grafarkirkja, eftir Syrio",
 };
 
 export const translations = { en, is };

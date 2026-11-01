@@ -30,18 +30,6 @@ function SiteFooter({ contact }: { contact: string }) {
         <a href={`${REPOSITORY}#data-protection-and-sources`} rel="noreferrer">
           {t.dataLink}
         </a>
-        <a
-          href="https://commons.wikimedia.org/wiki/File:Grafarkirkja_02.jpg"
-          rel="noreferrer"
-        >
-          {t.photoCredit}
-        </a>
-        <a
-          href="https://creativecommons.org/licenses/by-sa/4.0/"
-          rel="noreferrer"
-        >
-          CC BY-SA 4.0
-        </a>
       </div>
     </footer>
   );

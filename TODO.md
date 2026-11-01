@@ -191,12 +191,15 @@ OpenTofu with the `hetznercloud/hcloud` provider, one environment, no Terragrunt
 
 Fill the archive from open sources while keeping to the [data protection rules](README.md#data-protection-and-sources). Every step enforces rule 1: only people who died more than five years ago, or, with no known date of death, people born at least 128 years before the current year.
 
-- [ ] Data model (Alembic migration, `openapi.json`, both frontends): optional birth and death dates or years, parent and partner relationships, and a `person_sources` table (URL, source, title, date, short summary in our own words, licence).
-- [ ] The API rejects creating or importing a person who fails rule 1, and the admin desk explains the rejection. Tests cover the boundary years.
-- [ ] Import script in `tools/` for [ICE-ID](https://huggingface.co/datasets/goldpotatoes/ice-id) (CC BY 4.0, with attribution): pinned dataset revision and checksum, idempotent, dry run by default. Only the 226,864 linked people are imported, rule 1 is applied, and relatives who fail it are left out. A report lists how many were imported and how many skipped, and why.
+- [x] Data model: birth and death dates (a year or a full date) and a `person_sources` table (URL, source, title).
+- [x] The API rejects creating or importing a person who fails rule 1, and the admin desk explains the rejection. Tests cover the boundary years.
+- [x] First batch from Wikidata (CC0): `make import fetch` keeps names, dates and links for people who pass rule 1, the batch is reviewed in Git, and `make import plan|apply|remove` acts on the host, separately from any deploy.
+- [ ] Parent and partner relationships, and a short summary in our own words on each source.
+- [ ] Server-side search in the admin desk before the census import: it loads everyone at once today, which won't work for 226,864 people.
+- [ ] Import script in `tools/` for [ICE-ID](https://huggingface.co/datasets/goldpotatoes/ice-id) (licence and National Archives position to be confirmed: the dataset card says MIT, the paper CC BY 4.0): pinned dataset revision and checksum, idempotent, dry run by default. Only the 226,864 linked people are imported, rule 1 is applied, and relatives who fail it are left out. A report lists how many were imported and how many skipped, and why.
 - [ ] Source links on profiles: prefilled search links to timarit.is (name and patronym within the person's lifetime), manntal.is and gardur.is. Editors confirm each match in the admin desk; nothing is attached automatically.
 - [ ] Dates of death after 1920 from gardur.is or confirmed obituaries, so that people born after 1898 become eligible only when a death is recorded.
-- [ ] An edits feature, through which relatives can ask for a person, story or link to be corrected or removed, handled by editors. Revisions are append-only and public today, so it must also decide how removed content stops being served.
+- [x] Suggestions, through which anyone can propose a change or ask for a correction or removal, reviewed by editors. Story history is for editors only and people can be hidden, so removed content stops being served.
 - [ ] Ask the National and University Library (timarit.is) and the National Archives (manntal.is, heimildir.is) about metadata or API access before building anything that fetches pages automatically. Respect robots.txt and the terms of use.
 
 ## Component backlog
@@ -235,8 +238,13 @@ Covered by items 6, 7 and 9 above: backups, monitoring, Authentik with TOTP MFA,
 
 - [ ] Group the Makefile's commands as subcommands: `make infra plan`, `make infra apply`, `make infra help`, in place of `make infra-plan`.
 
-### Later: open contributions (parked)
+### Guardrails for public suggestions
 
-The public archive stays read-only, and only editors behind Authentik can change anything. A Wikipedia-style model, with public suggestions and trusted editors reviewing them, is a possible future direction. It needs answers first: how the rules on living people apply to unreviewed submissions, spam, whether contributors are anonymous, and recording who approved what.
+Suggestions need no login, and that stays: visitors never get accounts, because the archive won't hold personal data about them. Every suggestion is reviewed before publication. Today's limits are a per-address rate limit and body size limit at the edge, field limits in the API, and a cap of 500 waiting suggestions. If spam or bad actors appear, add in this order:
+
+- [ ] A hidden trap field for simple bots.
+- [ ] An alert to editors when suggestions arrive; today only a count in the desk shows them.
+- [ ] A rate limit per IPv6 /64 network, not just per address.
+- [ ] A proof-of-work challenge that involves no third party, or a privacy-respecting CAPTCHA as a last resort.
 
 Once these priorities are agreed, they can move to GitHub Issues with component labels and a milestone.

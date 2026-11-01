@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type { ApiError } from "@minnumst/api-client";
 
 // The interface in two languages, chosen by the address: Icelandic by default, and
 // English under /en.
@@ -7,7 +8,22 @@ import { createContext, useContext } from "react";
 export type Language = "en" | "is";
 
 const en = {
-  locale: "en-GB",
+  months: [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ],
+  fullDate: (day: number, month: string, year: number) =>
+    `${day} ${month} ${year}`,
   otherLanguageName: "Íslenska",
   languageNotice: "",
   title: "Minnumst | A shared history of ancestors",
@@ -25,14 +41,21 @@ const en = {
   enterName: "Enter a name to search the archive.",
   searching: "Searching the archive...",
   noResults: "We found no one by that name. Try another spelling.",
-  loadingMore: "Loading more people...",
-  showMore: "Show more people",
-  showing: (shown: number, total: number) =>
-    `Showing ${shown} of ${total} people.`,
+  tooShort: "Please type at least 3 letters.",
+  searchTitle: "Search",
+  resultsFor: (query: string) => `Results for “${query}”`,
+  showing: (first: number, last: number, total: number) =>
+    `Showing ${first}–${last} of ${total} people.`,
+  noSuchPage: "There are no results on this page.",
+  lastPage: "Go to the last page of results",
+  paginationLabel: "Pages of results",
+  previous: "← Previous",
+  next: "Next →",
+  pageOf: (page: number, last: number) => `Page ${page} of ${last}`,
+  backToResults: "← Back to the results",
   shortPage: "A short page",
   publicNote: "Open to everyone · No sign-in needed",
   about: "About the archive",
-  panelFooter: "ICELAND · PEOPLE · MEMORY",
   photoAlt:
     "Grafarkirkja, a small old church with a turf roof, under a pale sky",
   photoEyebrow: "GRAFARKIRKJA, NEAR HOFSÓS",
@@ -85,7 +108,22 @@ const en = {
 };
 
 const is: typeof en = {
-  locale: "is-IS",
+  months: [
+    "janúar",
+    "febrúar",
+    "mars",
+    "apríl",
+    "maí",
+    "júní",
+    "júlí",
+    "ágúst",
+    "september",
+    "október",
+    "nóvember",
+    "desember",
+  ],
+  fullDate: (day: number, month: string, year: number) =>
+    `${day}. ${month} ${year}`,
   otherLanguageName: "English",
   languageNotice: "Don't read Icelandic? Read this site in English",
   title: "Minnumst | Sameiginleg saga forfeðra",
@@ -103,13 +141,21 @@ const is: typeof en = {
   enterName: "Sláðu inn nafn til að leita í safninu.",
   searching: "Leita í safninu...",
   noResults: "Enginn fannst með þessu nafni. Prófaðu annan rithátt.",
-  loadingMore: "Sæki fleiri...",
-  showMore: "Sýna fleiri",
-  showing: (shown: number, total: number) => `Sýni ${shown} af ${total}.`,
+  tooShort: "Sláðu inn að minnsta kosti 3 stafi.",
+  searchTitle: "Leit",
+  resultsFor: (query: string) => `Niðurstöður fyrir „${query}“`,
+  showing: (first: number, last: number, total: number) =>
+    `Sýni ${first}–${last} af ${total}.`,
+  noSuchPage: "Engar niðurstöður eru á þessari síðu.",
+  lastPage: "Fara á síðustu síðu niðurstaðna",
+  paginationLabel: "Síður niðurstaðna",
+  previous: "← Fyrri",
+  next: "Næsta →",
+  pageOf: (page: number, last: number) => `Síða ${page} af ${last}`,
+  backToResults: "← Aftur í niðurstöður",
   shortPage: "Stutt síða",
   publicNote: "Öllum opið · Engin innskráning",
   about: "Um safnið",
-  panelFooter: "ÍSLAND · FÓLK · MINNING",
   photoAlt: "Grafarkirkja, lítil gömul kirkja með torfþaki, undir fölum himni",
   photoEyebrow: "GRAFARKIRKJA VIÐ HOFSÓS",
   photoCaption: ["Minnumst", "saman."],
@@ -182,6 +228,15 @@ export function inLanguage(language: Language, path: string): string {
 // Whether the browser reads Icelandic; everyone else gets a pointer to English.
 export function browserReadsIcelandic(): boolean {
   return navigator.languages.some((tag) => /^is\b/i.test(tag));
+}
+
+// An API failure in the reader's words. The API's own messages are in English.
+export function failureMessage(error: unknown, language: Language): string {
+  const t = translations[language];
+  const { status, message } = error as ApiError;
+  if (status === 404) return t.notFound;
+  if (status === undefined) return t.unreachable;
+  return language === "en" ? message : t.failed;
 }
 
 export const LanguageContext = createContext<Language>("is");

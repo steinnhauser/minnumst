@@ -27,7 +27,7 @@ async function openInArchive(page: Page, name: string) {
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await page
     .getByLabel("Search results")
-    .getByRole("button", { name: new RegExp(`^${name}`) })
+    .getByRole("link", { name: new RegExp(`^${name}`) })
     .click();
   await expect(
     page.getByLabel("Person details").getByRole("heading", { level: 2 }),

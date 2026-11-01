@@ -6,7 +6,7 @@ export type StorySummary = Schemas["StorySummary"];
 export type StoryRevision = Schemas["StoryRevisionResponse"];
 export type Person = Schemas["PersonResponse"];
 export type PersonDetail = Schemas["PersonDetail"];
-type PersonPage = Schemas["PersonPage"];
+export type PersonPage = Schemas["PersonPage"];
 export type SuggestionInput = Schemas["SuggestionCreate"];
 type SuggestionReceipt = Schemas["SuggestionReceipt"];
 

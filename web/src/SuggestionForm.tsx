@@ -76,7 +76,7 @@ function SuggestionForm({
   if (!isOpen) {
     return (
       <button
-        className="show-more-button"
+        className="quiet-button"
         type="button"
         onClick={() => setIsOpen(true)}
       >
@@ -166,7 +166,7 @@ function SuggestionForm({
         onChange={(event) => setSourceUrl(event.target.value)}
       />
       {error && <p role="alert">{error}</p>}
-      <button className="show-more-button" type="submit" disabled={isSending}>
+      <button className="quiet-button" type="submit" disabled={isSending}>
         {t.send}
       </button>
     </form>

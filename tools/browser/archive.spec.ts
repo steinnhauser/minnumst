@@ -9,7 +9,7 @@ test("a reader finds a person and reads their story", async ({
 
   await page.getByLabel("Search by name").fill("Sample Person");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await page.getByLabel("Search results").getByRole("button").first().click();
+  await page.getByLabel("Search results").getByRole("link").first().click();
 
   const profile = page.getByLabel("Person details");
   await expect(profile.getByRole("heading", { level: 2 })).toContainText(
@@ -25,6 +25,44 @@ test("a reader finds a person and reads their story", async ({
   await expect(
     page.getByLabel("Person details").getByRole("heading", { level: 2 }),
   ).toHaveText(name ?? "");
+});
+
+test("a search goes to its own page, and a person leads back to it", async ({
+  page,
+  audit,
+}) => {
+  await page.goto(archive);
+  const search = page.getByLabel("Search by name");
+
+  // Too short: explained, and nothing is sent.
+  await search.fill("sa");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("Please type at least 3 letters.")).toBeVisible();
+  await expect(page).toHaveURL(/\/en$/);
+
+  await search.fill("Sample Person");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page).toHaveURL(/\/en\/search\?q=Sample\+Person$/);
+  await expect(
+    page.getByRole("heading", { name: "Results for “Sample Person”" }),
+  ).toBeVisible();
+  await expect(page.getByRole("img")).toHaveCount(0);
+  await expect(page.getByLabel("Search results").getByRole("link")).toHaveCount(
+    2,
+  );
+  await audit();
+
+  // The address alone opens the same results.
+  await page.reload();
+  await expect(page.getByLabel("Search results").getByRole("link")).toHaveCount(
+    2,
+  );
+
+  await page.getByLabel("Search results").getByRole("link").first().click();
+  await expect(page.getByLabel("Person details")).toBeVisible();
+  await page.getByRole("link", { name: /Back to the results/ }).click();
+  await expect(page).toHaveURL(/\/en\/search\?q=Sample\+Person$/);
+  await expect(page.getByLabel("Search results")).toBeVisible();
 });
 
 test("a reader picks a search suggestion with the keyboard", async ({
@@ -119,11 +157,7 @@ test("the archive opens in Icelandic, with English easy to find, and each stays 
 
   await page.getByLabel("Leita eftir nafni").fill("Sample Person");
   await page.getByRole("button", { name: "Leita", exact: true }).click();
-  await page
-    .getByLabel("Leitarniðurstöður")
-    .getByRole("button")
-    .first()
-    .click();
+  await page.getByLabel("Leitarniðurstöður").getByRole("link").first().click();
   await expect(page).toHaveURL(/5173\/people\/[a-z0-9-]+$/);
   await expect(page.getByText("TIL MINNINGAR")).toBeVisible();
   await audit();

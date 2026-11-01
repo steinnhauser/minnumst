@@ -1,23 +1,102 @@
 .page-shell {
-  display: grid;
-  grid-template-columns: minmax(440px, 0.92fr) minmax(0, 1.08fr);
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
   background: var(--paper);
 }
 
-.search-panel {
-  box-sizing: border-box;
-  min-height: 100svh;
-  padding: 34px clamp(38px, 6.2vw, 96px) 24px;
-  display: flex;
-  flex-direction: column;
-}
-
-.site-header,
-.panel-footer {
+.site-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  padding: 28px clamp(24px, 6vw, 96px);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The search comes first, beside a framed photograph. */
+.hero {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(32px, 5vw, 80px);
+  padding: 16px clamp(24px, 6vw, 96px) 64px;
+}
+
+/* A page of results or a person's story, at a comfortable reading width. */
+.page-content {
+  flex: 1;
+  box-sizing: border-box;
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: 8px 24px 72px;
+}
+
+.page-content .search-form {
+  margin-top: 0;
+}
+
+.page-heading {
+  margin: 28px 0 0;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.page-heading:focus {
+  outline: 0;
+}
+
+.results-status {
+  min-height: 20px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.result-list {
+  margin: 20px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.result-list .person-result {
+  padding: 14px 4px;
+  text-decoration: none;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.pagination a,
+.back-link a {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.back-link {
+  margin: 20px 0 0;
+  font-size: 14px;
 }
 
 .wordmark {
@@ -28,12 +107,11 @@
   text-decoration: none;
 }
 
-.wordmark span {
+.wordmark-dot {
   color: var(--coral);
 }
 
 .header-note,
-.panel-footer span,
 .eyebrow,
 .photo-caption > span {
   font-size: 10px;
@@ -48,9 +126,7 @@
 }
 
 .search-content {
-  width: min(100%, 460px);
-  margin: auto 0;
-  padding: 72px 0 84px;
+  width: min(100%, 560px);
 }
 
 .eyebrow {
@@ -169,8 +245,7 @@
   background: #d9364e;
 }
 
-.search-button:focus-visible,
-.panel-footer a:focus-visible {
+.search-button:focus-visible {
   outline: 3px solid rgb(231 75 96 / 36%);
   outline-offset: 3px;
 }
@@ -189,14 +264,7 @@
   opacity: 0.72;
 }
 
-.people-results {
-  max-height: 210px;
-  margin-top: 4px;
-  overflow-y: auto;
-  border-top: 1px solid var(--line);
-}
-
-.show-more-button {
+.quiet-button {
   display: block;
   width: 100%;
   margin-top: 8px;
@@ -211,16 +279,16 @@
   cursor: pointer;
 }
 
-.show-more-button:hover {
+.quiet-button:hover {
   border-color: var(--coral);
 }
 
-.show-more-button:focus-visible {
+.quiet-button:focus-visible {
   outline: 3px solid rgb(231 75 96 / 36%);
   outline-offset: 3px;
 }
 
-.show-more-button:disabled {
+.quiet-button:disabled {
   cursor: progress;
   opacity: 0.72;
 }
@@ -285,12 +353,11 @@
 }
 
 .person-detail {
-  max-height: 280px;
-  margin-top: 18px;
-  padding: 16px;
-  overflow-y: auto;
-  border-left: 2px solid var(--coral);
-  background: #f5f6f2;
+  margin-top: 16px;
+}
+
+.person-detail:focus {
+  outline: 0;
 }
 
 .person-detail-heading .eyebrow {
@@ -302,23 +369,26 @@
   margin: 0;
   color: var(--ink);
   font-family: var(--font-display);
-  font-size: 22px;
   font-weight: 400;
   line-height: 1.2;
 }
 
+.person-detail h2 {
+  font-size: 40px;
+}
+
 .person-story h3 {
-  margin-top: 12px;
-  font-size: 18px;
+  margin-top: 28px;
+  font-size: 24px;
 }
 
 .story-excerpt,
 .story-content,
 .no-story {
-  margin: 10px 0 0;
+  margin: 14px 0 0;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 16px;
+  line-height: 1.75;
 }
 
 .story-content {
@@ -342,33 +412,16 @@
   background: #6a9c76;
 }
 
-.panel-footer {
-  color: var(--muted);
-}
-
-.panel-footer a {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--ink);
-  font-size: 12px;
-  text-decoration: none;
-}
-
-.panel-footer span {
-  font-size: 9px;
-  text-align: right;
-}
-
 .photo-panel {
-  position: sticky;
-  top: 0;
-  grid-column: 2;
-  grid-row: 1;
-  min-width: 0;
-  min-height: 100svh;
+  position: relative;
+  justify-self: end;
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 4 / 5;
+  max-height: 72svh;
   margin: 0;
   overflow: hidden;
+  border-radius: 4px;
   background: #526e52;
   color: #fff;
 }
@@ -393,8 +446,8 @@
 .photo-caption {
   position: absolute;
   z-index: 1;
-  bottom: 62px;
-  left: 54px;
+  bottom: 28px;
+  left: 28px;
 }
 
 .photo-caption > span {
@@ -402,21 +455,13 @@
 }
 
 .photo-caption p {
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   font-family: var(--font-display);
-  font-size: 42px;
+  font-size: 30px;
   line-height: 1.08;
 }
 
-/* Above the sticky photo, which stays pinned while the page scrolls. */
-.about-strip,
-.site-footer {
-  position: relative;
-  z-index: 1;
-}
-
 .about-strip {
-  grid-column: 1 / -1;
   display: grid;
   grid-template-columns: minmax(180px, 0.92fr) minmax(0, 1.08fr);
   align-items: center;
@@ -440,7 +485,6 @@
 }
 
 .site-footer {
-  grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 40px;
@@ -467,52 +511,56 @@
   color: inherit;
 }
 
-@media (max-width: 900px) {
-  .page-shell {
-    grid-template-columns: minmax(360px, 1fr) minmax(0, 0.9fr);
+@media (max-width: 800px) {
+  .site-header {
+    padding: 20px 24px;
   }
 
-  .search-panel {
-    padding-right: 36px;
-    padding-left: 36px;
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+    padding: 16px 24px 48px;
+  }
+
+  .search-content {
+    width: 100%;
   }
 
   .search-content h1 {
-    font-size: 50px;
-  }
-
-  .photo-caption {
-    left: 30px;
-  }
-}
-
-@media (max-width: 700px) {
-  .page-shell {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .search-panel {
-    min-height: 720px;
-    min-height: 100svh;
-    padding: 24px 24px 20px;
+    font-size: 44px;
   }
 
   .header-note {
     font-size: 9px;
   }
 
-  .search-content {
-    width: 100%;
-    padding: 64px 0;
+  .photo-panel {
+    justify-self: stretch;
+    max-width: none;
+    aspect-ratio: 16 / 10;
+    max-height: none;
   }
 
-  .search-content h1 {
-    font-size: 48px;
+  .about-strip {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 32px 24px;
   }
 
+  .about-strip > p:last-child {
+    font-size: 20px;
+  }
+
+  .site-footer {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 32px 24px;
+  }
+}
+
+@media (max-width: 520px) {
   .search-form {
     grid-template-columns: minmax(0, 1fr);
-    margin-top: 32px;
   }
 
   .search-form label,
@@ -525,42 +573,8 @@
     width: 100%;
   }
 
-  .panel-footer span {
-    max-width: 130px;
-    line-height: 1.5;
-  }
-
-  .photo-panel {
-    position: relative;
-    grid-column: 1;
-    grid-row: auto;
-    min-height: 54svh;
-  }
-
-  .photo-caption {
-    bottom: 34px;
-    left: 24px;
-  }
-
-  .photo-caption p {
-    font-size: 34px;
-  }
-
-  .about-strip {
-    grid-column: 1;
-    grid-template-columns: 1fr;
-    gap: 16px;
-    padding: 32px 24px;
-  }
-
-  .site-footer {
-    grid-template-columns: 1fr;
-    gap: 28px;
-    padding: 32px 24px;
-  }
-
-  .about-strip > p:last-child {
-    font-size: 20px;
+  .person-detail h2 {
+    font-size: 32px;
   }
 }
 
@@ -578,6 +592,10 @@
   color: var(--muted);
 }
 
+.person-sources a {
+  color: var(--ink);
+}
+
 .person-sources {
   display: flex;
   flex-wrap: wrap;
@@ -585,11 +603,6 @@
   margin: 16px 0;
   padding: 0;
   list-style: none;
-}
-
-/* The profile panel scrolls a story, but a form needs its full height. */
-.person-detail:has(.suggestion-form) {
-  max-height: none;
 }
 
 .suggestion-form {

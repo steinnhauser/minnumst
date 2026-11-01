@@ -8,14 +8,16 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import AppLink from "./AppLink";
 import {
   inLanguage,
   languageFromPath,
   translations,
   withoutLanguage,
 } from "./i18n";
+import { isLongEnough, parseRoute, searchPath } from "./routes";
 import {
   ada,
   adaProfile,
@@ -27,6 +29,8 @@ import {
 } from "./test/fixtures";
 
 const defaultTitle = translations.en.title;
+const OFFLINE =
+  "We could not reach the archive just now. Please try again soon.";
 
 const adaJonsdottir = {
   ...ada,
@@ -35,10 +39,14 @@ const adaJonsdottir = {
   slug: "ada-jonsdottir",
 } satisfies PersonResponse;
 
+beforeEach(() => {
+  window.history.replaceState(null, "", "/en");
+});
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
-  window.history.replaceState(null, "", "/en");
+  vi.restoreAllMocks();
   document.title = defaultTitle;
 });
 
@@ -73,13 +81,427 @@ function pageFrom(people: readonly PersonResponse[], url: URL) {
   );
 }
 
+function goTo(address: string) {
+  window.history.replaceState(null, "", address);
+}
+
 function searchbox() {
   return screen.getByRole("combobox", { name: "Search by name" });
 }
 
-describe("profile URLs", () => {
-  it("opens the profile named in the address bar", async () => {
-    window.history.replaceState(null, "", "/en/people/ada-lovelace");
+function results() {
+  return within(
+    screen.getByRole("list", { name: "Search results" }),
+  ).getAllByRole("link");
+}
+
+function searchRequests(fetchMock: ReturnType<typeof stubApi>) {
+  return fetchMock.mock.calls
+    .map(([input]) => String(input))
+    .filter((url) => url.includes("/api/people?"));
+}
+
+async function goBack() {
+  await act(async () => {
+    window.history.back();
+    await new Promise((resolve) =>
+      window.addEventListener("popstate", resolve, { once: true }),
+    );
+  });
+}
+
+describe("the front page", () => {
+  it("presents a public search without a sign-in requirement", () => {
+    render(<App />);
+
+    expect(searchbox()).toHaveAttribute("placeholder", "Type a name...");
+    expect(
+      screen.getByText("Open to everyone · No sign-in needed"),
+    ).toBeInTheDocument();
+    expect(document.title).toBe(defaultTitle);
+  });
+
+  it("has its logo lead home from any page", async () => {
+    goTo("/en/people/ada-lovelace");
+    const user = userEvent.setup();
+    stubApi();
+    render(<App />);
+    await screen.findByRole("heading", { name: "Ada Lovelace" });
+
+    await user.click(screen.getByRole("link", { name: "Minnumst home" }));
+
+    expect(window.location.pathname).toBe("/en");
+    expect(
+      screen.getByRole("heading", { name: "Find someone to remember." }),
+    ).toBeVisible();
+  });
+});
+
+describe("searching", () => {
+  it("goes to a page of results, with an address of its own", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubApi([ada, adaJonsdottir]);
+    render(<App />);
+
+    await user.type(searchbox(), " Ada Lovelace ");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+
+    expect(window.location.pathname).toBe("/en/search");
+    expect(window.location.search).toBe("?q=Ada+Lovelace");
+    expect(
+      await screen.findByText("Showing 1–2 of 2 people."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Results for “Ada Lovelace”" }),
+    ).toHaveFocus();
+    expect(document.title).toBe("Search | Minnumst");
+    expect(results()).toHaveLength(2);
+    expect(results()[0]).toHaveAttribute("href", "/en/people/ada-lovelace");
+    expect(results()[0]).toHaveTextContent("A short page");
+    expect(searchRequests(fetchMock).at(-1)).toContain(
+      "/api/people?query=Ada+Lovelace&offset=0&limit=25",
+    );
+    expect(
+      screen.queryByRole("heading", { name: "Find someone to remember." }),
+    ).toBeNull();
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  it.each([
+    ["", "Enter a name to search the archive."],
+    ["jo", "Please type at least 3 letters."],
+    ["j o", "Please type at least 3 letters."],
+    ["...", "Please type at least 3 letters."],
+  ])(
+    "stays on the page and explains when %j is searched for",
+    async (typed, message) => {
+      const user = userEvent.setup();
+      const fetchMock = stubApi();
+      render(<App />);
+
+      if (typed) await user.type(searchbox(), typed);
+      await user.click(screen.getByRole("button", { name: "Search" }));
+      await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+
+      expect(screen.getByRole("status")).toHaveTextContent(message);
+      expect(window.location.pathname).toBe("/en");
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it("clears that explanation as soon as the reader types again", async () => {
+    const user = userEvent.setup();
+    stubApi();
+    render(<App />);
+
+    await user.type(searchbox(), "jo");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+    await user.type(searchbox(), "n");
+
+    expect(screen.getByRole("status")).toHaveTextContent("");
+  });
+
+  it("opens a search from its address, showing what was searched for", async () => {
+    goTo("/en/search?q=Ada");
+    const fetchMock = stubApi();
+    render(<App />);
+
+    await screen.findByText("Showing 1–1 of 1 people.");
+
+    expect(searchbox()).toHaveValue("Ada");
+    // A search already on the page needs no suggestions.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+    expect(searchRequests(fetchMock)).toHaveLength(1);
+    expect(screen.queryByRole("option")).toBeNull();
+  });
+
+  it.each([
+    ["/en/search", "Enter a name to search the archive."],
+    ["/en/search?q=", "Enter a name to search the archive."],
+    ["/en/search?q=jo", "Please type at least 3 letters."],
+  ])("asks the database nothing for %s", async (address, message) => {
+    goTo(address);
+    const fetchMock = stubApi();
+    render(<App />);
+
+    expect(
+      within(
+        screen.getByRole("heading", { name: "Search" }).parentElement!,
+      ).getByText(message),
+    ).toBeVisible();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("says when nobody matches", async () => {
+    goTo("/en/search?q=Nobody");
+    stubApi([]);
+    render(<App />);
+
+    expect(
+      await screen.findByText(
+        "We found no one by that name. Try another spelling.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Search results" })).toBeNull();
+    expect(
+      screen.queryByRole("navigation", { name: "Pages of results" }),
+    ).toBeNull();
+  });
+
+  it("explains a failed search", async () => {
+    goTo("/en/search?q=Ada");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
+    render(<App />);
+
+    expect(await screen.findByText(OFFLINE)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search" })).toBeEnabled();
+  });
+
+  it("searches again from the results page", async () => {
+    goTo("/en/search?q=Ada");
+    const user = userEvent.setup();
+    const fetchMock = stubApi();
+    render(<App />);
+    await screen.findByText("Showing 1–1 of 1 people.");
+
+    await user.clear(searchbox());
+    fireEvent.change(searchbox(), { target: { value: "Björk" } });
+    fireEvent.submit(searchbox());
+
+    await waitFor(() => expect(window.location.search).toBe("?q=Bj%C3%B6rk"));
+    await screen.findByRole("heading", { name: "Results for “Björk”" });
+    expect(searchRequests(fetchMock).at(-1)).toContain("query=Bj%C3%B6rk");
+  });
+
+  it("returns to the front page when the reader goes back", async () => {
+    goTo("/en");
+    const user = userEvent.setup();
+    stubApi();
+    render(<App />);
+    await user.type(searchbox(), "Ada");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+    await screen.findByText("Showing 1–1 of 1 people.");
+
+    await goBack();
+
+    expect(
+      screen.getByRole("heading", { name: "Find someone to remember." }),
+    ).toBeVisible();
+  });
+
+  it.each([
+    ["an answer", () => Response.json(pageOf([{ ...ada, name: "Too late" }]))],
+    ["an error", () => Response.json({ detail: "Too late" }, { status: 500 })],
+  ])("ignores %s for a search no longer wanted", async (_, late) => {
+    goTo("/en/search?q=Ada");
+    let finish: (response: Response) => void = () => undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            finish = resolve;
+          }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    expect(screen.getByText("Searching the archive...")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+
+    await user.click(screen.getByRole("link", { name: "Minnumst home" }));
+    await act(async () => finish(late()));
+
+    expect(screen.queryByText(/Too late/)).toBeNull();
+  });
+});
+
+describe("pages of results", () => {
+  function pagination() {
+    return screen.getByRole("navigation", { name: "Pages of results" });
+  }
+
+  it("moves through the pages a few people at a time", async () => {
+    goTo("/en/search?q=Person");
+    const user = userEvent.setup();
+    const fetchMock = stubApi(peopleNamed(60));
+    render(<App />);
+
+    await screen.findByText("Showing 1–25 of 60 people.");
+    expect(results()).toHaveLength(25);
+    expect(pagination()).toHaveTextContent("Page 1 of 3");
+    expect(
+      within(pagination()).queryByRole("link", { name: /Previous/ }),
+    ).toBeNull();
+
+    await user.click(within(pagination()).getByRole("link", { name: /Next/ }));
+
+    await screen.findByText("Showing 26–50 of 60 people.");
+    expect(window.location.search).toBe("?q=Person&page=2");
+    expect(searchRequests(fetchMock).at(-1)).toContain("offset=25&limit=25");
+    expect(results()[0]).toHaveTextContent("Person 26");
+    expect(pagination()).toHaveTextContent("Page 2 of 3");
+    expect(searchbox()).toHaveValue("Person");
+    expect(
+      screen.getByRole("heading", { name: "Results for “Person”" }),
+    ).toHaveFocus();
+
+    await user.click(within(pagination()).getByRole("link", { name: /Next/ }));
+
+    await screen.findByText("Showing 51–60 of 60 people.");
+    expect(results()).toHaveLength(10);
+    expect(
+      within(pagination()).queryByRole("link", { name: /Next/ }),
+    ).toBeNull();
+
+    await user.click(
+      within(pagination()).getByRole("link", { name: /Previous/ }),
+    );
+
+    await screen.findByText("Showing 26–50 of 60 people.");
+    expect(window.location.search).toBe("?q=Person&page=2");
+  });
+
+  it("drops the page number from the first page's address", async () => {
+    goTo("/en/search?q=Person&page=2");
+    const user = userEvent.setup();
+    stubApi(peopleNamed(30));
+    render(<App />);
+    await screen.findByText("Showing 26–30 of 30 people.");
+
+    await user.click(
+      within(pagination()).getByRole("link", { name: /Previous/ }),
+    );
+
+    await screen.findByText("Showing 1–25 of 30 people.");
+    expect(window.location.search).toBe("?q=Person");
+  });
+
+  it("offers no page links when everyone fits on one page", async () => {
+    goTo("/en/search?q=Person");
+    stubApi(peopleNamed(25));
+    render(<App />);
+
+    await screen.findByText("Showing 1–25 of 25 people.");
+
+    expect(
+      screen.queryByRole("navigation", { name: "Pages of results" }),
+    ).toBeNull();
+  });
+
+  it("offers the last page when the address goes past the end", async () => {
+    goTo("/en/search?q=Person&page=9");
+    const user = userEvent.setup();
+    stubApi(peopleNamed(30));
+    render(<App />);
+
+    await screen.findByText("There are no results on this page.");
+
+    await user.click(
+      screen.getByRole("link", { name: "Go to the last page of results" }),
+    );
+
+    await screen.findByText("Showing 26–30 of 30 people.");
+    expect(window.location.search).toBe("?q=Person&page=2");
+  });
+
+  it("works with the back button", async () => {
+    goTo("/en/search?q=Person");
+    const user = userEvent.setup();
+    stubApi(peopleNamed(30));
+    render(<App />);
+    await screen.findByText("Showing 1–25 of 30 people.");
+    await user.click(within(pagination()).getByRole("link", { name: /Next/ }));
+    await screen.findByText("Showing 26–30 of 30 people.");
+
+    await goBack();
+
+    await screen.findByText("Showing 1–25 of 30 people.");
+  });
+
+  it("leaves a link alone when the reader wants a new tab", async () => {
+    goTo("/en/search?q=Person");
+    stubApi(peopleNamed(30));
+    render(<App />);
+    await screen.findByText("Showing 1–25 of 30 people.");
+    document.addEventListener("click", (event) => event.preventDefault(), {
+      once: true,
+    });
+
+    fireEvent.click(results()[0], { ctrlKey: true });
+
+    expect(window.location.pathname).toBe("/en/search");
+  });
+});
+
+describe("the address", () => {
+  it("has a link do nothing outside the app rather than fail", () => {
+    render(<AppLink to="/somewhere">A link</AppLink>);
+
+    fireEvent.click(screen.getByRole("link", { name: "A link" }));
+
+    expect(window.location.pathname).toBe("/en");
+  });
+
+  it.each([
+    ["", 1],
+    ["&page=2", 2],
+    ["&page=0", 1],
+    ["&page=-1", 1],
+    ["&page=1.5", 1],
+    ["&page=abc", 1],
+    ["&page=99999999999", 1],
+  ])("reads a search with %j as page %i", (extra, page) => {
+    expect(parseRoute("/search/", `?q=+Ada+${extra}`)).toEqual({
+      view: "search",
+      query: "Ada",
+      page,
+    });
+  });
+
+  it("reads the other pages, in both languages", () => {
+    expect(parseRoute("/", "")).toEqual({ view: "home" });
+    expect(parseRoute("/en", "")).toEqual({ view: "home" });
+    expect(parseRoute("/anything/else", "")).toEqual({ view: "home" });
+    expect(parseRoute("/en/search", "?q=Ada")).toMatchObject({ query: "Ada" });
+    expect(parseRoute("/search", "")).toMatchObject({ query: "" });
+    expect(parseRoute("/people/a%20b", "")).toEqual({
+      view: "profile",
+      slug: "a b",
+    });
+    expect(parseRoute("/en/people/a/", "")).toEqual({
+      view: "profile",
+      slug: "a",
+    });
+  });
+
+  it("builds search addresses that survive any query", () => {
+    const address = searchPath("is", "Þóra & Jón?", 3);
+    const [path, search] = address.split("?");
+
+    expect(path).toBe("/search");
+    expect(parseRoute(path, `?${search}`)).toEqual({
+      view: "search",
+      query: "Þóra & Jón?",
+      page: 3,
+    });
+  });
+
+  it("counts letters and digits, not spaces or symbols", () => {
+    for (const enough of ["jon", "Þór", "j o n", "123", "a1b"]) {
+      expect(isLongEnough(enough), enough).toBe(true);
+    }
+    for (const short of ["", "jo", "j o", "...", "%%%", "a.b"]) {
+      expect(isLongEnough(short), short).toBe(false);
+    }
+  });
+});
+
+describe("a person's page", () => {
+  it("opens from its address", async () => {
+    goTo("/en/people/ada-lovelace");
     const fetchMock = stubApi();
 
     render(<App />);
@@ -91,29 +513,43 @@ describe("profile URLs", () => {
       /\/api\/people\/by-slug\/ada-lovelace$/,
     );
     expect(document.title).toBe("Ada Lovelace | Minnumst");
-  });
-
-  it("closes the profile when the reader goes back", async () => {
-    window.history.replaceState(null, "", "/en");
-    window.history.pushState(null, "", "/en/people/ada-lovelace");
-    stubApi();
-    render(<App />);
-    await screen.findByRole("heading", { name: "Ada Lovelace" });
-
-    await act(async () => {
-      window.history.back();
-      await new Promise((resolve) =>
-        window.addEventListener("popstate", resolve, { once: true }),
-      );
-    });
-
     expect(
-      screen.queryByRole("heading", { name: "Ada Lovelace" }),
-    ).not.toBeInTheDocument();
+      screen.queryByRole("link", { name: /Back to the results/ }),
+    ).toBeNull();
   });
 
-  it("says when a profile has no published story", async () => {
-    window.history.replaceState(null, "", "/en/people/ada-lovelace");
+  it("opens from the results and leads back to the same page of them", async () => {
+    goTo("/en/search?q=Person&page=2");
+    const user = userEvent.setup();
+    stubApi(peopleNamed(30));
+    render(<App />);
+    await screen.findByText("Showing 26–30 of 30 people.");
+
+    await user.click(results()[0]);
+
+    await screen.findByRole("heading", { name: "Ada Lovelace" });
+    await user.click(screen.getByRole("link", { name: /Back to the results/ }));
+
+    await screen.findByText("Showing 26–30 of 30 people.");
+    expect(window.location.search).toBe("?q=Person&page=2");
+  });
+
+  it("returns to the results with the back button, and keeps the link going forward", async () => {
+    goTo("/en/search?q=Person");
+    const user = userEvent.setup();
+    stubApi(peopleNamed(3));
+    render(<App />);
+    await screen.findByText("Showing 1–3 of 3 people.");
+
+    await user.click(results()[0]);
+    await screen.findByRole("heading", { name: "Ada Lovelace" });
+    await goBack();
+
+    await screen.findByText("Showing 1–3 of 3 people.");
+  });
+
+  it("says when there is no story yet", async () => {
+    goTo("/en/people/ada-lovelace");
     stubApi([ada], { ...ada, current_story: null, sources: [] });
 
     render(<App />);
@@ -126,164 +562,148 @@ describe("profile URLs", () => {
     ).toHaveTextContent("Ada Lovelace");
   });
 
-  it("explains why a profile could not be loaded", async () => {
-    window.history.replaceState(null, "", "/en/people/missing");
+  it.each(["/en/people/missing", "/en/people/%E0%A4%A"])(
+    "says when %s can't be found",
+    async (address) => {
+      goTo(address);
+      vi.stubGlobal(
+        "fetch",
+        vi
+          .fn()
+          .mockResolvedValue(
+            Response.json(
+              { detail: "Person not found" } satisfies ErrorResponse,
+              { status: 404 },
+            ),
+          ),
+      );
+
+      render(<App />);
+
+      await screen.findByText(/could not find this page/);
+      expect(
+        screen.queryByRole("article", { name: "Person details" }),
+      ).toBeNull();
+      expect(document.title).toBe(defaultTitle);
+    },
+  );
+
+  it("reports other failures in the API's own words", async () => {
+    goTo("/en/people/ada-lovelace");
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          Response.json(
-            { detail: "Person not found" } satisfies ErrorResponse,
-            { status: 404 },
-          ),
+      vi.fn(() =>
+        Promise.resolve(
+          Response.json({ detail: "Out of order" }, { status: 503 }),
         ),
-    );
-
-    render(<App />);
-
-    await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent(
-        "could not find this page",
       ),
     );
-    expect(
-      screen.queryByRole("article", { name: "Person details" }),
-    ).not.toBeInTheDocument();
-    expect(document.title).toBe(defaultTitle);
-  });
 
-  it("returns to the start page when searching from a profile", async () => {
-    window.history.replaceState(null, "", "/en/people/ada-lovelace");
-    const user = userEvent.setup();
-    stubApi();
-    render(<App />);
-    await screen.findByRole("heading", { name: "Ada Lovelace" });
-
-    await user.type(searchbox(), "Ada");
-    await user.click(screen.getByRole("button", { name: "Search" }));
-
-    expect(
-      await screen.findByText("Showing 1 of 1 people."),
-    ).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/en");
-    expect(document.title).toBe(defaultTitle);
-  });
-});
-
-describe("public people search", () => {
-  it("presents a public search without a sign-in requirement", () => {
     render(<App />);
 
-    expect(searchbox()).toHaveAttribute("placeholder", "Type a name...");
-    expect(
-      screen.getByText("Open to everyone · No sign-in needed"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Out of order")).toBeVisible();
   });
 
-  it("asks for a name when the search is submitted empty", async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
-    await user.click(screen.getByRole("button", { name: "Search" }));
-
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Enter a name to search the archive.",
+  it.each([
+    ["an answer", () => Response.json({ ...adaProfile, name: "Too late" })],
+    ["an error", () => Response.json({ detail: "Too late" }, { status: 500 })],
+  ])("ignores %s for a person no longer wanted", async (_, late) => {
+    goTo("/en/people/ada-lovelace");
+    let finish: (response: Response) => void = () => undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            finish = resolve;
+          }),
+      ),
     );
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("link", { name: "Minnumst home" }));
+    await act(async () => finish(late()));
+
+    expect(screen.queryByText(/Too late/)).toBeNull();
+    expect(screen.queryByRole("article")).toBeNull();
+    expect(document.title).toBe(defaultTitle);
   });
 
-  it("searches people and loads the selected person's current story", async () => {
-    const user = userEvent.setup();
-    const person = {
+  it("describes a result with no story by the person's dates, or as a short page", async () => {
+    goTo("/en/search?q=Ada");
+    const dated = { ...ada, birth_date: "1815" };
+    const undated = {
       ...ada,
+      id: "person-2",
+      name: "Undated",
+      slug: "undated",
+    };
+    const titled = {
+      ...ada,
+      id: "person-3",
+      name: "Titled",
+      slug: "titled",
       story: {
         title: "A life in letters",
-        excerpt: "Notes and correspondence",
+        excerpt: "",
         saved_at: "2026-09-28T10:00:00Z",
         revision_count: 1,
       },
-    } satisfies PersonResponse;
-    const fetchMock = stubApi([person], {
-      ...person,
-      sources: [],
-      current_story: {
-        ...adaProfile.current_story,
-        excerpt: "Notes and correspondence",
-      },
+    };
+    stubApi([dated, undated, titled]);
+    render(<App />);
+
+    await screen.findByText("Showing 1–3 of 3 people.");
+
+    expect(results()[0]).toHaveTextContent(/Ada Lovelace\s*Born 1815/);
+    expect(results()[1]).toHaveTextContent(/Undated\s*A short page/);
+    expect(results()[2]).toHaveTextContent(/Titled\s*A life in letters/);
+  });
+
+  it.each([
+    ["1815-12-10", "1852", "Born 10 December 1815 · Died 1852"],
+    ["0874", "0930-01-02", "Born 874 · Died 2 January 930"],
+    [null, "1852-06-01", "Died 1 June 1852"],
+  ])("writes dates out in words: %s, %s", async (birth, death, text) => {
+    goTo("/en/people/ada-lovelace");
+    stubApi([ada], { ...adaProfile, birth_date: birth, death_date: death });
+
+    render(<App />);
+
+    expect(await screen.findByText(text)).toBeInTheDocument();
+  });
+
+  it("shows a story's introduction when it has one", async () => {
+    goTo("/en/people/ada-lovelace");
+    stubApi([ada], {
+      ...adaProfile,
+      current_story: { ...adaProfile.current_story, excerpt: "In short" },
     });
+
     render(<App />);
 
-    await user.type(searchbox(), "Ada Lovelace");
-    await user.click(screen.getByRole("button", { name: "Search" }));
-    await user.click(
-      await screen.findByRole("button", { name: /Ada Lovelace/ }),
-    );
-
-    expect(await screen.findByText("A story about Ada.")).toBeInTheDocument();
-    expect(screen.getByText("Notes and correspondence")).toHaveClass(
-      "story-excerpt",
-    );
-    expect(window.location.pathname).toBe("/en/people/ada-lovelace");
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(
-        "/api/people?query=Ada+Lovelace&offset=0&limit=50",
-      ),
-      expect.anything(),
-    );
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:8000/api/people/by-slug/ada-lovelace",
-      expect.anything(),
-    );
+    expect(await screen.findByText("In short")).toHaveClass("story-excerpt");
   });
 
-  it("lists people without a story as plain profiles", async () => {
-    const fetchMock = stubApi();
+  it("links to the person's sources and offers to suggest an edit", async () => {
+    goTo("/en/people/ada-lovelace");
+    stubApi([ada], {
+      ...adaProfile,
+      sources: [
+        { title: "Wikidata", url: "https://www.wikidata.org/wiki/Q7259" },
+      ],
+    });
+
     render(<App />);
 
-    // Submitting before the suggestion delay ends skips the suggestion lookup.
-    fireEvent.change(searchbox(), { target: { value: "Ada" } });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
-
     expect(
-      await screen.findByRole("button", { name: /Ada Lovelace/ }),
-    ).toHaveTextContent("A short page");
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Showing 1 of 1 people.",
-    );
-    await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("says when nobody matches the search", async () => {
-    const user = userEvent.setup();
-    stubApi([]);
-    render(<App />);
-
-    await user.type(searchbox(), "Nobody");
-    await user.click(screen.getByRole("button", { name: "Search" }));
-
+      await screen.findByRole("link", { name: "Wikidata" }),
+    ).toHaveAttribute("href", "https://www.wikidata.org/wiki/Q7259");
     expect(
-      await screen.findByText(
-        "We found no one by that name. Try another spelling.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByLabelText("Search results")).not.toBeInTheDocument();
-  });
-
-  it("explains a failed search", async () => {
-    const user = userEvent.setup();
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
-    render(<App />);
-
-    await user.type(searchbox(), "Ada");
-    await user.click(screen.getByRole("button", { name: "Search" }));
-
-    expect(
-      await screen.findByText(
-        "We could not reach the archive just now. Please try again soon.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Search" })).toBeEnabled();
+      screen.getByRole("button", { name: "Suggest an edit" }),
+    ).toBeVisible();
+    expect(screen.getByText("A story about Ada.")).toBeVisible();
   });
 });
 
@@ -321,7 +741,7 @@ describe("Icelandic", () => {
   });
 
   it("serves Icelandic by default, and links to the same page in the other language", async () => {
-    window.history.replaceState(null, "", "/people/ada-lovelace");
+    goTo("/people/ada-lovelace");
     const fetchMock = stubApi([ada], {
       ...adaProfile,
       birth_date: "1815-12-10",
@@ -334,9 +754,6 @@ describe("Icelandic", () => {
       await screen.findByText("f. 10. desember 1815 · d. 1852"),
     ).toBeVisible();
     expect(document.documentElement.lang).toBe("is");
-    expect(
-      screen.getByRole("heading", { name: "Hverra viltu minnast?" }),
-    ).toBeVisible();
     expect(document.title).toBe("Ada Lovelace | Minnumst");
     expect(String(fetchMock.mock.calls[0][0])).toMatch(
       /\/api\/people\/by-slug\/ada-lovelace$/,
@@ -348,7 +765,7 @@ describe("Icelandic", () => {
   });
 
   it("invites a first story on a short page without declining the name", async () => {
-    window.history.replaceState(null, "", "/people/ada-lovelace");
+    goTo("/people/ada-lovelace");
     stubApi([ada], { ...ada, current_story: null, sources: [] });
 
     render(<App />);
@@ -359,7 +776,7 @@ describe("Icelandic", () => {
   });
 
   it("offers Icelandic from the English pages", async () => {
-    window.history.replaceState(null, "", "/en/people/ada-lovelace");
+    goTo("/en/people/ada-lovelace");
     stubApi();
 
     render(<App />);
@@ -371,33 +788,45 @@ describe("Icelandic", () => {
     );
   });
 
-  it("keeps the language when searching and opening a person", async () => {
-    window.history.replaceState(null, "", "/people/ada-lovelace");
-    stubApi();
+  it("keeps the language, search and page when searching and switching", async () => {
+    goTo("/");
+    stubApi(peopleNamed(30));
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByRole("heading", { name: "Ada Lovelace" });
 
     await user.type(
       screen.getByRole("combobox", { name: "Leita eftir nafni" }),
-      "Ada",
+      "Person",
     );
     await user.click(screen.getByRole("button", { name: "Leita" }));
 
-    expect(window.location.pathname).toBe("/");
-    expect(await screen.findByText("Sýni 1 af 1.")).toBeVisible();
+    expect(window.location.pathname).toBe("/search");
+    expect(await screen.findByText("Sýni 1–25 af 30.")).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Niðurstöður fyrir „Person“" }),
+    ).toBeVisible();
+
+    await user.click(screen.getByRole("link", { name: /Næsta/ }));
+
+    await screen.findByText("Sýni 26–30 af 30.");
+    expect(screen.getByText("Síða 2 af 2")).toBeVisible();
     expect(screen.getByRole("link", { name: "English" })).toHaveAttribute(
       "href",
-      "/en",
+      "/en/search?q=Person&page=2",
     );
 
-    await user.click(screen.getByRole("button", { name: /Ada Lovelace/ }));
+    await user.click(
+      within(
+        screen.getByRole("list", { name: "Leitarniðurstöður" }),
+      ).getAllByRole("link")[0],
+    );
 
-    expect(window.location.pathname).toBe("/people/ada-lovelace");
+    expect(window.location.pathname).toBe("/people/person-26");
+    await screen.findByRole("link", { name: /Aftur í niðurstöður/ });
   });
 
   it("explains failures in Icelandic instead of the API's English", async () => {
-    window.history.replaceState(null, "", "/people/ada-lovelace");
+    goTo("/people/ada-lovelace");
     vi.stubGlobal(
       "fetch",
       vi.fn(() =>
@@ -432,43 +861,46 @@ describe("Icelandic", () => {
     expect(inLanguage("is", "/")).toBe("/");
   });
 
-  it("points readers whose browser doesn't list Icelandic to the English pages", async () => {
-    window.history.replaceState(null, "", "/");
+  it("points readers whose browser doesn't list Icelandic to the English pages", () => {
+    goTo("/");
     stubApi();
     render(<App />);
 
-    const notice = await screen.findByRole("link", {
+    const notice = screen.getByRole("link", {
       name: /Read this site in English/,
     });
     expect(notice).toHaveAttribute("href", "/en");
     expect(notice.closest("p")).toHaveAttribute("lang", "en");
   });
 
-  it("leaves that pointer out for readers of Icelandic, and on the English pages", async () => {
-    window.history.replaceState(null, "", "/");
+  it("leaves that pointer out for readers of Icelandic, and on the English pages", () => {
+    goTo("/");
     stubApi();
     const languages = vi
       .spyOn(navigator, "languages", "get")
       .mockReturnValue(["is-IS", "en"]);
     render(<App />);
-    await screen.findByRole("heading", { name: "Hverra viltu minnast?" });
+    expect(
+      screen.getByRole("heading", { name: "Hverra viltu minnast?" }),
+    ).toBeVisible();
     expect(screen.queryByText(/Read this site in English/)).toBeNull();
     expect(screen.getByRole("link", { name: "English" })).toBeVisible();
     cleanup();
     languages.mockRestore();
 
-    window.history.replaceState(null, "", "/en");
+    goTo("/en");
     render(<App />);
-    await screen.findByRole("heading", { name: "Find someone to remember." });
+    expect(
+      screen.getByRole("heading", { name: "Find someone to remember." }),
+    ).toBeVisible();
     expect(screen.queryByText(/Read this site in English/)).toBeNull();
   });
 
-  it("shows no English text on an Icelandic page, apart from the way to English", async () => {
-    window.history.replaceState(null, "", "/");
+  it("shows no English text on an Icelandic page, apart from the way to English", () => {
+    goTo("/");
     stubApi();
     vi.spyOn(navigator, "languages", "get").mockReturnValue(["is"]);
     const { container } = render(<App />);
-    await screen.findByRole("heading", { name: "Hverra viltu minnast?" });
     const text = container.textContent ?? "";
 
     for (const [key, value] of Object.entries(translations.en)) {
@@ -482,150 +914,47 @@ describe("Icelandic", () => {
       expect(text, key).not.toContain(value);
     }
     expect(text).toContain(translations.is.aboutText);
-    vi.restoreAllMocks();
   });
 
   it("has every text in both languages", () => {
     expect(Object.keys(translations.is).sort()).toEqual(
       Object.keys(translations.en).sort(),
     );
-  });
-});
-
-describe("a person's page", () => {
-  it("survives a malformed address and says the page wasn't found", async () => {
-    window.history.replaceState(null, "", "/en/people/%E0%A4%A");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() =>
-        Promise.resolve(
-          Response.json({ detail: "Person not found" }, { status: 404 }),
-        ),
-      ),
-    );
-
-    render(<App />);
-
-    expect(await screen.findByText(/could not find this page/)).toBeVisible();
-  });
-
-  it("reports other failures in the API's own words", async () => {
-    window.history.replaceState(null, "", "/en/people/ada-lovelace");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() =>
-        Promise.resolve(
-          Response.json({ detail: "Out of order" }, { status: 503 }),
-        ),
-      ),
-    );
-
-    render(<App />);
-
-    expect(await screen.findByText("Out of order")).toBeVisible();
-  });
-
-  it.each([
-    ["an answer", () => Response.json({ ...adaProfile, name: "Too late" })],
-    ["an error", () => Response.json({ detail: "Too late" }, { status: 500 })],
-  ])("ignores %s for a profile no longer wanted", async (_, late) => {
-    window.history.replaceState(null, "", "/en/people/ada-lovelace");
-    let finish: (response: Response) => void = () => undefined;
-    let calls = 0;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => {
-        calls += 1;
-        return calls === 1
-          ? new Promise<Response>((resolve) => {
-              finish = resolve;
-            })
-          : Promise.resolve(Response.json(pageOf([])));
-      }),
-    );
-    const user = userEvent.setup();
-    render(<App />);
-
-    await user.type(searchbox(), "A");
-    await act(async () => finish(late()));
-
-    expect(screen.queryByText("Too late")).toBeNull();
-    expect(screen.queryByRole("article")).toBeNull();
-  });
-
-  it("describes a result with no story by the person's dates, or as a short page", async () => {
-    const dated = { ...ada, birth_date: "1815" };
-    const undated = {
-      ...ada,
-      id: "person-2",
-      name: "Undated",
-      slug: "undated",
-    };
-    stubApi([dated, undated]);
-    const user = userEvent.setup();
-    render(<App />);
-
-    await user.type(searchbox(), "A");
-    await user.click(screen.getByRole("button", { name: "Search" }));
-
-    expect(
-      await screen.findByRole("button", { name: /Ada Lovelace\s*Born 1815/ }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: /Undated\s*A short page/ }),
-    ).toBeVisible();
-  });
-
-  it("shows their dates and links to their sources", async () => {
-    window.history.replaceState(null, "", "/en/people/ada-lovelace");
-    stubApi([ada], {
-      ...adaProfile,
-      birth_date: "1815-12-10",
-      death_date: "1852",
-      sources: [
-        { title: "Wikidata", url: "https://www.wikidata.org/wiki/Q7259" },
-      ],
-    });
-
-    render(<App />);
-
-    expect(
-      await screen.findByText("Born 10 December 1815 · Died 1852"),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Wikidata" })).toHaveAttribute(
-      "href",
-      "https://www.wikidata.org/wiki/Q7259",
-    );
-    expect(
-      screen.getByRole("button", { name: "Suggest an edit" }),
-    ).toBeInTheDocument();
+    expect(translations.is.months).toHaveLength(12);
+    expect(translations.en.months).toHaveLength(12);
   });
 });
 
 describe("search suggestions", () => {
-  it("debounces suggestions and selects them from the keyboard", async () => {
+  it("waits for three letters", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubApi();
+    render(<App />);
+
+    await user.type(searchbox(), "Ad");
+    await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("option")).toBeNull();
+  });
+
+  it("debounces suggestions and opens one from the keyboard", async () => {
     const user = userEvent.setup();
     const fetchMock = stubApi();
     render(<App />);
 
     await user.type(searchbox(), "Ada");
-    const suggestion = await screen.findByRole("option", {
-      name: /Ada Lovelace/,
-    });
+    await screen.findByRole("option", { name: /Ada Lovelace/ });
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/people?query=Ada&offset=0&limit=8",
       expect.anything(),
     );
-    expect(
-      fetchMock.mock.calls.filter(([input]) =>
-        String(input).includes("/api/people?"),
-      ),
-    ).toHaveLength(1);
+    expect(searchRequests(fetchMock)).toHaveLength(1);
 
     await user.keyboard("{ArrowDown}{Enter}");
 
     expect(await screen.findByText("A story about Ada.")).toBeInTheDocument();
-    expect(suggestion).toHaveAttribute("aria-selected", "true");
+    expect(window.location.pathname).toBe("/en/people/ada-lovelace");
   });
 
   it("moves through suggestions with the arrow keys and closes them with Escape", async () => {
@@ -655,6 +984,19 @@ describe("search suggestions", () => {
     expect(screen.queryByRole("option")).not.toBeInTheDocument();
     expect(searchbox()).toHaveAttribute("aria-expanded", "false");
     expect(active()).toBeNull();
+    expect(searchbox()).toHaveValue("Ada");
+  });
+
+  it("ignores other keys", async () => {
+    const user = userEvent.setup();
+    stubApi();
+    render(<App />);
+
+    await user.type(searchbox(), "Ada");
+    await screen.findAllByRole("option");
+    await user.keyboard("{Home}");
+
+    expect(screen.getAllByRole("option")).toHaveLength(1);
   });
 
   it("wraps to the last suggestion when moving up from the input", async () => {
@@ -672,9 +1014,9 @@ describe("search suggestions", () => {
     );
   });
 
-  it("searches the typed name when Enter is pressed without a highlighted suggestion", async () => {
+  it("goes to the results when Enter is pressed without a highlighted suggestion", async () => {
     const user = userEvent.setup();
-    const fetchMock = stubApi([ada, adaJonsdottir]);
+    stubApi([ada, adaJonsdottir]);
     render(<App />);
 
     await user.type(searchbox(), "Ada");
@@ -682,13 +1024,10 @@ describe("search suggestions", () => {
     await user.keyboard("{Enter}");
 
     expect(
-      await screen.findByText("Showing 2 of 2 people."),
+      await screen.findByText("Showing 1–2 of 2 people."),
     ).toBeInTheDocument();
+    expect(window.location.search).toBe("?q=Ada");
     expect(screen.queryByRole("option")).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      "http://127.0.0.1:8000/api/people?query=Ada&offset=0&limit=50",
-      expect.anything(),
-    );
   });
 
   it("opens a suggestion clicked with the mouse", async () => {
@@ -701,7 +1040,6 @@ describe("search suggestions", () => {
 
     expect(await screen.findByText("A story about Ada.")).toBeInTheDocument();
     expect(window.location.pathname).toBe("/en/people/ada-lovelace");
-    expect(searchbox()).toHaveFocus();
   });
 
   it("shows no suggestions when the lookup fails", async () => {
@@ -721,21 +1059,20 @@ describe("search suggestions", () => {
   });
 
   it.each(["arrives", "fails"])(
-    "ignores a suggestion lookup that %s after the search was submitted",
+    "ignores a lookup that %s after the reader typed on",
     async (outcome) => {
       const user = userEvent.setup();
-      let settleSuggestions = () => {};
+      let settle = () => {};
       vi.stubGlobal(
         "fetch",
-        vi.fn((input: RequestInfo | URL) =>
-          String(input).endsWith("limit=8")
-            ? new Promise<Response>((resolve, reject) => {
-                settleSuggestions = () =>
-                  outcome === "arrives"
-                    ? resolve(Response.json(pageOf([ada], 8)))
-                    : reject(new TypeError("offline"));
-              })
-            : Promise.resolve(Response.json(pageOf([]))),
+        vi.fn(
+          () =>
+            new Promise<Response>((resolve, reject) => {
+              settle = () =>
+                outcome === "arrives"
+                  ? resolve(Response.json(pageOf([ada], 8)))
+                  : reject(new TypeError("offline"));
+            }),
         ),
       );
       render(<App />);
@@ -744,12 +1081,9 @@ describe("search suggestions", () => {
       await waitFor(() =>
         expect(searchbox()).toHaveAttribute("aria-busy", "true"),
       );
-      await user.click(screen.getByRole("button", { name: "Search" }));
-      await screen.findByText(
-        "We found no one by that name. Try another spelling.",
-      );
+      fireEvent.change(searchbox(), { target: { value: "Ad" } });
       await act(() => {
-        settleSuggestions();
+        settle();
         return new Promise((resolve) => setTimeout(resolve, 20));
       });
 
@@ -757,197 +1091,20 @@ describe("search suggestions", () => {
       expect(searchbox()).toHaveAttribute("aria-busy", "false");
     },
   );
-});
 
-describe("more search results", () => {
-  function results() {
-    return within(screen.getByLabelText("Search results")).getAllByRole(
-      "button",
-    );
-  }
-
-  function showMore() {
-    return screen.queryByRole("button", { name: "Show more people" });
-  }
-
-  async function search(name: string) {
-    fireEvent.change(searchbox(), { target: { value: name } });
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
-  }
-
-  it("pages through every match and announces the count", async () => {
-    const user = userEvent.setup();
-    const fetchMock = stubApi(peopleNamed(120));
+  it("drops a lookup still waiting when the same search is submitted again", async () => {
+    goTo("/en/search?q=Ada");
+    const fetchMock = stubApi();
     render(<App />);
+    await screen.findByText("Showing 1–1 of 1 people.");
+    const before = searchRequests(fetchMock).length;
 
-    await search("Person");
-    expect(
-      await screen.findByText("Showing 50 of 120 people."),
-    ).toBeInTheDocument();
-    expect(results()).toHaveLength(50);
+    fireEvent.change(searchbox(), { target: { value: "Adam" } });
+    fireEvent.change(searchbox(), { target: { value: "Ada" } });
+    fireEvent.submit(searchbox());
+    await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
 
-    await user.click(showMore()!);
-    await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent(
-        "Showing 100 of 120 people.",
-      ),
-    );
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      "http://127.0.0.1:8000/api/people?query=Person&offset=50&limit=50",
-      expect.anything(),
-    );
-    expect(results()).toHaveLength(100);
-    expect(results()[50]).toHaveFocus();
-    expect(results()[50]).toHaveTextContent("Person 51");
-
-    await user.click(showMore()!);
-    await screen.findByText("Showing 120 of 120 people.");
-    expect(results()).toHaveLength(120);
-    expect(results()[100]).toHaveFocus();
-    expect(showMore()).not.toBeInTheDocument();
+    expect(searchRequests(fetchMock)).toHaveLength(before);
+    expect(screen.queryByRole("option")).toBeNull();
   });
-
-  it("shows no button when every match fits on one page", async () => {
-    stubApi(peopleNamed(50));
-    render(<App />);
-
-    await search("Person");
-
-    await screen.findByText("Showing 50 of 50 people.");
-    expect(showMore()).not.toBeInTheDocument();
-  });
-
-  it("keeps the results and allows a retry when a page fails", async () => {
-    const user = userEvent.setup();
-    const people = peopleNamed(60);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((input: RequestInfo | URL) => {
-        const url = new URL(String(input));
-        return url.searchParams.get("offset") === "50"
-          ? Promise.reject(new TypeError("offline"))
-          : Promise.resolve(Response.json(pageFrom(people, url)));
-      }),
-    );
-    render(<App />);
-    await search("Person");
-    await screen.findByText("Showing 50 of 60 people.");
-
-    await user.click(showMore()!);
-
-    expect(
-      await screen.findByText(
-        "We could not reach the archive just now. Please try again soon.",
-      ),
-    ).toBeInTheDocument();
-    expect(results()).toHaveLength(50);
-    expect(showMore()).toBeEnabled();
-  });
-
-  it("lists nobody twice when the archive changes between pages", async () => {
-    const user = userEvent.setup();
-    const people = peopleNamed(52);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((input: RequestInfo | URL) => {
-        const url = new URL(String(input));
-        // A new match ahead of Person 50 pushes them onto the next page.
-        return Promise.resolve(
-          Response.json(
-            url.searchParams.get("offset") === "50"
-              ? pageOf([people[49], people[50]], 50, 50, 52)
-              : pageFrom(people, url),
-          ),
-        );
-      }),
-    );
-    render(<App />);
-    await search("Person");
-    await screen.findByText("Showing 50 of 52 people.");
-
-    await user.click(showMore()!);
-
-    await screen.findByText("Showing 51 of 52 people.");
-    expect(results()).toHaveLength(51);
-    expect(results()[50]).toHaveFocus();
-    expect(showMore()).not.toBeInTheDocument();
-  });
-
-  it("stops offering more when a page comes back empty", async () => {
-    const user = userEvent.setup();
-    const people = peopleNamed(60);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((input: RequestInfo | URL) => {
-        const url = new URL(String(input));
-        return Promise.resolve(
-          Response.json(
-            url.searchParams.get("offset") === "50"
-              ? pageOf([], 50, 50, 60)
-              : pageFrom(people, url),
-          ),
-        );
-      }),
-    );
-    render(<App />);
-    await search("Person");
-    await screen.findByText("Showing 50 of 60 people.");
-
-    await user.click(showMore()!);
-
-    await waitFor(() => expect(showMore()).not.toBeInTheDocument());
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Showing 50 of 60 people.",
-    );
-    expect(results()).toHaveLength(50);
-  });
-
-  it.each([
-    ["search", "arrives", "0"],
-    ["search", "fails", "0"],
-    ["next page", "arrives", "50"],
-    ["next page", "fails", "50"],
-  ])(
-    "ignores a %s that %s after the search was edited",
-    async (_request, outcome, heldOffset) => {
-      const people = peopleNamed(60);
-      let settle = () => {};
-      vi.stubGlobal(
-        "fetch",
-        vi.fn((input: RequestInfo | URL) => {
-          const url = new URL(String(input));
-          if (url.searchParams.get("offset") !== heldOffset) {
-            return Promise.resolve(Response.json(pageFrom(people, url)));
-          }
-          return new Promise<Response>((resolve, reject) => {
-            settle = () =>
-              outcome === "arrives"
-                ? resolve(Response.json(pageFrom(people, url)))
-                : reject(new TypeError("offline"));
-          });
-        }),
-      );
-      render(<App />);
-      await search("Person");
-      if (heldOffset === "50") {
-        await screen.findByText("Showing 50 of 60 people.");
-        fireEvent.click(showMore()!);
-        expect(showMore()).toBeDisabled();
-      }
-      await waitFor(() =>
-        expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true"),
-      );
-
-      fireEvent.change(searchbox(), { target: { value: "Someone else" } });
-      await act(() => {
-        settle();
-        return new Promise((resolve) => setTimeout(resolve, 20));
-      });
-
-      expect(screen.queryByLabelText("Search results")).not.toBeInTheDocument();
-      expect(screen.getByRole("status")).toHaveTextContent("");
-      expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "false");
-      expect(screen.getByRole("button", { name: "Search" })).toBeEnabled();
-    },
-  );
 });

@@ -118,6 +118,12 @@ describe.skipIf(!apiUrl)("public API contract", () => {
     expect(error.message).toBe("A request needs a description");
   });
 
+  it("refuses a search of fewer than three letters", async () => {
+    const error = await failure(api.searchPeople("jo"));
+    expect(error.status).toBe(422);
+    expect(error.message).toBe("A search needs at least 3 letters");
+  });
+
   it("returns an empty page for a query that matches nobody", async () => {
     const page = await api.searchPeople("zzqx no such ancestor 7f3a");
     expect(page).toEqual({ items: [], total: 0, offset: 0, limit: 50 });

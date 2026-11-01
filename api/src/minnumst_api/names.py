@@ -24,10 +24,56 @@ def storable_text(value: str) -> bool:
     return True
 
 
+# Icelandic alphabetical order, which neither the database nor Unicode knows.
+ICELANDIC_ALPHABET = "aábcdðeéfghiíjklmnoópqrstuúvwxyýzþæö"
+SORT_POSITIONS = {
+    letter: f"{position:02d}"
+    for position, letter in enumerate(ICELANDIC_ALPHABET, start=10)
+}
+
+
 def ascii_folded(value: str) -> str:
     """Lowercase, transliterate and strip accents: Sigríður -> sigridur."""
-    decomposed = unicodedata.normalize("NFKD", value.lower().translate(TRANSLITERATION))
-    return "".join(char for char in decomposed if not unicodedata.combining(char))
+    decomposed = unicodedata.normalize(
+        "NFKD", unicodedata.normalize("NFC", value).lower().translate(TRANSLITERATION)
+    )
+    return "".join(
+        char
+        for char in decomposed
+        # Combining accents, and invisible characters that pasted text can carry.
+        if not unicodedata.combining(char) and unicodedata.category(char) != "Cf"
+    )
+
+
+def search_key(value: str) -> str:
+    """Spellings people treat as the same letter become one, for finding a name.
+
+    Beyond the accents: þ is th or t, æ is ae or a, and y and i sound alike. So
+    Sæmundur, Saemundur and Samundur match, as do Þóra, Thora and Tora.
+    """
+    folded = " ".join(ascii_folded(value).split())
+    return folded.replace("th", "t").replace("ae", "a").replace("y", "i")
+
+
+def sort_key(value: str) -> str:
+    """Sorts in Icelandic alphabetical order under any database collation.
+
+    Each letter becomes two digits, its position in the alphabet. A character
+    outside the alphabet takes the position of its folded form, or is skipped.
+    """
+    parts = []
+    for char in unicodedata.normalize("NFC", value).lower():
+        if char in SORT_POSITIONS:
+            parts.append(SORT_POSITIONS[char])
+        elif char.isspace():
+            parts.append("00")
+        else:
+            parts.extend(
+                SORT_POSITIONS[folded]
+                for folded in ascii_folded(char)
+                if folded in SORT_POSITIONS
+            )
+    return "".join(parts)[:MAX_NORMALIZED_NAME]
 
 
 def normalized_person_name(name: str) -> str:
@@ -63,15 +109,26 @@ def unique_person_slug(
     return slug
 
 
+def name_columns(
+    name: str, birth_date: str | None, death_date: str | None
+) -> dict[str, str | None]:
+    """Everything stored about a validated name and dates, always set together."""
+    return {
+        "name": name,
+        "normalized_name": normalized_person_name(name),
+        "search_name": search_key(name),
+        "sort_name": sort_key(name),
+        "birth_date": birth_date,
+        "death_date": death_date,
+        "identity": person_identity(name, birth_date, death_date),
+    }
+
+
 def new_person(
     session: Session, name: str, birth_date: str | None, death_date: str | None
 ) -> Person:
     """A person who passed validation, ready to add to the session."""
     return Person(
-        name=name,
-        normalized_name=normalized_person_name(name),
-        birth_date=birth_date,
-        death_date=death_date,
-        identity=person_identity(name, birth_date, death_date),
+        **name_columns(name, birth_date, death_date),
         slug=unique_person_slug(session, name, birth_date),
     )

@@ -79,6 +79,21 @@ def test_an_editor_can_change_the_text_before_accepting(
     assert public["current_story"]["content"] == "Edited text."
 
 
+def test_an_editors_icelandic_name_is_recorded_correctly(
+    client: TestClient, person: dict
+) -> None:
+    receipt = suggest(client, person)
+
+    # The edge passes the name on as UTF-8 bytes, which HTTP reads as Latin-1.
+    accepted = client.post(
+        f"/api/admin/suggestions/{receipt['id']}/accept",
+        json={},
+        headers={"X-Authentik-Username": "þórður".encode()},
+    )
+
+    assert accepted.json()["reviewed_by"] == "þórður"
+
+
 def test_an_accepted_edit_is_a_version_by_the_editor(
     client: TestClient, person: dict
 ) -> None:

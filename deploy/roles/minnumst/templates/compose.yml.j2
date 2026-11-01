@@ -255,7 +255,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: {{ postgres_superuser_password | to_json }}
       POSTGRES_DB: {{ postgres_database | to_json }}
-      POSTGRES_INITDB_ARGS: --auth-local=scram-sha-256 --auth-host=scram-sha-256
+      POSTGRES_INITDB_ARGS: "--auth-local=scram-sha-256 --auth-host=scram-sha-256 --encoding=UTF8"
       MINNUMST_MIGRATION_USER: {{ postgres_migration_user | to_json }}
       MINNUMST_MIGRATION_PASSWORD: {{ postgres_migration_password | to_json }}
       MINNUMST_APP_USER: {{ postgres_user | to_json }}

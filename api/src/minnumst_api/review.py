@@ -18,7 +18,7 @@ from minnumst_api.api import (
     NOT_FOUND,
     WITH_STORY,
     WITH_STORY_SUMMARY,
-    ReviewerHeader,
+    EditorDep,
     SessionDep,
     append_revision,
     edited_story_response,
@@ -154,7 +154,7 @@ def accept_suggestion(
     suggestion_id: UUID,
     payload: SuggestionAcceptance,
     session: SessionDep,
-    reviewer: ReviewerHeader = "unknown",
+    reviewer: EditorDep,
 ) -> SuggestionResponse:
     suggestion = pending_suggestion(session, suggestion_id)
     if suggestion.kind == "edit":
@@ -182,7 +182,7 @@ def accept_suggestion(
     description="Reject a suggestion. Its text is deleted straight away.",
 )
 def reject_suggestion(
-    suggestion_id: UUID, session: SessionDep, reviewer: ReviewerHeader = "unknown"
+    suggestion_id: UUID, session: SessionDep, reviewer: EditorDep
 ) -> SuggestionResponse:
     suggestion = pending_suggestion(session, suggestion_id)
     decide(session, suggestion, "rejected", reviewer)
@@ -239,7 +239,7 @@ def restore_revision(
     revision_number: Annotated[int, Path(ge=1, le=MAX_INTEGER)],
     payload: RevisionRestore,
     session: SessionDep,
-    editor: ReviewerHeader = "unknown",
+    editor: EditorDep,
 ) -> EditedStoryResponse:
     person = get_person(session, person_id)
     versions = person.story.revisions if person.story else []
@@ -286,7 +286,7 @@ def list_hidden_people(session: SessionDep) -> list[PersonResponse]:
         select(Person)
         .options(WITH_STORY_SUMMARY)
         .where(Person.hidden_at.is_not(None))
-        .order_by(Person.name)
+        .order_by(Person.sort_name, Person.id)
     ).all()
     return [person_response(person) for person in people]
 

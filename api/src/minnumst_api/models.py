@@ -75,6 +75,9 @@ class Person(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     normalized_name: Mapped[str] = mapped_column(String(600), nullable=False)
+    # What searches match against, and what lists sort by (names.py).
+    search_name: Mapped[str] = mapped_column(String(600), nullable=False)
+    sort_name: Mapped[str] = mapped_column(String(600), nullable=False, index=True)
     # Partial ISO 8601 dates, YYYY or YYYY-MM-DD: old records often give a year.
     birth_date: Mapped[str | None] = mapped_column(String(10))
     death_date: Mapped[str | None] = mapped_column(String(10))

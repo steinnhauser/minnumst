@@ -11,9 +11,10 @@ from sqlalchemy.orm import Session, selectinload
 from minnumst_api.database import get_session
 from minnumst_api.models import Person, Story, StoryRevision, Suggestion
 from minnumst_api.names import (
+    name_columns,
     new_person,
-    normalized_person_name,
     person_identity,
+    search_key,
     storable_text,
 )
 from minnumst_api.schemas import (
@@ -49,8 +50,20 @@ QUEUE_FULL: Responses = {
     429: {"model": ErrorResponse, "description": "The review queue is full"}
 }
 SessionDep = Annotated[Session, Depends(get_session)]
-# Set by Traefik from Authentik's answer, replacing anything a client sent.
-ReviewerHeader = Annotated[str, Header(alias="X-Authentik-Username", max_length=255)]
+
+
+def editor_name(
+    # Set by Traefik from Authentik's answer, replacing anything a client sent.
+    username: Annotated[
+        str, Header(alias="X-Authentik-Username", max_length=255)
+    ] = "unknown",
+) -> str:
+    # HTTP headers arrive decoded as Latin-1, but Authentik sends UTF-8, so a name
+    # with Icelandic letters would otherwise be stored garbled.
+    return username.encode("latin-1", "replace").decode("utf-8", "replace")
+
+
+EditorDep = Annotated[str, Depends(editor_name)]
 logger = logging.getLogger(__name__)
 # Keeps a flood of suggestions from filling the disk or burying the queue.
 MAX_PENDING_SUGGESTIONS = 500
@@ -238,16 +251,16 @@ def list_people(
     statement = select(Person).where(Person.hidden_at.is_(None))
     count_statement = select(func.count(Person.id)).where(Person.hidden_at.is_(None))
     if query and query.strip():
-        # Autoescape, so a % or _ in the query matches only itself.
-        matches = Person.normalized_name.contains(
-            normalized_person_name(query), autoescape=True
-        )
-        statement = statement.where(matches)
-        count_statement = count_statement.where(matches)
+        # Every word must appear, in any order. Autoescape, so a % or _ in the query
+        # matches only itself.
+        for word in search_key(query).split():
+            matches = Person.search_name.contains(word, autoescape=True)
+            statement = statement.where(matches)
+            count_statement = count_statement.where(matches)
     total = session.scalar(count_statement) or 0
     people = session.scalars(
         statement.options(WITH_STORY_SUMMARY)
-        .order_by(Person.name, Person.id)
+        .order_by(Person.sort_name, Person.id)
         .offset(offset)
         .limit(limit)
     ).all()
@@ -336,11 +349,9 @@ def update_person(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=IDENTITY_CONFLICT
         )
-    person.name = payload.name
-    person.normalized_name = normalized_person_name(payload.name)
-    person.birth_date = payload.birth_date
-    person.death_date = payload.death_date
-    person.identity = identity
+    columns = name_columns(payload.name, payload.birth_date, payload.death_date)
+    for column, value in columns.items():
+        setattr(person, column, value)
     try:
         session.commit()
     except IntegrityError as error:
@@ -388,7 +399,7 @@ def save_story(
     person_id: UUID,
     payload: StoryRevisionInput,
     session: SessionDep,
-    editor: ReviewerHeader = "unknown",
+    editor: EditorDep,
 ) -> EditedStoryResponse:
     person = get_person(session, person_id)
     revision = append_revision(session, person, payload, editor)

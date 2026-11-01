@@ -1,3 +1,4 @@
+import re
 import unicodedata
 from datetime import datetime
 from typing import Annotated, Any
@@ -29,17 +30,34 @@ from minnumst_api.names import (
 MAX_INTEGER = 2_147_483_647
 RevisionNumber = Annotated[int, Field(ge=0, le=MAX_INTEGER)]
 ChangeNote = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
+# Control characters other than tabs and line breaks, and the invisible direction
+# marks that can make text read differently from what it says.
+UNWANTED_CHARACTERS = re.compile(
+    r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u200e\u200f\u202a-\u202e\u2066-\u2069]"
+)
+# Angle and curly brackets are never part of a name, wherever it's shown.
+NOT_IN_A_NAME = re.compile(r"[<>{}]")
 
 
 class Input(BaseModel):
-    """A request body: text the database can't hold is refused up front."""
+    """A request body. All text is made consistent here, before anything uses it.
+
+    Text the database can't hold is refused. Otherwise letters are composed, so a
+    name typed as a + a combining accent and one typed as á are the same text, line
+    breaks are unified, and invisible control characters are dropped. Anything else
+    is stored exactly as written and only ever reaches SQL as a bound parameter and
+    a page as escaped text, so a quote or a tag in a story stays harmless text.
+    """
 
     @field_validator("*", mode="before")
     @classmethod
-    def storable(cls, value: Any) -> Any:
-        if isinstance(value, str) and not storable_text(value):
+    def consistent_text(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        if not storable_text(value):
             raise ValueError("The text contains characters that can't be stored")
-        return value
+        text = unicodedata.normalize("NFC", value).replace("\r\n", "\n")
+        return UNWANTED_CHARACTERS.sub("", text).replace("\r", "\n")
 
 
 class PersonCreate(Input):
@@ -54,11 +72,17 @@ class PersonCreate(Input):
     @field_validator("name")
     @classmethod
     def clean_name(cls, value: str) -> str:
-        value = " ".join(value.split())
+        value = " ".join(
+            "".join(
+                char for char in value if unicodedata.category(char) != "Cf"
+            ).split()
+        )
         if not value:
             raise ValueError("Name cannot be blank")
-        if any(unicodedata.category(char) == "Cc" for char in value):
-            raise ValueError("Name cannot contain control characters")
+        if not any(char.isalpha() for char in value):
+            raise ValueError("Name must contain letters")
+        if NOT_IN_A_NAME.search(value):
+            raise ValueError("Name cannot contain angle or curly brackets")
         if len(normalized_person_name(value)) > MAX_NORMALIZED_NAME:
             raise ValueError("Name is too long")
         return value
@@ -95,6 +119,12 @@ class StoryRevisionInput(Input):
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200000)
     ]
     change_note: ChangeNote | None = None
+
+    @field_validator("title", "change_note")
+    @classmethod
+    def one_line(cls, value: str | None) -> str | None:
+        return " ".join(value.split()) if value else value
+
     base_revision_number: RevisionNumber | None = Field(
         default=None,
         description=(
@@ -192,6 +222,11 @@ class SuggestionCreate(Input):
     note: str | None = Field(default=None, max_length=2000)
     source_url: str | None = Field(default=None, max_length=2048)
 
+    @field_validator("title")
+    @classmethod
+    def one_line(cls, value: str | None) -> str | None:
+        return " ".join(value.split()) if value else value
+
     @field_validator("title", "excerpt", "content", "note", "source_url")
     @classmethod
     def blank_is_missing(cls, value: str | None) -> str | None:
@@ -202,7 +237,11 @@ class SuggestionCreate(Input):
     def web_address(cls, value: str | None) -> str | None:
         if value:
             url = urlsplit(value)
-            if url.scheme not in {"http", "https"} or not url.netloc:
+            if (
+                url.scheme not in {"http", "https"}
+                or not url.netloc
+                or any(char.isspace() for char in value)
+            ):
                 raise ValueError("The source must be a web address")
         return value
 

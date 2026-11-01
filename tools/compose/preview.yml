@@ -12,6 +12,7 @@ services:
       POSTGRES_USER: minnumst
       POSTGRES_PASSWORD: preview
       POSTGRES_DB: minnumst
+      POSTGRES_INITDB_ARGS: --encoding=UTF8
     healthcheck:
       test: [CMD, pg_isready, --username, minnumst]
       interval: 2s

@@ -1,3 +1,4 @@
+import json
 import os
 from collections.abc import Iterator
 
@@ -225,3 +226,48 @@ def test_postgresql_refuses_nothing_the_api_lets_through(
         f"/api/admin/people/{person.json()['id']}/story/revisions/1/restore", json={}
     )
     assert restored.status_code == 409
+
+
+def test_postgresql_keeps_icelandic_text_and_treats_attacks_as_text(
+    postgres_client: TestClient, database_urls: tuple[str, str]
+) -> None:
+    letters = "ÁáÐðÉéÍíÓóÚúÝýÞþÆæÖö"
+    runtime = make_engine(database_urls[1])
+    with runtime.connect() as connection:
+        assert connection.execute(text("SHOW server_encoding")).scalar() == "UTF8"
+        assert connection.execute(text("SHOW client_encoding")).scalar() == "UTF8"
+    runtime.dispose()
+
+    person = postgres_client.post(
+        "/api/people", json={"name": f"Anna {letters}", "birth_date": "1850"}
+    ).json()
+    assert person["name"] == f"Anna {letters}"
+    assert (
+        postgres_client.get(
+            "/api/people", params={"query": "anna adeeiioouuiittaaoo"}
+        ).json()["total"]
+        == 0
+    )
+    found = postgres_client.get("/api/people", params={"query": "ÁáÐð"}).json()
+    assert [item["id"] for item in found["items"]] == [person["id"]]
+
+    for attack in ("'; DROP TABLE people; --", "' OR '1'='1", "%' OR 1=1 --"):
+        assert (
+            postgres_client.get("/api/people", params={"query": attack}).json()["total"]
+            == 0
+        )
+        saved = postgres_client.put(
+            f"/api/people/{person['id']}/story",
+            json={"title": attack, "content": attack},
+        )
+        assert saved.json()["current_revision"]["content"] == attack
+    assert postgres_client.get("/api/people").json()["total"] == 1
+
+    for bad in ("\ud800", "\x00"):
+        response = postgres_client.request(
+            "POST",
+            f"/api/people/{person['id']}/suggestions",
+            content=json.dumps({"kind": "request", "note": bad}),
+            headers={"Content-Type": "application/json"},
+        )
+        assert response.status_code == 422

@@ -480,6 +480,8 @@ def test_rename_racing_a_concurrent_create_conflicts(client: TestClient) -> None
             Person(
                 name="Rival",
                 normalized_name="bjorn sigurdsson",
+                search_name="bjorn sigurdsson",
+                sort_name="rival",
                 identity="bjorn sigurdsson|1850|",
                 slug="rival",
             )
@@ -657,7 +659,8 @@ def test_names_with_control_characters_or_extreme_length_are_refused(
         body = {"name": name, "birth_date": "1850"}
         return client.post("/api/people", json=body).status_code
 
-    assert create("A\x07B") == 422
+    assert create("!!!") == 422
+    assert create("1850") == 422
     # Each ligature folds to several letters, past what the column holds.
     assert create("\ufdfa" * 40) == 422
     # The longest allowed name still gets a slug that fits, even when it's taken.

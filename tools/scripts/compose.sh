@@ -95,7 +95,8 @@ case "$action" in
     # The production backup (pg_dump, custom format) restored into a scratch
     # database must hold the same data as the original.
     dump="$local_dir/backup-test.dump"
-    counts='SELECT (SELECT count(*) FROM people), (SELECT count(*) FROM story_revisions)'
+    # The names' checksum catches encoding damage that counting rows wouldn't.
+    counts='SELECT (SELECT count(*) FROM people), (SELECT count(*) FROM story_revisions), (SELECT md5(string_agg(name, chr(44) ORDER BY id)) FROM people)'
     in_postgres "pg_dump --format custom $(var postgres_database)" > "$dump"
     in_postgres 'dropdb --if-exists restore_check && createdb restore_check'
     in_postgres 'pg_restore --dbname restore_check --exit-on-error' < "$dump"
@@ -103,7 +104,7 @@ case "$action" in
     restored=$(in_postgres "psql --dbname restore_check --tuples-only --no-align --command '$counts'")
     rm -f "$dump"
     [[ -n $original && $original == "$restored" ]] || { printf 'FAIL backup restore: %s before, %s after\n' "$original" "$restored" >&2; exit 1; }
-    printf 'PASS a pg_dump backup restores into a fresh database with the same data (people|revisions %s)\n' "$original"
+    printf 'PASS a pg_dump backup restores into a fresh database with the same data (people|revisions|names %s)\n' "$original"
     ;;
   clear|reset)
     printf 'This will %s the minnumst_local PostgreSQL data. Type "%s" to continue: ' "$action" "$action" >&2

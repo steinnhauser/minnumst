@@ -36,6 +36,8 @@ The checked-in contract is [`openapi.json`](openapi.json). `make openapi-check` 
 | `GET /healthz`, `GET /readyz`                                         | Liveness, and readiness including the database                                                                            |
 
 - Each person has at most one story.
+- Search forgives how Icelandic letters are typed: accents don't matter, `ð` and `d` are the same, `þ` is `th` or `t`, `æ` is `ae` or `a`, `y` and `i` match, and every word has to appear, in any order. Lists sort in Icelandic alphabetical order.
+- All text is made consistent on the way in: composed Unicode (NFC), one kind of line break, and no control or text-direction characters. Text is otherwise stored as written, reaches SQL only as bound parameters and is escaped by the pages that show it. Names must contain letters and can't contain angle or curly brackets, and a source must be a plain `http` or `https` address.
 - Only people who qualify can be stored: a recorded death more than five years and two months ago or, without one, a birth at least 128 years before the current year (`eligibility.py`). Creating, updating and importing all apply this rule. Dates are `YYYY` or `YYYY-MM-DD`, and a bare year of death counts as its last day.
 - Many people share a name, so a name and dates together must be unique after normalisation (accents, case and whitespace), enforced by a database constraint.
 - Everything under `/api/admin` needs a login at the edge. Only editors see story history and unreviewed suggestions, so text removed from a story stops being public while the record of it is kept.

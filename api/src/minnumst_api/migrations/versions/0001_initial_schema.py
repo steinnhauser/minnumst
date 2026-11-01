@@ -32,6 +32,8 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(as_uuid=False), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("normalized_name", sa.String(length=600), nullable=False),
+        sa.Column("search_name", sa.String(length=600), nullable=False),
+        sa.Column("sort_name", sa.String(length=600), nullable=False),
         sa.Column("birth_date", sa.String(length=10), nullable=True),
         sa.Column("death_date", sa.String(length=10), nullable=True),
         sa.Column("identity", sa.String(length=630), nullable=False),
@@ -44,6 +46,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("slug", name=op.f("uq_people_slug")),
     )
     op.create_index(op.f("ix_people_name"), "people", ["name"])
+    op.create_index(op.f("ix_people_sort_name"), "people", ["sort_name"])
     op.create_table(
         "person_sources",
         sa.Column("id", sa.Uuid(as_uuid=False), nullable=False),
@@ -154,6 +157,7 @@ def downgrade() -> None:
     op.drop_table("story_revisions")
     op.drop_table("stories")
     op.drop_table("person_sources")
+    op.drop_index(op.f("ix_people_sort_name"), table_name="people")
     op.drop_index(op.f("ix_people_name"), table_name="people")
     op.drop_table("people")
 

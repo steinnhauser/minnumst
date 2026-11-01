@@ -11,13 +11,13 @@ import re
 from calendar import monthrange
 from datetime import UTC, date, datetime
 
-PARTIAL_DATE = re.compile(r"^\d{4}(-\d{2}-\d{2})?$")
+PARTIAL_DATE = re.compile(r"[0-9]{4}(-[0-9]{2}-[0-9]{2})?")
 MONTHS_DEAD = 5 * 12 + 2
 YEARS_SINCE_BIRTH = 128
 
 
 def valid_partial_date(value: str) -> bool:
-    if not PARTIAL_DATE.match(value):
+    if not PARTIAL_DATE.fullmatch(value):
         return False
     try:
         date.fromisoformat(value if len(value) > 4 else f"{value}-01-01")

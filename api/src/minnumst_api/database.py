@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from typing import Any
 
 from fastapi import Request
 from sqlalchemy import create_engine
@@ -11,7 +12,12 @@ from minnumst_api.config import settings
 
 def make_engine(database_url: str | None = None) -> Engine:
     url = database_url or settings.database_url
-    connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
+    # PostgreSQL talks UTF-8 whatever the server or environment would default to.
+    connect_args: dict[str, Any] = (
+        {"check_same_thread": False}
+        if url.startswith("sqlite")
+        else {"client_encoding": "utf8"}
+    )
     options = (
         {"poolclass": StaticPool} if url in {"sqlite://", "sqlite:///:memory:"} else {}
     )

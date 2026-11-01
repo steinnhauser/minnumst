@@ -57,7 +57,7 @@
   min-height: 42px;
   padding: 0 10px;
   border-radius: 4px;
-  color: #627169;
+  color: var(--ink);
   font-size: 13px;
   text-decoration: none;
 }
@@ -1233,4 +1233,54 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.person-dates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.suggestion-list {
+  display: grid;
+  gap: 16px;
+  margin: 16px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestion-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.suggestion-note {
+  padding: 8px 12px;
+  background: var(--sage);
+  white-space: pre-wrap;
+}
+
+.suggestion-warning {
+  padding: 8px 12px;
+  background: var(--coral-pale);
+}
+
+.suggestion-compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.suggestion-text {
+  white-space: pre-wrap;
+}
+
+.suggestion-actions,
+.suggestion-hidden {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
 }

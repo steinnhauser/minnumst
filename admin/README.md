@@ -10,7 +10,7 @@ make dev-admin        # http://127.0.0.1:5174
 
 ## API usage
 
-The client in [`src/api.ts`](src/api.ts) loads people with `GET /api/people` (paging through everyone), creates them with `POST /api/people`, renames them with `PATCH /api/people/{person_id}`, saves revisions with `PUT /api/people/{person_id}/blog` and loads history from `GET /api/people/{person_id}/blog/revisions`. Person IDs, never names or slugs, identify the person being changed.
+The client in [`src/api.ts`](src/api.ts) loads people with `GET /api/people` (paging through everyone), creates them with `POST /api/people`, updates their name and dates with `PATCH /api/people/{person_id}`, saves revisions with `PUT /api/people/{person_id}/blog` and loads history from `GET /api/admin/people/{person_id}/blog/revisions`. The Suggestions view reviews what visitors propose through `/api/admin/suggestions`, and hides people or shows them again through `/api/admin/people`. Person IDs, never names or slugs, identify the person being changed.
 
 The API has no image upload, revision restore or revision delete routes, so the desk doesn't offer them.
 

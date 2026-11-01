@@ -18,6 +18,8 @@ export type PersonPost = {
   id: string;
   personName: string;
   slug: string;
+  birthDate: string;
+  deathDate: string;
   blog: {
     title: string;
     excerpt: string;
@@ -39,6 +41,8 @@ type ApiPerson = Schemas["PersonResponse"];
 type ApiRevision = Schemas["BlogRevisionResponse"];
 type ApiPersonPage = Schemas["PersonPage"];
 type ApiBlogResponse = Schemas["BlogResponse"];
+type ApiSuggestionPage = Schemas["SuggestionPage"];
+export type Suggestion = Schemas["SuggestionResponse"];
 
 // The admin and the API are on different hostnames; "include" sends the
 // Authentik session cookie that authorises writes.
@@ -52,6 +56,8 @@ function mapPerson(person: ApiPerson): PersonPost {
     id: person.id,
     personName: person.name,
     slug: person.slug,
+    birthDate: person.birth_date ?? "",
+    deathDate: person.death_date ?? "",
     blog: person.blog
       ? {
           title: person.blog.title,
@@ -112,24 +118,35 @@ export async function loadPeople(): Promise<PersonPost[]> {
   }
 }
 
-export async function createPerson(name: string): Promise<PersonPost> {
+function personBody(name: string, birthDate: string, deathDate: string) {
+  return JSON.stringify({
+    name: name.trim().replace(/\s+/g, " "),
+    birth_date: birthDate.trim() || null,
+    death_date: deathDate.trim() || null,
+  });
+}
+
+export async function createPerson(
+  name: string,
+  birthDate: string,
+  deathDate = "",
+): Promise<PersonPost> {
   const person = await request<ApiPerson>("/api/people", {
     method: "POST",
-    body: JSON.stringify({ name: name.trim().replace(/\s+/g, " ") }),
+    body: personBody(name, birthDate, deathDate),
   });
   return mapPerson(person);
 }
 
-export async function updatePersonName(
+export async function updatePerson(
   personId: string,
   name: string,
+  birthDate: string,
+  deathDate = "",
 ): Promise<PersonPost> {
   const person = await request<ApiPerson>(
     `/api/people/${encodeURIComponent(personId)}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({ name: name.trim().replace(/\s+/g, " ") }),
-    },
+    { method: "PATCH", body: personBody(name, birthDate, deathDate) },
   );
   return mapPerson(person);
 }
@@ -138,7 +155,7 @@ export async function loadPersonRevisions(
   personId: string,
 ): Promise<PostRevision[]> {
   const revisions = await request<ApiRevision[]>(
-    `/api/people/${encodeURIComponent(personId)}/blog/revisions`,
+    `/api/admin/people/${encodeURIComponent(personId)}/blog/revisions`,
   );
   return revisions
     .map(mapRevision)
@@ -164,4 +181,42 @@ export async function savePersonRevision(
     revision: mapRevision(blog.current_revision),
     revisionCount: blog.revision_count,
   };
+}
+
+// Oldest first, up to a page's worth; `total` counts everything waiting.
+export function loadSuggestions(): Promise<ApiSuggestionPage> {
+  return request<ApiSuggestionPage>("/api/admin/suggestions?limit=100");
+}
+
+export function acceptSuggestion(
+  suggestionId: string,
+  story?: PostInput,
+): Promise<Suggestion> {
+  return request<Suggestion>(
+    `/api/admin/suggestions/${encodeURIComponent(suggestionId)}/accept`,
+    { method: "POST", body: JSON.stringify(story ? { story } : {}) },
+  );
+}
+
+export function rejectSuggestion(suggestionId: string): Promise<Suggestion> {
+  return request<Suggestion>(
+    `/api/admin/suggestions/${encodeURIComponent(suggestionId)}/reject`,
+    { method: "POST" },
+  );
+}
+
+export async function loadHiddenPeople(): Promise<PersonPost[]> {
+  const people = await request<ApiPerson[]>("/api/admin/people/hidden");
+  return people.map(mapPerson);
+}
+
+export async function setPersonHidden(
+  personId: string,
+  hidden: boolean,
+): Promise<PersonPost> {
+  const person = await request<ApiPerson>(
+    `/api/admin/people/${encodeURIComponent(personId)}/visibility`,
+    { method: "PUT", body: JSON.stringify({ hidden }) },
+  );
+  return mapPerson(person);
 }

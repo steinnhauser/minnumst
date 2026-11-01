@@ -1,10 +1,18 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   AlertTriangle,
   BookOpenText,
   Clock3,
   FilePlus2,
   History,
+  Inbox,
   Info,
   Search,
   Save,
@@ -15,17 +23,20 @@ import {
   errorMessage,
   loadPeople,
   loadPersonRevisions,
+  loadSuggestions,
   savePersonRevision,
-  updatePersonName,
+  setPersonHidden,
+  updatePerson,
   type PersonPost,
   type PostInput,
 } from "./api";
 import { appConfig } from "./config";
+import Suggestions from "./Suggestions";
 import "./App.css";
 
 type EditorTab = "write" | "preview" | "history";
 
-const nameConflict = "A person with this normalized name already exists";
+const nameConflict = "A person with this name and these dates already exists";
 const emptyDraft: PostInput = { title: "", excerpt: "", content: "" };
 
 function App() {
@@ -33,7 +44,11 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<EditorTab>("write");
   const [filter, setFilter] = useState("");
+  const [view, setView] = useState<"pages" | "suggestions">("pages");
+  const [pendingCount, setPendingCount] = useState(0);
   const [personName, setPersonName] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [deathDate, setDeathDate] = useState("");
   const [title, setTitle] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [content, setContent] = useState("");
@@ -52,6 +67,11 @@ function App() {
     content !== savedDraft.content;
 
   const selectedPost = posts.find((post) => post.id === selectedId) ?? null;
+  const personIsUnchanged =
+    selectedPost !== null &&
+    personName.trim().replace(/\s+/g, " ") === selectedPost.personName &&
+    birthDate.trim() === selectedPost.birthDate &&
+    deathDate.trim() === selectedPost.deathDate;
   const activeRevision = selectedPost ? currentRevision(selectedPost) : null;
   const revisionCount =
     selectedPost?.blog?.revisionCount ?? selectedPost?.revisions.length ?? 0;
@@ -83,6 +103,21 @@ function App() {
     };
   }, []);
 
+  // The count on the navigation; a failure here shows in the queue itself.
+  useEffect(() => {
+    void loadSuggestions()
+      .then((page) => setPendingCount(page.total))
+      .catch(() => undefined);
+  }, []);
+
+  const handlePersonRestored = useCallback((person: PersonPost) => {
+    setPosts((current) =>
+      [...current, person].sort((a, b) =>
+        a.personName.localeCompare(b.personName),
+      ),
+    );
+  }, []);
+
   useEffect(() => {
     if (!hasUnsavedChanges) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
@@ -109,6 +144,8 @@ function App() {
     selectionRequest.current += 1;
     setSelectedId(null);
     setPersonName("");
+    setBirthDate("");
+    setDeathDate("");
     loadDraft(emptyDraft);
     setTab("write");
     setMessage("");
@@ -120,6 +157,8 @@ function App() {
     const revision = currentRevision(post);
     setSelectedId(post.id);
     setPersonName(post.personName);
+    setBirthDate(post.birthDate);
+    setDeathDate(post.deathDate);
     loadDraft({
       title: revision?.title ?? post.blog?.title ?? "",
       excerpt: revision?.excerpt ?? post.blog?.excerpt ?? "",
@@ -177,7 +216,7 @@ function App() {
     try {
       let person = selectedPost;
       if (!person) {
-        person = await createPerson(personName);
+        person = await createPerson(personName, birthDate, deathDate);
         setPosts((current) => [person!, ...current]);
         setSelectedId(person.id);
         setPersonName(person.personName);
@@ -211,7 +250,7 @@ function App() {
       setMessage(
         errorMessage(error, "The page could not be saved.", (reason) =>
           reason === nameConflict
-            ? "A person with this name already exists. Select them from the pages list and save the story there."
+            ? "A person with this name and these dates already exists. Select them from the pages list and save the story there."
             : reason,
         ),
       );
@@ -226,11 +265,18 @@ function App() {
   async function handleRenamePerson(post: PersonPost) {
     setIsSaving(true);
     try {
-      const updated = await updatePersonName(post.id, personName);
+      const updated = await updatePerson(
+        post.id,
+        personName,
+        birthDate,
+        deathDate,
+      );
       const renamedPost = {
         ...post,
         personName: updated.personName,
         slug: updated.slug,
+        birthDate: updated.birthDate,
+        deathDate: updated.deathDate,
       };
       setPosts((current) =>
         current.map((post) =>
@@ -238,16 +284,39 @@ function App() {
         ),
       );
       setPersonName(renamedPost.personName);
-      setMessage("Person name updated in the shared archive.");
+      setMessage("Person updated in the shared archive.");
       setMessageIsError(false);
     } catch (error) {
       setMessage(
-        errorMessage(error, "The name could not be updated.", (reason) =>
+        errorMessage(error, "The person could not be updated.", (reason) =>
           reason === nameConflict
-            ? "Another person already uses this normalized name."
+            ? "Another person already has this name and these dates."
             : reason,
         ),
       );
+      setMessageIsError(true);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  // A removal request is met by hiding the page: everything stays on record.
+  async function handleHidePerson(post: PersonPost) {
+    if (!confirmDiscard()) return;
+    setIsSaving(true);
+    try {
+      await setPersonHidden(post.id, true);
+      setPosts((current) => current.filter((item) => item.id !== post.id));
+      selectionRequest.current += 1;
+      setSelectedId(null);
+      setPersonName("");
+      setBirthDate("");
+      setDeathDate("");
+      loadDraft(emptyDraft);
+      setMessage(`${post.personName} is now hidden from the public.`);
+      setMessageIsError(false);
+    } catch (error) {
+      setMessage(errorMessage(error, "The person could not be hidden."));
       setMessageIsError(true);
     } finally {
       setIsSaving(false);
@@ -267,13 +336,24 @@ function App() {
         <p className="sidebar-caption">EDITORIAL DESK</p>
         <nav className="studio-nav">
           <a
-            className="nav-item nav-item-active"
+            className={`nav-item${view === "pages" ? " nav-item-active" : ""}`}
             href="#pages"
-            aria-current="page"
+            aria-current={view === "pages" ? "page" : undefined}
+            onClick={() => setView("pages")}
           >
             <BookOpenText size={17} aria-hidden="true" />
             <span>Blog pages</span>
             <span className="nav-count">{posts.length}</span>
+          </a>
+          <a
+            className={`nav-item${view === "suggestions" ? " nav-item-active" : ""}`}
+            href="#suggestions"
+            aria-current={view === "suggestions" ? "page" : undefined}
+            onClick={() => setView("suggestions")}
+          >
+            <Inbox size={17} aria-hidden="true" />
+            <span>Suggestions</span>
+            <span className="nav-count">{pendingCount}</span>
           </a>
         </nav>
         <div className="sidebar-bottom">
@@ -299,7 +379,14 @@ function App() {
           </span>
         </header>
 
-        <div className="main-inner">
+        {view === "suggestions" && (
+          <Suggestions
+            onPendingChange={setPendingCount}
+            onPersonRestored={handlePersonRestored}
+          />
+        )}
+
+        <div className="main-inner" hidden={view !== "pages"}>
           <section className="page-heading" aria-labelledby="page-title">
             <div>
               <p className="eyebrow">STORY COLLECTION</p>
@@ -468,24 +555,62 @@ function App() {
                     value={personName}
                     onChange={(event) => setPersonName(event.target.value)}
                   />
+
+                  <div className="person-dates">
+                    <div>
+                      <label className="field-label" htmlFor="person-born">
+                        Born <span>Year or YYYY-MM-DD</span>
+                      </label>
+                      <input
+                        className="text-field"
+                        id="person-born"
+                        autoComplete="off"
+                        placeholder="e.g. 1850"
+                        value={birthDate}
+                        onChange={(event) => setBirthDate(event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="field-label" htmlFor="person-died">
+                        Died <span>Year or YYYY-MM-DD</span>
+                      </label>
+                      <input
+                        className="text-field"
+                        id="person-died"
+                        autoComplete="off"
+                        placeholder="e.g. 1921-03-14"
+                        value={deathDate}
+                        onChange={(event) => setDeathDate(event.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <p className="person-name-note">
+                    Only people who died more than five years ago or, with no
+                    known death, were born at least 128 years ago.
+                  </p>
                   {selectedPost && (
                     <div className="person-name-actions">
                       <p className="person-name-note">
-                        Updates the shared public profile name without changing
-                        story history.
+                        Updates the shared public profile without changing story
+                        history.
                       </p>
                       <button
                         className="name-update-button"
                         type="button"
                         disabled={
-                          isSaving ||
-                          !personName.trim() ||
-                          personName.trim().replace(/\s+/g, " ") ===
-                            selectedPost.personName
+                          isSaving || !personName.trim() || personIsUnchanged
                         }
                         onClick={() => void handleRenamePerson(selectedPost)}
                       >
-                        Update name
+                        Update person
+                      </button>
+                      <button
+                        className="name-update-button"
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => void handleHidePerson(selectedPost)}
+                      >
+                        Hide from public
                       </button>
                     </div>
                   )}

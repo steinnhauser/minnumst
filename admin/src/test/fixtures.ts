@@ -66,11 +66,44 @@ export function blogResponse(
   };
 }
 
+export function apiSuggestion(
+  fields: Partial<Schemas["SuggestionResponse"]> = {},
+): Schemas["SuggestionResponse"] {
+  return {
+    id: "suggestion-1",
+    person_id: "person-1",
+    person_name: "Ada Lovelace",
+    person_slug: "ada-lovelace",
+    kind: "edit",
+    status: "pending",
+    base_revision_number: null,
+    current_revision: null,
+    title: "A proposed title",
+    excerpt: "",
+    content: "A proposed story.",
+    note: null,
+    source_url: null,
+    created_at: timestamp,
+    reviewed_at: null,
+    reviewed_by: null,
+    ...fields,
+  };
+}
+
+export function suggestionPage(
+  items: readonly Schemas["SuggestionResponse"][],
+): Schemas["SuggestionPage"] {
+  return { items, total: items.length, offset: 0, limit: 100 };
+}
+
 type ApiBody =
   | Schemas["PersonPage"]
   | ApiPerson
   | readonly ApiRevision[]
   | Schemas["BlogResponse"]
+  | Schemas["SuggestionPage"]
+  | Schemas["SuggestionResponse"]
+  | readonly ApiPerson[]
   | ErrorResponse
   | ValidationErrorResponse;
 

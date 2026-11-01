@@ -5,7 +5,7 @@ import {
   loadPeople,
   loadPersonRevisions,
   savePersonRevision,
-  updatePersonName,
+  updatePerson,
 } from "./api";
 import {
   apiPerson,
@@ -38,6 +38,8 @@ describe("admin API client", () => {
         id: "person-1",
         personName: "Ásta Jónsdóttir",
         slug: "asta-jonsdottir",
+        birthDate: "",
+        deathDate: "",
         blog: null,
         revisions: [],
       },
@@ -140,7 +142,9 @@ describe("admin API client", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(createPerson("  Ada   Lovelace ")).resolves.toMatchObject({
+    await expect(
+      createPerson("  Ada   Lovelace ", "1815"),
+    ).resolves.toMatchObject({
       id: "person-1",
       personName: "Ada Lovelace",
     });
@@ -148,7 +152,11 @@ describe("admin API client", () => {
       "http://127.0.0.1:8000/api/people",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ name: "Ada Lovelace" }),
+        body: JSON.stringify({
+          name: "Ada Lovelace",
+          birth_date: "1815",
+          death_date: null,
+        }),
       }),
     );
   });
@@ -164,7 +172,7 @@ describe("admin API client", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      updatePersonName("person-1", "  Ada   Byron "),
+      updatePerson("person-1", "  Ada   Byron ", "1815", " 1852 "),
     ).resolves.toMatchObject({
       id: "person-1",
       personName: "Ada Byron",
@@ -174,7 +182,11 @@ describe("admin API client", () => {
       "http://127.0.0.1:8000/api/people/person-1",
       expect.objectContaining({
         method: "PATCH",
-        body: JSON.stringify({ name: "Ada Byron" }),
+        body: JSON.stringify({
+          name: "Ada Byron",
+          birth_date: "1815",
+          death_date: "1852",
+        }),
       }),
     );
   });
@@ -216,7 +228,7 @@ describe("admin API client", () => {
       },
     ]);
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:8000/api/people/person-1/blog/revisions",
+      "http://127.0.0.1:8000/api/admin/people/person-1/blog/revisions",
       expect.anything(),
     );
   });

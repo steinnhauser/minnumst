@@ -7,9 +7,11 @@ import {
   apiPerson,
   apiResponse,
   apiRevision,
+  apiSuggestion,
   blogResponse,
   blogSummary,
   peoplePage,
+  suggestionPage,
 } from "./test/fixtures";
 
 afterEach(() => {
@@ -23,14 +25,14 @@ type ApiCall = { method: string; path: string };
 
 // Answers each request by method and path, like the API's router would.
 function stubApi(route: (call: ApiCall) => Response | Promise<Response>) {
-  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
-    Promise.resolve(
-      route({
-        method: init?.method ?? "GET",
-        path: new URL(String(input)).pathname,
-      }),
-    ),
-  );
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const path = new URL(String(input)).pathname;
+    // The count on the navigation, loaded alongside the people.
+    if (path === "/api/admin/suggestions") {
+      return Promise.resolve(apiResponse(suggestionPage([])));
+    }
+    return Promise.resolve(route({ method: init?.method ?? "GET", path }));
+  });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
@@ -83,6 +85,157 @@ const adaRevisions = [
 ];
 const adaWithStory = apiPerson({ ...ada, blog: blogSummary(adaRevisions[1]) });
 
+describe("people's details and visibility", () => {
+  it("creates a person with their dates and updates them later", async () => {
+    const user = userEvent.setup();
+    const person = apiPerson({ ...ada, birth_date: "1815" });
+    const fetchMock = stubApi(({ method }) =>
+      method === "PATCH"
+        ? apiResponse({ ...person, death_date: "1852" })
+        : apiResponse(peoplePage([person])),
+    );
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: /Ada/ }));
+    expect(screen.getByLabelText(/^Born/)).toHaveValue("1815");
+    const update = screen.getByRole("button", { name: "Update person" });
+    expect(update).toBeDisabled();
+
+    await user.clear(screen.getByLabelText(/^Born/));
+    await user.type(screen.getByLabelText(/^Born/), "1815");
+    await user.type(screen.getByLabelText(/^Died/), "1852");
+    await user.click(update);
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Person updated in the shared archive.",
+    );
+    expect(callsTo(fetchMock, "PATCH")[0][1]?.body).toBe(
+      JSON.stringify({
+        name: "Ada Lovelace",
+        birth_date: "1815",
+        death_date: "1852",
+      }),
+    );
+    expect(update).toBeDisabled();
+  });
+
+  it("hides a person from the public and drops them from the list", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubApi(({ method }) =>
+      method === "PUT"
+        ? apiResponse(ada)
+        : apiResponse(peoplePage([ada, bjork])),
+    );
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: /Ada/ }));
+    await user.click(screen.getByRole("button", { name: "Hide from public" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Ada Lovelace is now hidden from the public.",
+    );
+    expect(screen.queryByRole("button", { name: /Ada Lovelace/ })).toBeNull();
+    expect(callsTo(fetchMock, "PUT")[0][1]?.body).toBe(
+      JSON.stringify({ hidden: true }),
+    );
+  });
+
+  it("keeps a person listed when hiding them fails", async () => {
+    const user = userEvent.setup();
+    stubApi(({ method }) =>
+      method === "PUT"
+        ? new Response("Bad Gateway", { status: 502 })
+        : apiResponse(peoplePage([ada])),
+    );
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: /Ada/ }));
+    await user.click(screen.getByRole("button", { name: "Hide from public" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("502");
+    expect(
+      screen.getByRole("button", { name: /Ada Lovelace/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("asks before hiding a person with unsaved changes", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubApi(() => apiResponse(peoplePage([ada])));
+    vi.stubGlobal("confirm", () => false);
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: /Ada/ }));
+    await user.type(screen.getByLabelText(/Page title/), "Unsaved");
+    await user.click(screen.getByRole("button", { name: "Hide from public" }));
+
+    expect(callsTo(fetchMock, "PUT")).toHaveLength(0);
+  });
+});
+
+describe("the desk's navigation", () => {
+  it("shows the waiting count, opens the queue and returns to the pages", async () => {
+    const user = userEvent.setup();
+    const hiddenAda = apiPerson({ ...ada, id: "person-3", name: "Hidden Ada" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const path = new URL(String(input)).pathname;
+        if (path === "/api/admin/suggestions") {
+          return Promise.resolve(
+            apiResponse(suggestionPage([apiSuggestion()])),
+          );
+        }
+        if (path === "/api/admin/people/hidden") {
+          return Promise.resolve(apiResponse([hiddenAda]));
+        }
+        if (init?.method === "PUT") {
+          return Promise.resolve(apiResponse(hiddenAda));
+        }
+        return Promise.resolve(apiResponse(peoplePage([bjork])));
+      }),
+    );
+    render(<App />);
+
+    const nav = screen.getByRole("link", { name: /Suggestions/ });
+    expect(await within(nav).findByText("1")).toBeInTheDocument();
+
+    await user.click(nav);
+    expect(nav).toHaveAttribute("aria-current", "page");
+    expect(
+      await screen.findByText("1 waiting for review."),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Show Hidden Ada again" }),
+    );
+    expect(await screen.findByText("Nobody is hidden.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("link", { name: /Blog pages/ }));
+    expect(screen.queryByText("1 waiting for review.")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /Hidden Ada/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves the count alone when it can't be loaded", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) =>
+        Promise.resolve(
+          String(input).includes("/api/admin/")
+            ? new Response("Unauthorized", { status: 401 })
+            : apiResponse(peoplePage([bjork])),
+        ),
+      ),
+    );
+    render(<App />);
+
+    await screen.findByRole("button", { name: /Björk/ });
+    const nav = screen.getByRole("link", { name: /Suggestions/ });
+    expect(within(nav).getByText("0")).toBeInTheDocument();
+  });
+});
+
 describe("blog page editor", () => {
   it("lists people and filters them by name", async () => {
     const user = userEvent.setup();
@@ -129,7 +282,7 @@ describe("blog page editor", () => {
     expect(screen.getByText("No versions saved")).toBeInTheDocument();
     expect(screen.getByText("http://127.0.0.1:8000")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Update name" }),
+      screen.queryByRole("button", { name: "Update person" }),
     ).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/Person name/), "Ada");
@@ -163,7 +316,7 @@ describe("blog page editor", () => {
   it("loads a page's immutable history when it is selected", async () => {
     const user = userEvent.setup();
     const fetchMock = stubApi(({ path }) =>
-      path === "/api/people/person-1/blog/revisions"
+      path === "/api/admin/people/person-1/blog/revisions"
         ? apiResponse(adaRevisions)
         : apiResponse(peoplePage([adaWithStory, bjork])),
     );
@@ -185,7 +338,9 @@ describe("blog page editor", () => {
     );
     expect(adaButton).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("heading", { name: "Edit page" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Update name" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Update person" }),
+    ).toBeDisabled();
     expect(screen.getByText("2 saved versions")).toBeInTheDocument();
     expect(screen.getByText("Last saved Sep 28, 2026")).toBeInTheDocument();
     expect(screen.getByText("/people/ada-lovelace")).toBeInTheDocument();
@@ -240,7 +395,7 @@ describe("blog page editor", () => {
       excerpt: "Letters home",
     });
     stubApi(({ path }) =>
-      path === "/api/people/person-1/blog/revisions"
+      path === "/api/admin/people/person-1/blog/revisions"
         ? apiResponse([])
         : apiResponse(
             peoplePage([apiPerson({ ...ada, blog: blogSummary(revision) })]),
@@ -266,7 +421,7 @@ describe("blog page editor", () => {
   it("shows why a page's history could not be loaded", async () => {
     const user = userEvent.setup();
     stubApi(({ path }) =>
-      path === "/api/people/person-1/blog/revisions"
+      path === "/api/admin/people/person-1/blog/revisions"
         ? apiResponse({ detail: "Person not found" }, { status: 404 })
         : apiResponse(peoplePage([adaWithStory])),
     );
@@ -286,7 +441,7 @@ describe("blog page editor", () => {
     const pending = [deferred<Response>(), deferred<Response>()];
     let revisionRequests = 0;
     stubApi(({ path }) =>
-      path === "/api/people/person-1/blog/revisions"
+      path === "/api/admin/people/person-1/blog/revisions"
         ? pending[revisionRequests++].promise
         : apiResponse(peoplePage([adaWithStory, bjork])),
     );
@@ -389,9 +544,9 @@ describe("blog page editor", () => {
 
     await user.click(screen.getByRole("button", { name: /Björk/ }));
     await user.type(screen.getByLabelText(/Person name/), " Jónsdóttir");
-    await user.click(screen.getByRole("button", { name: "Update name" }));
+    await user.click(screen.getByRole("button", { name: "Update person" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "The name could not be updated.",
+      "The person could not be updated.",
     );
 
     await user.click(screen.getByRole("button", { name: "New page" }));
@@ -478,7 +633,7 @@ describe("blog page editor", () => {
       await screen.findByRole("button", { name: /Ada Lovelace/ }),
     );
     const nameInput = screen.getByLabelText(/Person name/);
-    const updateName = screen.getByRole("button", { name: "Update name" });
+    const updateName = screen.getByRole("button", { name: "Update person" });
     await user.clear(nameInput);
     expect(updateName).toBeDisabled();
     await user.type(nameInput, "  Ada   Lovelace ");
@@ -496,13 +651,17 @@ describe("blog page editor", () => {
     await user.click(updateName);
 
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Person name updated in the shared archive.",
+      "Person updated in the shared archive.",
     );
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/people/person-1",
       expect.objectContaining({
         method: "PATCH",
-        body: JSON.stringify({ name: "Ada Byron" }),
+        body: JSON.stringify({
+          name: "Ada Byron",
+          birth_date: null,
+          death_date: null,
+        }),
       }),
     );
     expect(callsTo(fetchMock, "PUT")).toHaveLength(0);
@@ -517,7 +676,7 @@ describe("blog page editor", () => {
     const user = userEvent.setup();
     const renameResponses = [
       apiResponse(
-        { detail: "A person with this normalized name already exists" },
+        { detail: "A person with this name and these dates already exists" },
         { status: 409, headers: { "X-Request-ID": "req-rename" } },
       ),
       apiResponse(
@@ -545,16 +704,16 @@ describe("blog page editor", () => {
     );
     await user.clear(screen.getByLabelText(/Person name/));
     await user.type(screen.getByLabelText(/Person name/), "Another Person");
-    await user.click(screen.getByRole("button", { name: "Update name" }));
+    await user.click(screen.getByRole("button", { name: "Update person" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Another person already uses this normalized name. (request ID: req-rename)",
+      "Another person already has this name and these dates. (request ID: req-rename)",
     );
     expect(
       screen.getByRole("button", { name: /Ada Lovelace/ }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Update name" }));
+    await user.click(screen.getByRole("button", { name: "Update person" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "String should have at most 200 characters",
     );
@@ -566,6 +725,7 @@ describe("blog page editor", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(apiResponse(peoplePage([])))
+      .mockResolvedValueOnce(apiResponse(suggestionPage([])))
       .mockResolvedValueOnce(apiResponse(ada))
       .mockResolvedValueOnce(
         apiResponse(
@@ -638,7 +798,7 @@ describe("blog page editor", () => {
             }),
           ),
         );
-      return path === "/api/people/person-1/blog/revisions"
+      return path === "/api/admin/people/person-1/blog/revisions"
         ? apiResponse(adaRevisions)
         : apiResponse(peoplePage([adaWithStory, bjork]));
     });
@@ -729,7 +889,7 @@ describe("blog page editor", () => {
     const user = userEvent.setup();
     const createResponses = [
       apiResponse(
-        { detail: "A person with this normalized name already exists" },
+        { detail: "A person with this name and these dates already exists" },
         { status: 409, headers: { "X-Request-ID": "req-409" } },
       ),
       apiResponse(
@@ -759,7 +919,7 @@ describe("blog page editor", () => {
     await user.click(screen.getByRole("button", { name: "Save revision" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "A person with this name already exists. Select them from the pages list and save the story there. (request ID: req-409)",
+      "A person with this name and these dates already exists. Select them from the pages list and save the story there. (request ID: req-409)",
     );
 
     await user.click(screen.getByRole("button", { name: "Save revision" }));
@@ -818,7 +978,7 @@ describe("unsaved changes", () => {
             }),
           ),
         );
-      return path === "/api/people/person-1/blog/revisions"
+      return path === "/api/admin/people/person-1/blog/revisions"
         ? apiResponse(adaRevisions)
         : apiResponse(peoplePage([adaWithStory, bjork]));
     });

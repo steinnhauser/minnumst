@@ -13,7 +13,7 @@ const apiUrl = process.env.MINNUMST_API_URL?.trim();
 const run = `Contract test ${crypto.randomUUID().slice(0, 8)}`;
 const unknownId = "00000000-0000-0000-0000-000000000000";
 const requestId = /^[0-9a-f-]{36}$/;
-const conflict = "A person with this normalized name already exists";
+const conflict = "A person with this name and these dates already exists";
 
 // One entry per required field of each client type; `satisfies` fails
 // type-checking when a type gains or loses a required field. The client maps
@@ -28,6 +28,8 @@ const personFields = {
   id: "string",
   personName: "string",
   slug: "string",
+  birthDate: "string",
+  deathDate: "string",
   blog: "object",
   revisions: "object",
 } satisfies FieldTypes<Api.PersonPost>;
@@ -119,7 +121,7 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
   });
 
   it("creates and renames people, normalising names and keeping the slug", async () => {
-    const created = await api.createPerson(`  ${run}   Ödön   Á  `);
+    const created = await api.createPerson(`  ${run}   Ödön   Á  `, "1850");
     expectPerson(created);
     expect(created).toMatchObject({
       personName: `${run} Ödön Á`,
@@ -128,7 +130,11 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
     });
     expect(created.slug).toMatch(/^contract-test-[0-9a-f]{8}-odon-a(-\d+)?$/);
 
-    const renamed = await api.updatePersonName(created.id, `${run} Ödön Bé`);
+    const renamed = await api.updatePerson(
+      created.id,
+      `${run} Ödön Bé`,
+      "1850",
+    );
     expectPerson(renamed);
     expect(renamed).toMatchObject({
       id: created.id,
@@ -137,9 +143,10 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
     });
 
     // Renaming to the same name with other accents and case is no conflict.
-    const recased = await api.updatePersonName(
+    const recased = await api.updatePerson(
       created.id,
       `${run.toUpperCase()} ODON BE`,
+      "1850",
     );
     expect(recased.personName).toBe(`${run.toUpperCase()} ODON BE`);
 
@@ -151,17 +158,66 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
     expect(listed!.personName).toBe(recased.personName);
   });
 
-  it("rejects names that differ only in accents, case or spacing with 409", async () => {
-    const first = await api.createPerson(`${run} Ödön X`);
+  it("reviews suggestions and hides people", async () => {
+    const person = await api.createPerson(`${run} Review`, "1850");
+    const suggest = (body: object) =>
+      fetch(`${apiUrl}/api/people/${person.id}/suggestions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    await suggest({ kind: "edit", title: "Proposed", content: "A proposal." });
+    await suggest({ kind: "request", note: "Please check this." });
+
+    const mine = (await api.loadSuggestions()).items.filter(
+      (item) => item.person_id === person.id,
+    );
+    expect(mine.map((item) => item.kind)).toEqual(["edit", "request"]);
+
+    const accepted = await api.acceptSuggestion(mine[0].id, {
+      title: "Edited",
+      excerpt: "",
+      content: "Edited by an editor.",
+    });
+    expect(accepted.status).toBe("accepted");
+    expect(accepted.content).toBeNull();
+    expect(accepted.current_revision?.content).toBe("Edited by an editor.");
+    const rejected = await api.rejectSuggestion(mine[1].id);
+    expect(rejected.status).toBe("rejected");
+    expect(rejected.note).toBeNull();
     await expectError(
-      api.createPerson(`${run.toLowerCase()}  odon x`),
+      api.rejectSuggestion(mine[1].id),
+      409,
+      "This suggestion has already been decided",
+    );
+
+    await api.setPersonHidden(person.id, true);
+    expect((await api.loadHiddenPeople()).map((item) => item.id)).toContain(
+      person.id,
+    );
+    expect((await api.loadPeople()).map((item) => item.id)).not.toContain(
+      person.id,
+    );
+    await api.setPersonHidden(person.id, false);
+  });
+
+  it("refuses people who fail the five-year rule", async () => {
+    const error = await failure(api.createPerson(`${run} Too Young`, "1990"));
+    expect(error.status).toBe(422);
+    expect(error.message).toContain("more than five years ago");
+  });
+
+  it("rejects names that differ only in accents, case or spacing with 409", async () => {
+    const first = await api.createPerson(`${run} Ödön X`, "1850");
+    await expectError(
+      api.createPerson(`${run.toLowerCase()}  odon x`, "1850"),
       409,
       conflict,
     );
 
-    const second = await api.createPerson(`${run} Ödön Y`);
+    const second = await api.createPerson(`${run} Ödön Y`, "1850");
     await expectError(
-      api.updatePersonName(second.id, `${run.toLowerCase()} ODON X`),
+      api.updatePerson(second.id, `${run.toLowerCase()} ODON X`, "1850"),
       409,
       conflict,
     );
@@ -176,7 +232,7 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
   });
 
   it("appends revisions and never changes earlier ones", async () => {
-    const person = await api.createPerson(`${run} Story`);
+    const person = await api.createPerson(`${run} Story`, "1850");
 
     const first = await api.savePersonRevision(person.id, story(1));
     expectRevision(first.revision);
@@ -222,10 +278,10 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
 
   it("surfaces the validation message for blank names and titles", async () => {
     const blank = "String should have at least 1 character";
-    await expectError(api.createPerson("   "), 422, blank);
+    await expectError(api.createPerson("   ", "1850"), 422, blank);
 
-    const person = await api.createPerson(`${run} Validation`);
-    await expectError(api.updatePersonName(person.id, " \t "), 422, blank);
+    const person = await api.createPerson(`${run} Validation`, "1850");
+    await expectError(api.updatePerson(person.id, " \t ", "1850"), 422, blank);
     await expectError(
       api.savePersonRevision(person.id, { ...story(1), title: "   " }),
       422,
@@ -241,7 +297,7 @@ describe.skipIf(!apiUrl)("editorial API contract", () => {
   it("returns 404 with a request ID for unknown people", async () => {
     const notFound = "Person not found";
     await expectError(
-      api.updatePersonName(unknownId, `${run} Nobody`),
+      api.updatePerson(unknownId, `${run} Nobody`, "1850"),
       404,
       notFound,
     );

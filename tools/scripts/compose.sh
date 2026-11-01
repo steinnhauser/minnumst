@@ -95,7 +95,7 @@ case "$action" in
     # The production backup (pg_dump, custom format) restored into a scratch
     # database must hold the same data as the original.
     dump="$local_dir/backup-test.dump"
-    counts='SELECT (SELECT count(*) FROM people), (SELECT count(*) FROM blog_revisions)'
+    counts='SELECT (SELECT count(*) FROM people), (SELECT count(*) FROM story_revisions)'
     in_postgres "pg_dump --format custom $(var postgres_database)" > "$dump"
     in_postgres 'dropdb --if-exists restore_check && createdb restore_check'
     in_postgres 'pg_restore --dbname restore_check --exit-on-error' < "$dump"

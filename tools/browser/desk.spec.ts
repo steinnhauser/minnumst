@@ -12,12 +12,12 @@ async function saveNewPage(page: Page, name: string) {
   await page
     .getByRole("textbox", { name: /^Story/ })
     .fill("The first version of the story.");
-  await page.getByRole("button", { name: "Save revision" }).click();
+  await page.getByRole("button", { name: "Save new version" }).click();
 }
 
 async function createPerson(page: Page, name: string) {
   await saveNewPage(page, name);
-  await expect(page.getByRole("status")).toHaveText(/as revision 1\./);
+  await expect(page.getByRole("status")).toHaveText(/as version 1\./);
 }
 
 // Opens a person's profile from an archive search and returns its address.
@@ -48,13 +48,13 @@ test("an editor creates a person and keeps every revision of the story", async (
   await page
     .getByRole("textbox", { name: /^Story/ })
     .fill("The second version, with more detail.");
-  await page.getByRole("button", { name: "Save revision" }).click();
-  await expect(page.getByRole("status")).toHaveText(/as revision 2\./);
+  await page.getByRole("button", { name: "Save new version" }).click();
+  await expect(page.getByRole("status")).toHaveText(/as version 2\./);
 
   await page.getByRole("tab", { name: /History/ }).click();
-  const history = page.getByLabel("Revision history");
+  const history = page.getByLabel("Version history");
   await expect(history.locator(".revision-item")).toHaveCount(2);
-  await expect(history).toContainText("Current version");
+  await expect(history).toContainText("(current)");
   await audit();
 });
 
@@ -77,16 +77,14 @@ test("an editor renames a person and the profile keeps its address", async ({
   await nameField.fill(renamed);
 
   // A changed name has to be saved on its own before the next revision.
-  await page.getByRole("button", { name: "Save revision" }).click();
+  await page.getByRole("button", { name: "Save new version" }).click();
   await expect(page.getByRole("alert")).toHaveText(
     "Update the person name before saving a story revision.",
   );
   await audit();
 
   await page.getByRole("button", { name: "Update person" }).click();
-  await expect(page.getByRole("status")).toHaveText(
-    "Person updated in the shared archive.",
-  );
+  await expect(page.getByRole("status")).toHaveText("Person updated.");
   await expect(
     page.getByRole("button", { name: "Update person" }),
   ).toBeDisabled();
@@ -116,7 +114,7 @@ test("an editor is told what is missing before saving", async ({
   await page
     .getByRole("textbox", { name: /^Story/ })
     .fill("Nobody to save this for yet.");
-  await page.getByRole("button", { name: "Save revision" }).click();
+  await page.getByRole("button", { name: "Save new version" }).click();
 
   await expect(page.getByRole("alert")).toHaveText(
     "Add a person name, page title, and story before saving.",
@@ -144,6 +142,38 @@ test("an editor cannot add the same person twice", async ({
     /^A person with this name and these dates already exists\. Select them from the pages list and save the story there\. \(request ID: [A-Za-z0-9._-]+\)$/,
   );
   await audit();
+});
+
+test("an editor compares versions and publishes an earlier one again", async ({
+  page,
+  audit,
+}, testInfo) => {
+  const name = `Browser Restore ${testInfo.project.name} ${Date.now()}`;
+  await page.goto(desk);
+  await createPerson(page, name);
+  await page
+    .getByRole("textbox", { name: /^Story/ })
+    .fill("The second version, with more detail.");
+  await page.getByRole("button", { name: "Save new version" }).click();
+  await expect(page.getByRole("status")).toHaveText(/as version 2\./);
+
+  await page.getByRole("tab", { name: /History/ }).click();
+  await page
+    .getByRole("button", { name: "Show changes from version 1" })
+    .click();
+  await expect(
+    page.getByRole("list", { name: "Changes from version 1 to 2" }),
+  ).toContainText("The second version, with more detail.");
+  await audit();
+
+  page.on("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: "Publish version 1 again" }).click();
+  await expect(page.getByRole("status")).toHaveText(/as version 3\./);
+
+  await openInArchive(page, name);
+  await expect(page.getByLabel("Person details")).toContainText(
+    "The first version of the story.",
+  );
 });
 
 test("a visitor suggests an edit and it appears only after an editor accepts it", async ({

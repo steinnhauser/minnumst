@@ -84,7 +84,7 @@ for method in POST PUT PATCH DELETE; do
   check "API $method requires authentication" 401 "$(status --request "$method" "$api/api/people")"
 done
 
-for path in suggestions people/hidden people/00000000-0000-4000-8000-000000000000/blog/revisions; do
+for path in suggestions people/hidden people/00000000-0000-4000-8000-000000000000/story/revisions; do
   check "reading /api/admin/$path requires authentication" 401 "$(status "$api/api/admin/$path")"
 done
 # Spellings of the path that a router rule could miss but a backend might still serve.

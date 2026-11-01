@@ -40,7 +40,7 @@ describe("public API client", () => {
     );
   });
 
-  it("loads a public person and current blog by slug", async () => {
+  it("loads a public person and current story by slug", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json(adaProfile));
     vi.stubGlobal("fetch", fetchMock);
 

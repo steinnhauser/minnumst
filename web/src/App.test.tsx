@@ -108,12 +108,12 @@ describe("profile URLs", () => {
 
   it("says when a profile has no published story", async () => {
     window.history.replaceState(null, "", "/people/ada-lovelace");
-    stubApi([ada], { ...ada, current_blog: null, sources: [] });
+    stubApi([ada], { ...ada, current_story: null, sources: [] });
 
     render(<App />);
 
     expect(
-      await screen.findByText(/there is no published story yet/),
+      await screen.findByText(/No story has been written yet/),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("article", { name: "Person details" }),
@@ -137,7 +137,9 @@ describe("profile URLs", () => {
     render(<App />);
 
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Person not found"),
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "could not find this page",
+      ),
     );
     expect(
       screen.queryByRole("article", { name: "Person details" }),
@@ -167,12 +169,9 @@ describe("public people search", () => {
   it("presents a public search without a sign-in requirement", () => {
     render(<App />);
 
-    expect(searchbox()).toHaveAttribute(
-      "placeholder",
-      "Search for a person...",
-    );
+    expect(searchbox()).toHaveAttribute("placeholder", "Type a name...");
     expect(
-      screen.getByText("Public access · No sign-in required"),
+      screen.getByText("Open to everyone · No sign-in needed"),
     ).toBeInTheDocument();
   });
 
@@ -183,7 +182,7 @@ describe("public people search", () => {
     await user.click(screen.getByRole("button", { name: "Search" }));
 
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Enter a name to search the directory.",
+      "Enter a name to search the archive.",
     );
   });
 
@@ -191,7 +190,7 @@ describe("public people search", () => {
     const user = userEvent.setup();
     const person = {
       ...ada,
-      blog: {
+      story: {
         title: "A life in letters",
         excerpt: "Notes and correspondence",
         saved_at: "2026-09-28T10:00:00Z",
@@ -201,8 +200,8 @@ describe("public people search", () => {
     const fetchMock = stubApi([person], {
       ...person,
       sources: [],
-      current_blog: {
-        ...adaProfile.current_blog,
+      current_story: {
+        ...adaProfile.current_story,
         excerpt: "Notes and correspondence",
       },
     });
@@ -241,7 +240,7 @@ describe("public people search", () => {
 
     expect(
       await screen.findByRole("button", { name: /Ada Lovelace/ }),
-    ).toHaveTextContent("Person profile");
+    ).toHaveTextContent("A short page");
     expect(screen.getByRole("status")).toHaveTextContent(
       "Showing 1 of 1 people.",
     );
@@ -258,7 +257,9 @@ describe("public people search", () => {
     await user.click(screen.getByRole("button", { name: "Search" }));
 
     expect(
-      await screen.findByText("No people found. Try another name."),
+      await screen.findByText(
+        "We found no one by that name. Try another spelling.",
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("Search results")).not.toBeInTheDocument();
   });
@@ -309,6 +310,89 @@ describe("site footer", () => {
 });
 
 describe("a person's page", () => {
+  it("survives a malformed address and says the page wasn't found", async () => {
+    window.history.replaceState(null, "", "/people/%E0%A4%A");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          Response.json({ detail: "Person not found" }, { status: 404 }),
+        ),
+      ),
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText(/could not find this page/)).toBeVisible();
+  });
+
+  it("reports other failures in the API's own words", async () => {
+    window.history.replaceState(null, "", "/people/ada-lovelace");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          Response.json({ detail: "Out of order" }, { status: 503 }),
+        ),
+      ),
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("Out of order")).toBeVisible();
+  });
+
+  it.each([
+    ["an answer", () => Response.json({ ...adaProfile, name: "Too late" })],
+    ["an error", () => Response.json({ detail: "Too late" }, { status: 500 })],
+  ])("ignores %s for a profile no longer wanted", async (_, late) => {
+    window.history.replaceState(null, "", "/people/ada-lovelace");
+    let finish: (response: Response) => void = () => undefined;
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        calls += 1;
+        return calls === 1
+          ? new Promise<Response>((resolve) => {
+              finish = resolve;
+            })
+          : Promise.resolve(Response.json(pageOf([])));
+      }),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(searchbox(), "A");
+    await act(async () => finish(late()));
+
+    expect(screen.queryByText("Too late")).toBeNull();
+    expect(screen.queryByRole("article")).toBeNull();
+  });
+
+  it("describes a result with no story by the person's dates, or as a short page", async () => {
+    const dated = { ...ada, birth_date: "1815" };
+    const undated = {
+      ...ada,
+      id: "person-2",
+      name: "Undated",
+      slug: "undated",
+    };
+    stubApi([dated, undated]);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(searchbox(), "A");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+
+    expect(
+      await screen.findByRole("button", { name: /Ada Lovelace\s*Born 1815/ }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /Undated\s*A short page/ }),
+    ).toBeVisible();
+  });
+
   it("shows their dates and links to their sources", async () => {
     window.history.replaceState(null, "", "/people/ada-lovelace");
     stubApi([ada], {
@@ -323,7 +407,7 @@ describe("a person's page", () => {
     render(<App />);
 
     expect(
-      await screen.findByText("Born 1815-12-10 · Died 1852"),
+      await screen.findByText("Born 10 December 1815 · Died 1852"),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Wikidata" })).toHaveAttribute(
       "href",
@@ -478,7 +562,9 @@ describe("search suggestions", () => {
         expect(searchbox()).toHaveAttribute("aria-busy", "true"),
       );
       await user.click(screen.getByRole("button", { name: "Search" }));
-      await screen.findByText("No people found. Try another name.");
+      await screen.findByText(
+        "We found no one by that name. Try another spelling.",
+      );
       await act(() => {
         settleSuggestions();
         return new Promise((resolve) => setTimeout(resolve, 20));

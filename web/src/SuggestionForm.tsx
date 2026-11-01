@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import type { ApiError } from "@minnumst/api-client";
 import { submitSuggestion, type PersonDetail } from "./api";
 
 type Kind = "edit" | "request";
@@ -12,7 +13,7 @@ function SuggestionForm({
   person: PersonDetail;
   contact: string;
 }) {
-  const story = person.current_blog;
+  const story = person.current_story;
   const [isOpen, setIsOpen] = useState(false);
   const [kind, setKind] = useState<Kind>("edit");
   const [title, setTitle] = useState(story?.title ?? "");
@@ -23,6 +24,12 @@ function SuggestionForm({
   const [error, setError] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isSent, setIsSent] = useState(false);
+  const form = useRef<HTMLFormElement>(null);
+
+  // The button that opened the form is gone, so keyboard users move with it.
+  useEffect(() => {
+    if (isOpen) form.current?.focus();
+  }, [isOpen]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,8 +45,16 @@ function SuggestionForm({
       });
       setIsSent(true);
     } catch (reason) {
-      // The API client only throws Errors carrying a reader-facing message.
-      setError((reason as Error).message);
+      // The API client only throws Errors carrying a reader-facing message, but
+      // the edge's own limits answer without one.
+      const { status, message } = reason as ApiError;
+      setError(
+        status === 429
+          ? "Many suggestions have arrived just now. Please wait a few minutes and try again; your text is still here."
+          : status === 413
+            ? "This is longer than we can accept at once. Please shorten it and try again."
+            : message,
+      );
     } finally {
       setIsSending(false);
     }
@@ -48,8 +63,8 @@ function SuggestionForm({
   if (isSent) {
     return (
       <p className="suggestion-sent" role="status">
-        Thank you. An editor will read your suggestion before anything changes
-        on this page.
+        Thank you for helping to remember {person.name}. An editor will read
+        your suggestion before anything changes on this page.
       </p>
     );
   }
@@ -70,10 +85,13 @@ function SuggestionForm({
     <form
       className="suggestion-form"
       aria-label="Suggest an edit"
+      ref={form}
+      tabIndex={-1}
       onSubmit={(event) => void handleSubmit(event)}
     >
       <p>
-        Please write in your own words, and leave out living people and private
+        These stories are about people&apos;s family members, so please write
+        with care and in your own words. Leave out living people and private
         matters such as health, crime, adoption or paternity. We don&apos;t ask
         who you are and don&apos;t keep your address. If you would like a reply,
         write to <a href={`mailto:${contact}`}>{contact}</a>.
@@ -87,7 +105,7 @@ function SuggestionForm({
             checked={kind === "edit"}
             onChange={() => setKind("edit")}
           />
-          Edit the story
+          Write or improve the story
         </label>
         <label>
           <input

@@ -1,11 +1,6 @@
-import type { Person, PersonDetail } from "./api";
+import type { PersonDetail } from "./api";
+import { lifespan } from "./dates";
 import SuggestionForm from "./SuggestionForm";
-
-function lifespan(person: Person): string {
-  const born = person.birth_date ? `Born ${person.birth_date}` : "";
-  const died = person.death_date ? `Died ${person.death_date}` : "";
-  return [born, died].filter(Boolean).join(" · ");
-}
 
 function PersonProfile({
   person,
@@ -17,22 +12,22 @@ function PersonProfile({
   return (
     <article className="person-detail" aria-label="Person details" tabIndex={0}>
       <div className="person-detail-heading">
-        <p className="eyebrow">PERSON PROFILE</p>
+        <p className="eyebrow">IN MEMORY OF</p>
         <h2>{person.name}</h2>
         <p className="person-dates">{lifespan(person)}</p>
       </div>
-      {person.current_blog ? (
+      {person.current_story ? (
         <div className="person-story">
-          <h3>{person.current_blog.title}</h3>
-          {person.current_blog.excerpt && (
-            <p className="story-excerpt">{person.current_blog.excerpt}</p>
+          <h3>{person.current_story.title}</h3>
+          {person.current_story.excerpt && (
+            <p className="story-excerpt">{person.current_story.excerpt}</p>
           )}
-          <p className="story-content">{person.current_blog.content}</p>
+          <p className="story-content">{person.current_story.content}</p>
         </div>
       ) : (
         <p className="no-story">
-          This is a short page: there is no published story yet. If you know
-          this person&apos;s story, you can suggest one.
+          No story has been written yet. If you know something of {person.name}
+          &apos;s life, you are welcome to suggest one.
         </p>
       )}
       {person.sources.length > 0 && (

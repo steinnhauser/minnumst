@@ -2,8 +2,8 @@ import { createRequest, type components } from "@minnumst/api-client";
 
 // Generated from api/openapi.json (`make openapi`); never edit these by hand.
 type Schemas = components["schemas"];
-export type BlogSummary = Schemas["BlogSummary"];
-export type BlogRevision = Schemas["BlogRevisionResponse"];
+export type StorySummary = Schemas["StorySummary"];
+export type StoryRevision = Schemas["StoryRevisionResponse"];
 export type Person = Schemas["PersonResponse"];
 export type PersonDetail = Schemas["PersonDetail"];
 type PersonPage = Schemas["PersonPage"];

@@ -29,12 +29,12 @@ const personFields = {
   created_at: "string",
   updated_at: "string",
 } satisfies FieldTypes<Api.Person>;
-const blogSummaryFields = {
+const storySummaryFields = {
   title: "string",
   excerpt: "string",
   saved_at: "string",
   revision_count: "number",
-} satisfies FieldTypes<Api.BlogSummary>;
+} satisfies FieldTypes<Api.StorySummary>;
 const revisionFields = {
   id: "string",
   revision_number: "number",
@@ -42,7 +42,7 @@ const revisionFields = {
   title: "string",
   excerpt: "string",
   content: "string",
-} satisfies FieldTypes<Api.BlogRevision>;
+} satisfies FieldTypes<Api.StoryRevision>;
 const pageFields = {
   items: "object",
   total: "number",
@@ -59,8 +59,8 @@ function expectFields(value: unknown, fields: Record<string, string>) {
   }
 }
 
-function expectBlog(blog: unknown, fields: Record<string, string>) {
-  if (blog !== null && blog !== undefined) expectFields(blog, fields);
+function expectStory(story: unknown, fields: Record<string, string>) {
+  if (story !== null && story !== undefined) expectFields(story, fields);
 }
 
 async function failure(promise: Promise<unknown>): Promise<ApiError> {
@@ -89,7 +89,7 @@ describe.skipIf(!apiUrl)("public API contract", () => {
     expect(page.items.map((person) => person.name)).toEqual(samplePeople);
     for (const person of page.items) {
       expectFields(person, personFields);
-      expectBlog(person.blog, blogSummaryFields);
+      expectStory(person.story, storySummaryFields);
     }
 
     const profile = await api.getPersonBySlug(page.items[0].slug);
@@ -98,8 +98,8 @@ describe.skipIf(!apiUrl)("public API contract", () => {
       id: page.items[0].id,
       name: samplePeople[0],
     });
-    expectBlog(profile.blog, blogSummaryFields);
-    expectFields(profile.current_blog, revisionFields);
+    expectStory(profile.story, storySummaryFields);
+    expectFields(profile.current_story, revisionFields);
   });
 
   it("accepts a visitor's suggestion and refuses an empty one", async () => {

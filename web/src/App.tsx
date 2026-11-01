@@ -6,12 +6,14 @@ import {
   type FormEvent,
 } from "react";
 import { ArrowUpRight, Search } from "lucide-react";
+import type { ApiError } from "@minnumst/api-client";
 import {
   getPersonBySlug,
   searchPeople,
   type Person,
   type PersonDetail,
 } from "./api";
+import { lifespan } from "./dates";
 import PersonProfile from "./PersonProfile";
 import SiteFooter from "./SiteFooter";
 import "./App.css";
@@ -26,7 +28,18 @@ const RESULTS_PAGE_SIZE = 50;
 // slug, so links and bookmarks keep working.
 function profileSlug(pathname: string): string | null {
   const match = PROFILE_PATH.exec(pathname);
-  return match ? decodeURIComponent(match[1]) : null;
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    // A malformed address names nobody; the API answers it like any unknown one.
+    return match[1];
+  }
+}
+
+// What a search result says under a name.
+function resultDetail(person: Person): string {
+  return person.story?.title ?? (lifespan(person) || "A short page");
 }
 
 function App() {
@@ -45,6 +58,8 @@ function App() {
   const [isLoadingPerson, setIsLoadingPerson] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const suggestionRequest = useRef(0);
+  // Bumped by every profile opened or closed, so a late answer is dropped.
+  const profileRequest = useRef(0);
   // Bumped by every new search and edit, so a page that arrives late is dropped.
   const searchRequest = useRef(0);
   const resultsList = useRef<HTMLDivElement>(null);
@@ -92,20 +107,35 @@ function App() {
     setIsLoadingSuggestions(false);
   }, []);
 
+  const closeProfile = useCallback(() => {
+    profileRequest.current += 1;
+    setSelectedPerson(null);
+    setIsLoadingPerson(false);
+  }, []);
+
   const showProfile = useCallback(
     async (slug: string) => {
       dismissSuggestions();
+      const requestId = ++profileRequest.current;
       setIsLoadingPerson(true);
       setSelectedPerson(null);
+      setSearchMessage("");
       try {
         const person = await getPersonBySlug(slug);
+        if (requestId !== profileRequest.current) return;
         setSelectedPerson(person);
         document.title = `${person.name} | Minnumst`;
       } catch (error) {
-        // The API client only throws Errors carrying a reader-facing message.
-        setSearchMessage((error as Error).message);
+        if (requestId !== profileRequest.current) return;
+        const { status, message } = error as ApiError;
+        document.title = DEFAULT_TITLE;
+        setSearchMessage(
+          status === 404
+            ? "We could not find this page. It may have moved or been removed."
+            : message,
+        );
       } finally {
-        setIsLoadingPerson(false);
+        if (requestId === profileRequest.current) setIsLoadingPerson(false);
       }
     },
     [dismissSuggestions],
@@ -118,14 +148,14 @@ function App() {
       if (slug) {
         void showProfile(slug);
       } else {
-        setSelectedPerson(null);
+        closeProfile();
         document.title = DEFAULT_TITLE;
       }
     }
     followLocation();
     window.addEventListener("popstate", followLocation);
     return () => window.removeEventListener("popstate", followLocation);
-  }, [showProfile]);
+  }, [closeProfile, showProfile]);
 
   function resetResults() {
     searchRequest.current += 1;
@@ -145,19 +175,19 @@ function App() {
 
     const query = searchTerm.trim();
     if (!query) {
-      setSelectedPerson(null);
-      setSearchMessage("Enter a name to search the directory.");
+      closeProfile();
+      setSearchMessage("Enter a name to search the archive.");
       return;
     }
 
     const requestId = searchRequest.current;
     setIsSearching(true);
-    setSelectedPerson(null);
+    closeProfile();
     if (window.location.pathname !== "/") {
       window.history.pushState(null, "", "/");
       document.title = DEFAULT_TITLE;
     }
-    setSearchMessage("Searching the directory...");
+    setSearchMessage("Searching the archive...");
     try {
       const page = await searchPeople(query, RESULTS_PAGE_SIZE);
       if (requestId !== searchRequest.current) return;
@@ -165,7 +195,7 @@ function App() {
       setResults({ query, total: page.total, next: page.items.length });
       setSearchMessage(
         page.total === 0
-          ? "No people found. Try another name."
+          ? "We found no one by that name. Try another spelling."
           : showingMessage(page.items.length, page.total),
       );
     } catch (error) {
@@ -230,17 +260,18 @@ function App() {
           <a className="wordmark" href="#search" aria-label="Minnumst home">
             MINNUMST<span>.</span>
           </a>
-          <p className="header-note">A PUBLIC PEOPLE ARCHIVE</p>
+          <p className="header-note">A SHARED HISTORY OF ANCESTORS</p>
         </header>
 
         <div className="search-content">
           <p className="eyebrow">
             <span className="eyebrow-mark" aria-hidden="true" />
-            STORIES, SOURCES, LIVES
+            LET US REMEMBER
           </p>
-          <h1 id="page-title">Find a person.</h1>
+          <h1 id="page-title">Find someone to remember.</h1>
           <p className="intro-copy">
-            Explore stories and details from Icelandic lives.
+            Minnumst means &ldquo;let us remember&rdquo;. Read the stories of
+            Icelanders who have passed away, and help keep their memory.
           </p>
 
           <form className="search-form" onSubmit={handleSearch} role="search">
@@ -262,14 +293,14 @@ function App() {
                       : undefined
                   }
                   aria-busy={isLoadingSuggestions}
-                  placeholder="Search for a person..."
+                  placeholder="Type a name..."
                   value={searchTerm}
                   onChange={(event) => {
                     dismissSuggestions();
                     resetResults();
                     setSearchTerm(event.target.value);
                     setSearchMessage("");
-                    setSelectedPerson(null);
+                    closeProfile();
                   }}
                   onKeyDown={(event) => {
                     if (!suggestions.length) return;
@@ -321,7 +352,7 @@ function App() {
                   >
                     <span>
                       <strong>{person.name}</strong>
-                      <span>{person.blog?.title ?? "Person profile"}</span>
+                      <span>{resultDetail(person)}</span>
                     </span>
                     <ArrowUpRight size={16} aria-hidden="true" />
                   </button>
@@ -361,7 +392,7 @@ function App() {
                 >
                   <span>
                     <strong>{person.name}</strong>
-                    <span>{person.blog?.title ?? "Person profile"}</span>
+                    <span>{resultDetail(person)}</span>
                   </span>
                   <ArrowUpRight size={16} aria-hidden="true" />
                 </button>
@@ -386,7 +417,7 @@ function App() {
 
           <p className="public-note">
             <span aria-hidden="true" />
-            Public access · No sign-in required
+            Open to everyone · No sign-in needed
           </p>
         </div>
 
@@ -421,8 +452,8 @@ function App() {
       >
         <p className="eyebrow">A SHARED RECORD</p>
         <p>
-          A growing collection of stories and details about people and the lives
-          they have shaped.
+          A growing collection of the stories of those who came before us, kept
+          with care by the people who remember them.
         </p>
       </section>
 

@@ -43,7 +43,7 @@ describe("suggesting an edit", () => {
     await user.click(screen.getByRole("button", { name: "Send for review" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "An editor will read your suggestion",
+      "Thank you for helping to remember Ada Lovelace",
     );
     const { url, body } = sentBody(fetchMock);
     expect(url).toMatch(/\/api\/people\/person-1\/suggestions$/);
@@ -60,7 +60,7 @@ describe("suggesting an edit", () => {
 
   it("lets a visitor write the first story for a short page", async () => {
     const fetchMock = stubFetch(receipt());
-    const user = await open({ ...ada, current_blog: null, sources: [] });
+    const user = await open({ ...ada, current_story: null, sources: [] });
 
     await user.type(screen.getByRole("textbox", { name: "Title" }), "Her life");
     await user.type(screen.getByRole("textbox", { name: "Story" }), "Text");
@@ -104,7 +104,9 @@ describe("suggesting an edit", () => {
     const user = await open();
 
     await user.click(screen.getByRole("radio", { name: /Report a mistake/ }));
-    await user.click(screen.getByRole("radio", { name: "Edit the story" }));
+    await user.click(
+      screen.getByRole("radio", { name: "Write or improve the story" }),
+    );
 
     expect(screen.getByRole("textbox", { name: "Story" })).toBeInTheDocument();
     await user.type(screen.getByRole("textbox", { name: "Title" }), "!");
@@ -118,7 +120,7 @@ describe("suggesting an edit", () => {
   });
 
   it("keeps the text and shows the reason when sending fails", async () => {
-    stubFetch(Response.json({ detail: "Too many" }, { status: 429 }));
+    stubFetch(Response.json({ detail: "Too many" }, { status: 400 }));
     const user = await open();
 
     await user.click(screen.getByRole("button", { name: "Send for review" }));
@@ -130,6 +132,25 @@ describe("suggesting an edit", () => {
     expect(
       screen.getByRole("button", { name: "Send for review" }),
     ).toBeEnabled();
+  });
+
+  it.each([
+    [429, "Please wait a few minutes"],
+    [413, "Please shorten it"],
+  ])("explains the edge's %i in plain words", async (status, text) => {
+    stubFetch(new Response("Too much", { status }));
+    const user = await open();
+
+    await user.click(screen.getByRole("button", { name: "Send for review" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(text);
+  });
+
+  it("moves keyboard focus to the form it opens", async () => {
+    stubFetch(receipt());
+    await open();
+
+    expect(screen.getByRole("form", { name: "Suggest an edit" })).toHaveFocus();
   });
 
   it("asks for nothing about the visitor", async () => {

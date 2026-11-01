@@ -14,13 +14,13 @@ export const ada = {
   slug: "ada-lovelace",
   created_at: "2026-09-28T10:00:00Z",
   updated_at: "2026-09-28T10:00:00Z",
-  blog: null,
+  story: null,
 } satisfies PersonResponse;
 
 export const adaProfile = {
   ...ada,
   sources: [],
-  current_blog: {
+  current_story: {
     id: "revision-1",
     revision_number: 1,
     saved_at: "2026-09-28T10:00:00Z",

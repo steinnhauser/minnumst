@@ -18,8 +18,10 @@ compose=(docker compose --project-name {{ minnumst_compose_project | quote }} --
 read -rp "This replaces the production database $database with $1. Type 'restore' to continue: " answer
 [[ $answer == restore ]] || { echo "Cancelled." >&2; exit 1; }
 
+# One transaction: a bad or truncated file leaves the database as it was. Either
+# way the services come back.
+trap '"${compose[@]}" up --detach "${services[@]}"' EXIT
 "${compose[@]}" stop "${services[@]}"
 "${compose[@]}" exec -T -e DATABASE="$database" postgres sh -c \
-  'PGPASSWORD="$POSTGRES_PASSWORD" pg_restore --username postgres --dbname "$DATABASE" --clean --if-exists --exit-on-error' < "$1"
-"${compose[@]}" up --detach "${services[@]}"
+  'PGPASSWORD="$POSTGRES_PASSWORD" pg_restore --username postgres --dbname "$DATABASE" --clean --if-exists --single-transaction' < "$1"
 echo "Restored $1 into $database."

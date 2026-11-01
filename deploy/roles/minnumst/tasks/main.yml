@@ -101,7 +101,7 @@
       delay: 10
       until: minnumst_smoke_authentik.status == 200
 
-    - name: The editorial desk and API writes refuse unauthenticated requests (NIST AC-3)
+    - name: The editorial desk, API writes and editors' routes refuse unauthenticated requests (NIST AC-3)
       ansible.builtin.uri:
         url: "{{ item.url }}"
         method: "{{ item.method }}"
@@ -116,8 +116,20 @@
       loop:
         - { url: "https://{{ minnumst_admin_domain }}/", method: GET }
         - { url: "https://{{ minnumst_api_domain }}/api/people", method: POST }
+        - url: "https://{{ minnumst_api_domain }}/api/admin/suggestions"
+          method: GET
       loop_control:
         label: "{{ item.method }} {{ item.url }}"
+
+    # An empty body fails validation before anything is stored, which still shows
+    # that the request passed the edge without a login.
+    - name: Anyone can reach the suggestion route without a login
+      ansible.builtin.uri:
+        url: "https://{{ minnumst_api_domain }}/api/people/00000000-0000-4000-8000-000000000000/suggestions"
+        method: POST
+        body_format: json
+        body: {}
+        status_code: 422
 
 - name: Install age to encrypt backups
   ansible.builtin.apt:

@@ -68,6 +68,11 @@ export function createApp({ env, root, logger, serve = handler }) {
       response.writeHead(405, { Allow: "GET, HEAD" }).end();
       return;
     }
+    // A NUL can't name a file; refuse it here rather than fail inside the handler.
+    if (request.url?.includes("%00")) {
+      response.writeHead(400).end();
+      return;
+    }
     if (route === "/runtime-config.js") {
       response.writeHead(200, {
         "Content-Type": "text/javascript; charset=utf-8",

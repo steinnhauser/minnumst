@@ -92,6 +92,18 @@ async function stopOnSigterm(listenersBefore) {
 }
 
 describe("static server", () => {
+  it("refuses a NUL in an address and survives malformed paths", async () => {
+    const { logger, request, close } = await serve();
+
+    const nul = await request("/assets/%00");
+    const ok = await request("/");
+
+    close();
+    expect(nul.status).toBe(400);
+    expect(ok.status).toBe(200);
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
   it("serves index.html with security headers and a request ID", async () => {
     const app = await serve();
     try {

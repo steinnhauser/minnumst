@@ -22,7 +22,7 @@ import subprocess
 import sys
 import tomllib
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -156,7 +156,7 @@ def next_version(current: str, increment: str) -> str:
 
 
 def changelog_section(version: str, commits: list[dict[str, str]]) -> str:
-    lines = [f"## {version} ({date.today().isoformat()})", ""]
+    lines = [f"## {version} ({datetime.now(UTC).date().isoformat()})", ""]
     breaking = [commit["desc"] for commit in commits if commit["breaking"]]
     groups = [("BREAKING CHANGES", breaking)] + [
         (title, [c["desc"] for c in commits if c["type"] == kind])

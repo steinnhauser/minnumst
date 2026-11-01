@@ -47,3 +47,17 @@ def unique_person_slug(
         slug = f"{base_slug}-{suffix}"
         suffix += 1
     return slug
+
+
+def new_person(
+    session: Session, name: str, birth_date: str | None, death_date: str | None
+) -> Person:
+    """A person who passed validation, ready to add to the session."""
+    return Person(
+        name=name,
+        normalized_name=normalized_person_name(name),
+        birth_date=birth_date,
+        death_date=death_date,
+        identity=person_identity(name, birth_date, death_date),
+        slug=unique_person_slug(session, name, birth_date),
+    )

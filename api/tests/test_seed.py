@@ -95,7 +95,7 @@ def test_remove_keeps_anyone_with_a_story(engine: Engine) -> None:
         session.add(BlogPost(person_id=person.id))
         session.commit()
 
-    report = remove_batch(engine, BATCH[:2] + [record("Q99")])
+    report = remove_batch(engine, [*BATCH[:2], record("Q99")])
 
     assert report == {"kept_has_a_story": 1, "removed": 1, "not_found": 1}
     assert names(engine) == ["jon-jonsson"]

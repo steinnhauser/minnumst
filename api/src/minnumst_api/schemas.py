@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from minnumst_api.eligibility import INELIGIBLE, is_eligible, valid_partial_date
+from minnumst_api.models import SuggestionKind, SuggestionStatus
 
 
 class PersonCreate(BaseModel):
@@ -114,7 +114,7 @@ class PersonPage(BaseModel):
 class SuggestionCreate(BaseModel):
     """A visitor's proposal: new story text, or a request in their own words."""
 
-    kind: Literal["edit", "request"]
+    kind: SuggestionKind
     base_revision_number: int | None = Field(default=None, ge=1)
     title: str | None = Field(default=None, max_length=255)
     excerpt: str | None = Field(default=None, max_length=10000)
@@ -147,7 +147,7 @@ class SuggestionCreate(BaseModel):
 
 class SuggestionReceipt(BaseModel):
     id: str
-    status: str
+    status: SuggestionStatus
 
 
 class SuggestionResponse(BaseModel):
@@ -155,8 +155,8 @@ class SuggestionResponse(BaseModel):
     person_id: str
     person_name: str
     person_slug: str
-    kind: str
-    status: str
+    kind: SuggestionKind
+    status: SuggestionStatus
     base_revision_number: int | None
     current_revision: BlogRevisionResponse | None
     title: str | None

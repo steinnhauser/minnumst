@@ -482,8 +482,11 @@ export interface components {
         readonly SuggestionReceipt: {
             /** Id */
             readonly id: string;
-            /** Status */
-            readonly status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            readonly status: "pending" | "accepted" | "rejected";
         };
         /** SuggestionResponse */
         readonly SuggestionResponse: {
@@ -501,8 +504,11 @@ export interface components {
             readonly excerpt: string | null;
             /** Id */
             readonly id: string;
-            /** Kind */
-            readonly kind: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            readonly kind: "edit" | "request";
             /** Note */
             readonly note: string | null;
             /** Person Id */
@@ -517,8 +523,11 @@ export interface components {
             readonly reviewed_by: string | null;
             /** Source Url */
             readonly source_url: string | null;
-            /** Status */
-            readonly status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            readonly status: "pending" | "accepted" | "rejected";
             /** Title */
             readonly title: string | null;
         };
@@ -651,7 +660,7 @@ export interface operations {
     readonly list_suggestions_api_admin_suggestions_get: {
         readonly parameters: {
             readonly query?: {
-                readonly status?: string;
+                readonly status?: "pending" | "accepted" | "rejected";
                 readonly offset?: number;
                 readonly limit?: number;
             };

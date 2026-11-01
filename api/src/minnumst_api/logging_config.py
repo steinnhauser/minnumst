@@ -2,6 +2,7 @@ import json
 import logging
 from contextvars import ContextVar
 from datetime import UTC, datetime
+from typing import Any
 
 from minnumst_api.config import LogLevel
 
@@ -37,17 +38,20 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str, separators=(",", ":"))
 
 
+class JsonStreamHandler(logging.StreamHandler[Any]):
+    """Marks the handler this module installed, so it is only ever added once."""
+
+
 def configure_logging(level: LogLevel) -> None:
     numeric_level = logging.getLevelNamesMapping()[level]
     root = logging.getLogger()
     root.setLevel(numeric_level)
     handler = next(
-        (item for item in root.handlers if getattr(item, "_minnumst_json", False)),
+        (item for item in root.handlers if isinstance(item, JsonStreamHandler)),
         None,
     )
     if handler is None:
-        handler = logging.StreamHandler()
-        handler._minnumst_json = True
+        handler = JsonStreamHandler()
         root.addHandler(handler)
     handler.setLevel(numeric_level)
     handler.setFormatter(JsonFormatter())

@@ -13,7 +13,7 @@ import argparse
 import json
 from collections import Counter
 from pathlib import Path
-from uuid import uuid4
+from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import select
@@ -22,11 +22,7 @@ from sqlalchemy.orm import Session
 
 from minnumst_api.database import make_engine
 from minnumst_api.models import Person, PersonSource
-from minnumst_api.names import (
-    normalized_person_name,
-    person_identity,
-    unique_person_slug,
-)
+from minnumst_api.names import new_person, person_identity
 from minnumst_api.schemas import PersonCreate
 
 
@@ -41,18 +37,23 @@ class SeedRecord(PersonCreate):
     sources: list[SourceRecord] = Field(min_length=1)
 
 
-def read_batch(path: Path) -> list[dict]:
+def read_batch(path: Path) -> list[dict[str, Any]]:
     with path.open(encoding="utf-8") as lines:
         return [json.loads(line) for line in lines if line.strip()]
 
 
-def import_batch(engine: Engine, batch: list[dict], *, apply: bool) -> Counter[str]:
+def import_batch(
+    engine: Engine, batch: list[dict[str, Any]], *, apply: bool
+) -> Counter[str]:
     report: Counter[str] = Counter()
     with Session(engine) as session:
         identities = set(session.scalars(select(Person.identity)))
-        known_sources = set(
-            session.execute(select(PersonSource.source, PersonSource.external_id))
-        )
+        known_sources: set[tuple[str, str]] = {
+            (row.source, row.external_id)
+            for row in session.execute(
+                select(PersonSource.source, PersonSource.external_id)
+            )
+        }
         for raw in batch:
             try:
                 record = SeedRecord.model_validate(raw)
@@ -68,14 +69,8 @@ def import_batch(engine: Engine, batch: list[dict], *, apply: bool) -> Counter[s
             if identity in identities:
                 report["skipped_same_name_and_dates"] += 1
                 continue
-            person = Person(
-                id=str(uuid4()),
-                name=record.name,
-                normalized_name=normalized_person_name(record.name),
-                birth_date=record.birth_date,
-                death_date=record.death_date,
-                identity=identity,
-                slug=unique_person_slug(session, record.name, record.birth_date),
+            person = new_person(
+                session, record.name, record.birth_date, record.death_date
             )
             person.sources = [PersonSource(**s.model_dump()) for s in record.sources]
             session.add(person)
@@ -90,7 +85,7 @@ def import_batch(engine: Engine, batch: list[dict], *, apply: bool) -> Counter[s
     return report
 
 
-def remove_batch(engine: Engine, batch: list[dict]) -> Counter[str]:
+def remove_batch(engine: Engine, batch: list[dict[str, Any]]) -> Counter[str]:
     """Remove the batch's people, keeping anyone who has a story by now."""
     report: Counter[str] = Counter()
     with Session(engine) as session:

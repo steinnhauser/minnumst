@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -9,11 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from minnumst_api.database import get_session
 from minnumst_api.models import BlogPost, BlogRevision, Person, Suggestion
-from minnumst_api.names import (
-    normalized_person_name,
-    person_identity,
-    unique_person_slug,
-)
+from minnumst_api.names import new_person, normalized_person_name, person_identity
 from minnumst_api.schemas import (
     BlogResponse,
     BlogRevisionInput,
@@ -33,13 +29,25 @@ from minnumst_api.schemas import (
 router = APIRouter(prefix="/api")
 # Documented error responses, so the OpenAPI contract and generated clients
 # know every status a route can return.
-NOT_FOUND = {404: {"model": ErrorResponse, "description": "Person or story not found"}}
-CONFLICT = {409: {"model": ErrorResponse, "description": "Conflicts with stored data"}}
+Responses = dict[int | str, dict[str, Any]]
+NOT_FOUND: Responses = {
+    404: {"model": ErrorResponse, "description": "Person or story not found"}
+}
+CONFLICT: Responses = {
+    409: {"model": ErrorResponse, "description": "Conflicts with stored data"}
+}
+QUEUE_FULL: Responses = {
+    429: {"model": ErrorResponse, "description": "The review queue is full"}
+}
 SessionDep = Annotated[Session, Depends(get_session)]
 logger = logging.getLogger(__name__)
 # Keeps a flood of suggestions from filling the disk or burying the queue.
 MAX_PENDING_SUGGESTIONS = 500
 IDENTITY_CONFLICT = "A person with this name and these dates already exists"
+# A person with their whole story, for a single profile.
+WITH_STORY = selectinload(Person.blog).selectinload(BlogPost.revisions)
+# Lists only summarise stories, so they skip loading every revision's full text.
+WITH_STORY_SUMMARY = WITH_STORY.defer(BlogRevision.content)
 
 
 def latest_revision(blog: BlogPost) -> BlogRevision | None:
@@ -96,14 +104,12 @@ def blog_response(blog: BlogPost) -> BlogResponse:
 
 # Log lines only carry values read from the database, never request input; the
 # request ID in every record correlates them with the request.
-def get_person(session: Session, person_id: UUID) -> Person:
+def get_person(session: Session, person_id: UUID | str) -> Person:
     person = session.scalar(
         select(Person)
-        .options(
-            selectinload(Person.blog).selectinload(BlogPost.revisions),
-            selectinload(Person.sources),
-        )
+        .options(WITH_STORY, selectinload(Person.sources))
         .where(Person.id == str(person_id))
+        .execution_options(populate_existing=True)
     )
     if person is None:
         logger.warning("Person lookup failed")
@@ -172,13 +178,16 @@ def list_people(
     statement = select(Person).where(Person.hidden_at.is_(None))
     count_statement = select(func.count(Person.id)).where(Person.hidden_at.is_(None))
     if query and query.strip():
-        search = f"%{normalized_person_name(query)}%"
-        statement = statement.where(Person.normalized_name.ilike(search))
-        count_statement = count_statement.where(Person.normalized_name.ilike(search))
+        # Autoescape, so a % or _ in the query matches only itself.
+        matches = Person.normalized_name.contains(
+            normalized_person_name(query), autoescape=True
+        )
+        statement = statement.where(matches)
+        count_statement = count_statement.where(matches)
     total = session.scalar(count_statement) or 0
     people = session.scalars(
-        statement.options(selectinload(Person.blog).selectinload(BlogPost.revisions))
-        .order_by(Person.name)
+        statement.options(WITH_STORY_SUMMARY)
+        .order_by(Person.name, Person.id)
         .offset(offset)
         .limit(limit)
     ).all()
@@ -198,15 +207,7 @@ def list_people(
     responses=CONFLICT,
 )
 def create_person(payload: PersonCreate, session: SessionDep) -> PersonResponse:
-    person = Person(
-        id=str(uuid4()),
-        name=payload.name,
-        normalized_name=normalized_person_name(payload.name),
-        birth_date=payload.birth_date,
-        death_date=payload.death_date,
-        identity=person_identity(payload.name, payload.birth_date, payload.death_date),
-        slug=unique_person_slug(session, payload.name, payload.birth_date),
-    )
+    person = new_person(session, payload.name, payload.birth_date, payload.death_date)
     session.add(person)
     try:
         session.commit()
@@ -225,10 +226,7 @@ def create_person(payload: PersonCreate, session: SessionDep) -> PersonResponse:
 def get_person_by_slug(slug: str, session: SessionDep) -> PersonDetail:
     person = session.scalar(
         select(Person)
-        .options(
-            selectinload(Person.blog).selectinload(BlogPost.revisions),
-            selectinload(Person.sources),
-        )
+        .options(WITH_STORY, selectinload(Person.sources))
         .where(Person.slug == slug, Person.hidden_at.is_(None))
     )
     if person is None:
@@ -327,12 +325,12 @@ def save_blog(
     revision = append_revision(session, person, payload)
     blog_id = revision.blog_id
     session.commit()
-    saved_blog = session.scalar(
+    saved_blog = session.scalars(
         select(BlogPost)
         .options(selectinload(BlogPost.revisions))
         .where(BlogPost.id == blog_id)
         .execution_options(populate_existing=True)
-    )
+    ).one()
     logger.info(
         "Blog revision saved person_id=%s blog_id=%s revision_number=%d",
         person.id,
@@ -346,8 +344,7 @@ def save_blog(
     "/people/{person_id}/suggestions",
     response_model=SuggestionReceipt,
     status_code=status.HTTP_201_CREATED,
-    responses=NOT_FOUND
-    | {429: {"model": ErrorResponse, "description": "The review queue is full"}},
+    responses=NOT_FOUND | QUEUE_FULL,
     description=(
         "Propose a change to a person's page: `edit` carries new story text and "
         "`request` describes a correction or removal in the visitor's own words. "

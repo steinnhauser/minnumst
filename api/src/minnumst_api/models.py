@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Literal
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -17,6 +18,9 @@ from sqlalchemy import (
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+SuggestionKind = Literal["edit", "request"]
+SuggestionStatus = Literal["pending", "accepted", "rejected"]
+
 
 class UTCDateTime(TypeDecorator[datetime]):
     """A timestamp stored and returned in UTC on every backend.
@@ -29,12 +33,16 @@ class UTCDateTime(TypeDecorator[datetime]):
     cache_ok = True
 
     def process_bind_param(
-        self, value: datetime | None, dialect: Dialect
+        self,
+        value: datetime | None,
+        dialect: Dialect,  # noqa: ARG002 - SQLAlchemy's signature
     ) -> datetime | None:
         return None if value is None else as_utc(value)
 
     def process_result_value(
-        self, value: datetime | None, dialect: Dialect
+        self,
+        value: datetime | None,
+        dialect: Dialect,  # noqa: ARG002 - SQLAlchemy's signature
     ) -> datetime | None:
         return None if value is None else as_utc(value)
 
@@ -186,8 +194,8 @@ class Suggestion(Base):
     person_id: Mapped[str] = mapped_column(
         ForeignKey("people.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    kind: Mapped[str] = mapped_column(String(10), nullable=False)
-    status: Mapped[str] = mapped_column(
+    kind: Mapped[SuggestionKind] = mapped_column(String(10), nullable=False)
+    status: Mapped[SuggestionStatus] = mapped_column(
         String(10), nullable=False, default="pending", index=True
     )
     # The revision the visitor was reading, so an editor can see if it has moved on.

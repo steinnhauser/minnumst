@@ -14,11 +14,7 @@ from minnumst_api.config import settings
 from minnumst_api.database import make_engine
 from minnumst_api.migrate import downgrade, upgrade
 from minnumst_api.models import BlogPost, BlogRevision, Person
-from minnumst_api.names import (
-    normalized_person_name,
-    person_identity,
-    unique_person_slug,
-)
+from minnumst_api.names import new_person, normalized_person_name
 
 SAMPLE_RECORDS = (
     {
@@ -92,15 +88,8 @@ def populate(session: Session) -> tuple[int, int, int]:
             select(Person).where(Person.normalized_name == normalized_name)
         )
         if person is None:
-            person = Person(
-                name=record["name"],
-                normalized_name=normalized_name,
-                birth_date=record["birth_date"],
-                death_date=record.get("death_date"),
-                identity=person_identity(
-                    record["name"], record["birth_date"], record.get("death_date")
-                ),
-                slug=unique_person_slug(session, record["name"]),
+            person = new_person(
+                session, record["name"], record["birth_date"], record.get("death_date")
             )
             session.add(person)
             session.flush()

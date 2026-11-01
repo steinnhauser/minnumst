@@ -221,9 +221,7 @@ def test_hiding_a_person_removes_them_from_every_public_read(
     )
 
 
-def test_story_history_is_only_served_to_editors(
-    client: TestClient, person: dict
-) -> None:
+def test_story_history_is_only_served_to_editors(client: TestClient) -> None:
     paths = [path for path in client.app.openapi()["paths"] if "revisions" in path]
 
     assert paths == ["/api/admin/people/{person_id}/blog/revisions"]

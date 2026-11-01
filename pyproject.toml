@@ -8,6 +8,7 @@ members = ["api", "deploy"]
 dev = [
   "ansible-lint>=24.10,<27.0",
   "httpx2>=2.16,<3.0",
+  "mypy>=2.0,<3.0",
   "pytest>=8.3,<10.0",
   "pytest-cov>=7.0,<8.0",
   "ruff>=0.8,<1.0",
@@ -22,7 +23,34 @@ src = ["api/src", "api/tests", "api/scripts", "tools/scripts"]
 extend-exclude = ["node_modules"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
+select = [
+  "E",
+  "F",
+  "I",
+  "UP",
+  "B",
+  "ARG",
+  "C4",
+  "DTZ",
+  "G",
+  "LOG",
+  "PIE",
+  "PT",
+  "PTH",
+  "RET",
+  "RUF",
+  "S",
+  "SIM",
+  "T20",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert and use throwaway credentials.
+"api/tests/**" = ["S101", "S105", "S106"]
+# Command-line tools print, and fetch or run what they were written to.
+"api/scripts/**" = ["T20"]
+"api/src/minnumst_api/seed.py" = ["T20"]
+"tools/scripts/**" = ["S101", "S310", "S603", "S607", "T20"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["minnumst_api"]
@@ -30,6 +58,13 @@ known-first-party = ["minnumst_api"]
 [tool.ruff.format]
 indent-style = "space"
 quote-style = "double"
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+files = ["api/src"]
+mypy_path = "api/src"
+explicit_package_bases = true
 
 # `make test` fails unless the API tests cover every line and branch.
 [tool.coverage.run]

@@ -16,13 +16,15 @@ from sqlalchemy.orm import Session, selectinload
 from minnumst_api.api import (
     CONFLICT,
     NOT_FOUND,
+    WITH_STORY,
+    WITH_STORY_SUMMARY,
     SessionDep,
     append_revision,
     get_person,
     latest_revision,
     person_response,
 )
-from minnumst_api.models import BlogPost, Person, Suggestion
+from minnumst_api.models import Person, Suggestion, SuggestionStatus
 from minnumst_api.schemas import (
     BlogRevisionInput,
     BlogRevisionResponse,
@@ -64,18 +66,14 @@ def suggestion_response(suggestion: Suggestion) -> SuggestionResponse:
     )
 
 
-def with_person():
-    return selectinload(Suggestion.person).options(
-        selectinload(Person.blog).selectinload(BlogPost.revisions)
-    )
+# A suggestion with its person and their current story, to compare against.
+WITH_PERSON = selectinload(Suggestion.person).options(WITH_STORY)
 
 
 def pending_suggestion(session: Session, suggestion_id: UUID) -> Suggestion:
     """The suggestion, locked, so that two editors can't both decide it."""
     suggestion = session.scalar(
-        select(Suggestion)
-        .where(Suggestion.id == str(suggestion_id))
-        .with_for_update(of=Suggestion)
+        select(Suggestion).where(Suggestion.id == str(suggestion_id)).with_for_update()
     )
     if suggestion is None:
         logger.warning("Suggestion lookup failed")
@@ -89,7 +87,9 @@ def pending_suggestion(session: Session, suggestion_id: UUID) -> Suggestion:
     return suggestion
 
 
-def decide(session: Session, suggestion: Suggestion, decision: str, by: str) -> None:
+def decide(
+    session: Session, suggestion: Suggestion, decision: SuggestionStatus, by: str
+) -> None:
     suggestion.status = decision
     suggestion.reviewed_at = datetime.now(UTC)
     suggestion.reviewed_by = by
@@ -103,7 +103,7 @@ def reloaded(session: Session, suggestion_id: str) -> SuggestionResponse:
     return suggestion_response(
         session.scalars(
             select(Suggestion)
-            .options(with_person())
+            .options(WITH_PERSON)
             .where(Suggestion.id == suggestion_id)
             .execution_options(populate_existing=True)
         ).one()
@@ -113,9 +113,7 @@ def reloaded(session: Session, suggestion_id: str) -> SuggestionResponse:
 @admin_router.get("/suggestions", response_model=SuggestionPage)
 def list_suggestions(
     session: SessionDep,
-    suggestion_status: Annotated[
-        str, Query(alias="status", pattern="^(pending|accepted|rejected)$")
-    ] = "pending",
+    suggestion_status: Annotated[SuggestionStatus, Query(alias="status")] = "pending",
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> SuggestionPage:
@@ -124,7 +122,7 @@ def list_suggestions(
     )
     suggestions = session.scalars(
         select(Suggestion)
-        .options(with_person())
+        .options(WITH_PERSON)
         .where(Suggestion.status == suggestion_status)
         .order_by(Suggestion.created_at, Suggestion.id)
         .offset(offset)
@@ -161,7 +159,7 @@ def accept_suggestion(
             excerpt=suggestion.excerpt or "",
             content=suggestion.content or "",
         )
-        person = get_person(session, UUID(suggestion.person_id))
+        person = get_person(session, suggestion.person_id)
         suggestion.revision_id = append_revision(session, person, story).id
     decide(session, suggestion, "accepted", reviewer)
     return reloaded(session, suggestion.id)
@@ -221,7 +219,7 @@ def list_blog_revisions(
 def list_hidden_people(session: SessionDep) -> list[PersonResponse]:
     people = session.scalars(
         select(Person)
-        .options(selectinload(Person.blog).selectinload(BlogPost.revisions))
+        .options(WITH_STORY_SUMMARY)
         .where(Person.hidden_at.is_not(None))
         .order_by(Person.name)
     ).all()

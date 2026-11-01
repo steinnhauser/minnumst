@@ -1,6 +1,6 @@
 import logging
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from importlib.metadata import version
 from time import perf_counter
@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy import text
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -96,7 +96,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
         title="Minnumst API",
         version=version("minnumst-api"),
         lifespan=lifespan,
-        exception_handlers={Exception: internal_server_error},
+        # FastAPI's type wants a Response; Starlette runs any ASGI app it returns.
+        exception_handlers={Exception: internal_server_error},  # type: ignore[dict-item]
     )
     app.state.engine = engine
     app.state.session_factory = session_factory
@@ -104,7 +105,9 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.include_router(admin_router)
 
     @app.middleware("http")
-    async def log_request(request: Request, call_next):
+    async def log_request(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         request_id = request.state.request_id
         started_at = perf_counter()
         logger.debug(

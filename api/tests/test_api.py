@@ -69,6 +69,36 @@ def test_search_folds_icelandic_letters_independently_of_the_database(
     assert duplicate.status_code == 409
 
 
+@pytest.mark.parametrize("query", ["%", "_", "a%a", "a_a"])
+def test_search_treats_wildcards_as_plain_characters(
+    client: TestClient, query: str
+) -> None:
+    create_person(client, "Anna")
+
+    page = client.get("/api/people", params={"query": query}).json()
+
+    assert page["total"] == 0
+
+
+def test_lists_summarise_stories_without_loading_their_text(
+    client: TestClient,
+) -> None:
+    person = create_person(client)
+    client.put(f"/api/people/{person['id']}/blog", json=STORY)
+    statements: list[str] = []
+    engine = client.app.state.engine
+
+    def record(_: object, __: object, statement: str, *___: object) -> None:
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", record)
+    page = client.get("/api/people").json()
+    event.remove(engine, "before_cursor_execute", record)
+
+    assert page["items"][0]["blog"]["title"] == "Story"
+    assert not any("content" in statement for statement in statements)
+
+
 def test_person_slug_collisions_get_a_unique_suffix(client: TestClient) -> None:
     first = create_person(client, "Ada Lovelace")
     second = create_person(client, "Ada-Lovelace")
@@ -151,7 +181,7 @@ def test_timestamps_read_back_from_the_database_are_explicitly_utc(
 
 def test_utc_timestamps_are_normalised_on_write_and_read() -> None:
     column = UTCDateTime()
-    naive = datetime(2026, 10, 27, 12, 0)
+    naive = datetime(2026, 10, 27, 12, 0)  # noqa: DTZ001 - the case under test
     oslo = datetime(2026, 10, 27, 13, 0, tzinfo=timezone(timedelta(hours=1)))
     utc = datetime(2026, 10, 27, 12, 0, tzinfo=UTC)
 

@@ -205,7 +205,8 @@ def main() -> None:
         assert updated["slug"] == person["slug"]
         params = urlencode({"query": run_id, "offset": 0, "limit": 10})
         search = expect_status("GET", f"/api/people?{params}", 200)
-        assert search["total"] == 1 and search["items"][0]["id"] == person["id"]
+        assert search["total"] == 1
+        assert search["items"][0]["id"] == person["id"]
         print("PASS person update and search")
 
         first = {

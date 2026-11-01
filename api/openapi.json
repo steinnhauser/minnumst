@@ -592,6 +592,11 @@
             "type": "string"
           },
           "status": {
+            "enum": [
+              "pending",
+              "accepted",
+              "rejected"
+            ],
             "title": "Status",
             "type": "string"
           }
@@ -658,6 +663,10 @@
             "type": "string"
           },
           "kind": {
+            "enum": [
+              "edit",
+              "request"
+            ],
             "title": "Kind",
             "type": "string"
           },
@@ -719,6 +728,11 @@
             "title": "Source Url"
           },
           "status": {
+            "enum": [
+              "pending",
+              "accepted",
+              "rejected"
+            ],
             "title": "Status",
             "type": "string"
           },
@@ -951,7 +965,11 @@
             "required": false,
             "schema": {
               "default": "pending",
-              "pattern": "^(pending|accepted|rejected)$",
+              "enum": [
+                "pending",
+                "accepted",
+                "rejected"
+              ],
               "title": "Status",
               "type": "string"
             }

@@ -25,6 +25,8 @@ services:
             def do_GET(self):
                 allowed = self.headers.get("Authorization") == "Bearer local-edge-test"
                 self.send_response(200 if allowed else 401)
+                if allowed:
+                    self.send_header("X-authentik-username", "local-editor")
                 self.end_headers()
 
             def log_message(self, *args):

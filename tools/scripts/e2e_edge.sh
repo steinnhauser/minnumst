@@ -49,6 +49,8 @@ assert "authentik" not in middlewares("public", "minnumst-public"), "the public 
 assert "authentik" not in middlewares("api", "minnumst-api-read"), "API reads must not need a login"
 assert "authentik" in middlewares("admin", "minnumst-admin"), "the editorial desk must need a login"
 assert "authentik" in middlewares("api", "minnumst-api-write"), "API writes must need a login"
+assert "authentik" in middlewares("api", "minnumst-api-admin"), "editor routes on the API must need a login"
+assert "authentik" not in middlewares("api", "minnumst-api-suggest"), "suggesting a change must not need a login"
 assert all(s.get("volumes") is None or "/var/run/docker.sock" not in str(s["volumes"])
            for name, s in services.items() if name != "docker-socket-proxy"), "socket mounted outside the proxy"
 for name, service in services.items():
@@ -57,11 +59,13 @@ for name, service in services.items():
 def database_role(name):
     return services[name]["environment"]["DATABASE_URL"].split("//")[1].split(":")[0]
 assert database_role("api") != database_role("migrate"), "the API must not be the schema owner"
+assert not any("accesslog" in arg.lower() for arg in services["traefik"]["command"]), "no access log: visitors stay unrecorded"
 '
 check "only Traefik publishes ports; PostgreSQL and the Docker API proxy sit on internal networks" "ok" "ok"
 check "every container: no-new-privileges, read-only, no capabilities" "ok" "ok"
 check "the API connects as a runtime role, not as the schema owner" "ok" "ok"
-check "only the editorial desk and API writes go through Authentik" "ok" "ok"
+check "only the editorial desk, API writes and editors' routes go through Authentik" "ok" "ok"
+check "Traefik keeps no access log, so no visitor address is written down" "ok" "ok"
 
 for _ in $(seq 30); do
   [[ $(status "$web/") == 200 ]] && break
@@ -80,11 +84,26 @@ for method in POST PUT PATCH DELETE; do
   check "API $method requires authentication" 401 "$(status --request "$method" "$api/api/people")"
 done
 
+for path in suggestions people/hidden people/00000000-0000-4000-8000-000000000000/blog/revisions; do
+  check "reading /api/admin/$path requires authentication" 401 "$(status "$api/api/admin/$path")"
+done
+check "the suggestion queue opens with authentication" 200 "$(status --header "$token" "$api/api/admin/suggestions")"
+
 name="Edge check $(date +%s)-$RANDOM"
 body=$(curl "${curl_args[@]}" --fail --header "$token" --header "Content-Type: application/json" \
-  --data "{\"name\": \"$name\"}" "$api/api/people")
+  --data "{\"name\": \"$name\", \"birth_date\": \"1850\"}" "$api/api/people")
 id=$(sed -n 's/.*"id":"\([^"]*\)".*/\1/p' <<<"$body")
 check "an authenticated write passes the edge" "?*" "$id"
+
+suggest() { curl "${curl_args[@]}" --header "Content-Type: application/json" "$@" "$api/api/people/$id/suggestions"; }
+receipt=$(suggest --data '{"kind": "request", "note": "Edge check"}')
+suggestion=$(sed -n 's/.*"id":"\([^"]*\)".*/\1/p' <<<"$receipt")
+check "anyone can suggest a change without a login" "?*" "$suggestion"
+check "other methods on the suggestion route still need a login" 401 "$(status --request PUT "$api/api/people/$id/suggestions")"
+check "an oversized suggestion is refused at the edge" 413 "$(python3 -c 'print("{\"kind\": \"request\", \"note\": \"" + "x" * 140000 + "\"}")' | suggest --output /dev/null --write-out '%{http_code}' --data-binary @-)"
+decision=$(curl "${curl_args[@]}" --request POST --header "$token" --header "X-Authentik-Username: forged" \
+  --header "Content-Type: application/json" --data '{}' "$api/api/admin/suggestions/$suggestion/accept")
+check "the edge records the signed-in editor, not a header the client sent" '*"reviewed_by":"local-editor"*' "$decision"
 check "an authenticated delete passes the edge" 204 "$(status --request DELETE --header "$token" "$api/api/people/$id")"
 
 # Authentik itself: the edge checks above use the stand-in, which needs no login.
@@ -165,6 +184,11 @@ check "the API's role reaches the archive's database" yes "$(can_connect MINNUMS
 check "Authentik's role reaches Authentik's database" yes "$(can_connect MINNUMST_AUTHENTIK_PASSWORD MINNUMST_AUTHENTIK_USER MINNUMST_AUTHENTIK_DATABASE)"
 check "the API's role can't reach Authentik's database" no "$(can_connect MINNUMST_APP_PASSWORD MINNUMST_APP_USER MINNUMST_AUTHENTIK_DATABASE)"
 check "Authentik's role can't reach the archive's database" no "$(can_connect MINNUMST_AUTHENTIK_PASSWORD MINNUMST_AUTHENTIK_USER POSTGRES_DB)"
+
+# Five suggestions a minute, then a burst of five: a dozen must hit the limit.
+codes=$(seq 12 | xargs -P 4 -I{} curl "${curl_args[@]}" --output /dev/null --write-out '%{http_code}\n' \
+  --header "Content-Type: application/json" --data '{}' "$api/api/people/00000000-0000-4000-8000-000000000000/suggestions")
+check "the suggestion rate limit answers floods with 429" "*429*" "$(sort <<<"$codes" | uniq -c | tr '\n' ' ')"
 
 # 150 concurrent reads exceed the API's 20 requests/s average and burst of 50.
 codes=$(seq 150 | xargs -P 30 -I{} curl "${curl_args[@]}" --output /dev/null --write-out '%{http_code}\n' "$api/healthz")

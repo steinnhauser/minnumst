@@ -1,0 +1,14 @@
+---
+# Imports a reviewed batch of people. Separate from site.yml so that no deploy, with
+# any tags, can run it. `make import plan|apply|remove` runs this.
+- name: Import a batch of people
+  hosts: minnumst
+  become: true
+  gather_facts: false
+  vars:
+    minnumst_seed_action: plan
+  tasks:
+    - name: Run the import
+      ansible.builtin.include_role:
+        name: minnumst
+        tasks_from: seed.yml

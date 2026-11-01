@@ -5,6 +5,7 @@ import { archive, desk, expect, test } from "./fixtures";
 async function saveNewPage(page: Page, name: string) {
   await page.getByRole("button", { name: "Create a new page" }).click();
   await page.getByRole("textbox", { name: /^Person name/ }).fill(name);
+  await page.getByRole("textbox", { name: /^Born/ }).fill("1850");
   await page
     .getByRole("textbox", { name: /^Page title/ })
     .fill("A first draft");
@@ -82,12 +83,12 @@ test("an editor renames a person and the profile keeps its address", async ({
   );
   await audit();
 
-  await page.getByRole("button", { name: "Update name" }).click();
+  await page.getByRole("button", { name: "Update person" }).click();
   await expect(page.getByRole("status")).toHaveText(
-    "Person name updated in the shared archive.",
+    "Person updated in the shared archive.",
   );
   await expect(
-    page.getByRole("button", { name: "Update name" }),
+    page.getByRole("button", { name: "Update person" }),
   ).toBeDisabled();
   await page.getByPlaceholder("Find a person").fill(run);
   const pages = page.getByLabel("Saved pages");
@@ -137,10 +138,44 @@ test("an editor cannot add the same person twice", async ({
   await page.goto(desk);
   await createPerson(page, name);
 
-  // The same name in other letter case is the same person.
+  // The same name and dates, in other letter case, are the same person.
   await saveNewPage(page, name.toUpperCase());
   await expect(page.getByRole("alert")).toHaveText(
-    /^A person with this name already exists\. Select them from the pages list and save the story there\. \(request ID: [A-Za-z0-9._-]+\)$/,
+    /^A person with this name and these dates already exists\. Select them from the pages list and save the story there\. \(request ID: [A-Za-z0-9._-]+\)$/,
   );
   await audit();
+});
+
+test("a visitor suggests an edit and it appears only after an editor accepts it", async ({
+  page,
+  audit,
+}, testInfo) => {
+  const name = `Browser Suggestion ${testInfo.project.name} ${Date.now()}`;
+  const proposal = `A proposal from a visitor, ${Date.now()}.`;
+  await page.goto(desk);
+  await createPerson(page, name);
+
+  await openInArchive(page, name);
+  const details = page.getByLabel("Person details");
+  await details.getByRole("button", { name: "Suggest an edit" }).click();
+  await audit();
+  await details.getByRole("textbox", { name: "Story" }).fill(proposal);
+  await details.getByRole("button", { name: "Send for review" }).click();
+  await expect(details.getByRole("status")).toContainText(
+    "An editor will read",
+  );
+
+  await page.reload();
+  await expect(page.getByLabel("Person details")).not.toContainText(proposal);
+
+  await page.goto(desk);
+  await page.getByRole("link", { name: /Suggestions/ }).click();
+  const card = page.getByRole("listitem").filter({ hasText: name });
+  await expect(card).toBeVisible();
+  await audit();
+  await card.getByRole("button", { name: "Accept and publish" }).click();
+  await expect(card).toHaveCount(0);
+
+  await openInArchive(page, name);
+  await expect(page.getByLabel("Person details")).toContainText(proposal);
 });

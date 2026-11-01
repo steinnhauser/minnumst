@@ -141,6 +141,24 @@ services:
         condition: service_healthy
     networks: [backend]
 
+  # Imports a reviewed batch of people as the API's role. Only `make import` runs
+  # it, never a deploy.
+  seed:
+    <<: *locked-down
+    profiles: [seed]
+    restart: "no"
+    image: {{ minnumst_api_image | to_json }}
+    command: [python, -m, minnumst_api.seed, plan, /seed/batch.jsonl]
+    environment:
+      DATABASE_URL: {{ ("postgresql+psycopg://" ~ postgres_user ~ ":" ~ (postgres_password | urlencode) ~ "@postgres:5432/" ~ postgres_database) | to_json }}
+      LOG_LEVEL: {{ minnumst_log_level | to_json }}
+    volumes:
+      - {{ minnumst_deploy_dir }}/seed:/seed:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+
   api:
     <<: *locked-down
     image: {{ minnumst_api_image | to_json }}
@@ -154,7 +172,9 @@ services:
         condition: service_completed_successfully
     labels:
       traefik.enable: "true"
-      # Reads are public; every write method goes through Authentik first.
+      # Reads are public, and every write goes through Authentik first, with two
+      # routers above that: editors' routes need a login whatever the method, and
+      # the one public write, a visitor's suggestion, has its own stricter limits.
       traefik.http.routers.minnumst-api-read.rule: "Host(`{{ minnumst_api_domain }}`)"
       traefik.http.routers.minnumst-api-read.entrypoints: websecure
       traefik.http.routers.minnumst-api-read.priority: "1"
@@ -167,14 +187,33 @@ services:
       traefik.http.routers.minnumst-api-write.tls.certresolver: le
       traefik.http.routers.minnumst-api-write.middlewares: api-ratelimit@docker,authentik@docker
       traefik.http.routers.minnumst-api-write.service: minnumst-api
+      traefik.http.routers.minnumst-api-admin.rule: "Host(`{{ minnumst_api_domain }}`) && PathPrefix(`/api/admin`)"
+      traefik.http.routers.minnumst-api-admin.entrypoints: websecure
+      traefik.http.routers.minnumst-api-admin.priority: "200"
+      traefik.http.routers.minnumst-api-admin.tls.certresolver: le
+      traefik.http.routers.minnumst-api-admin.middlewares: api-ratelimit@docker,authentik@docker
+      traefik.http.routers.minnumst-api-admin.service: minnumst-api
+      traefik.http.routers.minnumst-api-suggest.rule: "Host(`{{ minnumst_api_domain }}`) && Method(`POST`) && PathRegexp(`^/api/people/[^/]+/suggestions$$`)"
+      traefik.http.routers.minnumst-api-suggest.entrypoints: websecure
+      traefik.http.routers.minnumst-api-suggest.priority: "300"
+      traefik.http.routers.minnumst-api-suggest.tls.certresolver: le
+      traefik.http.routers.minnumst-api-suggest.middlewares: suggest-ratelimit@docker,suggest-size@docker
+      traefik.http.routers.minnumst-api-suggest.service: minnumst-api
       traefik.http.services.minnumst-api.loadbalancer.server.port: "8000"
       # Shared middlewares, defined once here and referenced by every router.
       traefik.http.middlewares.authentik.forwardauth.address: {{ authentik_forwardauth_address | to_json }}
       # Traefik is the edge and drops client-sent X-Forwarded-* headers, so only
       # its own reach Authentik.
       traefik.http.middlewares.authentik.forwardauth.trustForwardHeader: "true"
+      # Replaces any such header a client sent, so the API can record the editor.
+      traefik.http.middlewares.authentik.forwardauth.authResponseHeaders: X-authentik-username
       traefik.http.middlewares.api-ratelimit.ratelimit.average: "20"
       traefik.http.middlewares.api-ratelimit.ratelimit.burst: "50"
+      # Per source address, held in memory only: no address is ever written down.
+      traefik.http.middlewares.suggest-ratelimit.ratelimit.average: "5"
+      traefik.http.middlewares.suggest-ratelimit.ratelimit.period: 1m
+      traefik.http.middlewares.suggest-ratelimit.ratelimit.burst: "5"
+      traefik.http.middlewares.suggest-size.buffering.maxRequestBodyBytes: "131072"
       traefik.http.middlewares.security-headers.headers.stsSeconds: "63072000"
       traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains: "true"
       traefik.http.middlewares.security-headers.headers.contentTypeNosniff: "true"

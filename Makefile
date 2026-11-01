@@ -13,6 +13,8 @@ DEPLOY_WRAPPER := $(if $(wildcard infra/terraform.tfstate),$(SSH_ACCESS) run)
 INVENTORY ?= deploy/inventory/hosts.ini
 # Ask for the vault password only once there is a vault.
 VAULT_ARGS ?= $(if $(wildcard deploy/inventory/group_vars/all/vault.yml),--ask-vault-pass)
+# The batch of people `make import` works on, reviewed in Git before it is imported.
+IMPORT_BATCH ?= deploy/seed/wikidata-2026-11.jsonl
 # Where `make infra-backup` keeps its copies of the encrypted state.
 INFRA_BACKUP_DIR ?= $(HOME)/.local/share/minnumst/infra-state
 # The API that `make contract` tests; the local stack publishes it here.
@@ -25,7 +27,7 @@ unexport VIRTUAL_ENV
 	openapi openapi-check migration build validate clean ci \
 	dev-api dev-web dev-admin \
 	stack-config up wait seed e2e contract edge backup-test browser stack-test ps logs down db-update db-clear db-reset \
-	deploy-check deploy release infra-check infra-plan infra-apply infra-inventory infra-backup ssh
+	deploy-check deploy release infra-check infra-plan infra-apply infra-inventory infra-backup ssh import
 
 help:
 	@printf '%s\n' \
@@ -79,6 +81,7 @@ help:
 	  '' \
 	  'Deployment' \
 	  '  deploy-check    ansible-lint and playbook syntax check' \
+	  '  import          fetch a batch of people to review, then plan, apply or remove it on the host' \
 	  '  deploy          Harden the host and deploy to INVENTORY (asks for the vault password; ARGS="--tags host" for one part)' \
 	  '' \
 	  '  ci              validate, then stack-test'
@@ -215,6 +218,7 @@ db-reset:
 deploy-check:
 	cd deploy && $(UV_RUN) ansible-lint
 	cd deploy && $(UV_RUN) ansible-playbook -i inventory/hosts.ini.example site.yml --syntax-check
+	cd deploy && $(UV_RUN) ansible-playbook -i inventory/hosts.ini.example seed.yml --syntax-check
 
 deploy:
 	$(DEPLOY_WRAPPER) env -C deploy $(UV_RUN) ansible-playbook -i $(abspath $(INVENTORY)) $(VAULT_ARGS) site.yml $(ARGS)
@@ -248,6 +252,21 @@ endif
 
 ssh:
 	@$(SSH_ACCESS) $(filter-out ssh,$(MAKECMDGOALS))
+
+ifeq (import,$(firstword $(MAKECMDGOALS)))
+fetch plan apply remove:
+	@:
+endif
+
+# `make import fetch` writes the batch to review; plan, apply and remove then act
+# on the live host. No deploy runs these.
+import:
+	@case "$(filter-out import,$(MAKECMDGOALS))" in \
+	  fetch) $(UV_RUN) python tools/scripts/fetch_wikidata.py $(IMPORT_BATCH) ;; \
+	  plan|apply|remove) $(DEPLOY_WRAPPER) env -C deploy $(UV_RUN) ansible-playbook -i $(abspath $(INVENTORY)) $(VAULT_ARGS) seed.yml \
+	    -e minnumst_seed_action=$(filter-out import,$(MAKECMDGOALS)) -e minnumst_seed_file=$(abspath $(IMPORT_BATCH)) ;; \
+	  *) echo 'Usage: make import fetch|plan|apply|remove [IMPORT_BATCH=file]'; exit 2 ;; \
+	esac
 
 infra-backup:
 	@test -f infra/terraform.tfstate || { echo 'Nothing to back up: infra/terraform.tfstate is missing.'; exit 1; }

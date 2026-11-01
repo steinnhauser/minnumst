@@ -15,7 +15,7 @@ function SuggestionCard({
   onDecided,
 }: {
   suggestion: Suggestion;
-  onDecided: (id: string) => void;
+  onDecided: (decided: Suggestion) => void;
 }) {
   const current = suggestion.current_revision;
   const [title, setTitle] = useState(suggestion.title ?? "");
@@ -32,8 +32,7 @@ function SuggestionCard({
     setIsBusy(true);
     setError("");
     try {
-      await action();
-      onDecided(suggestion.id);
+      onDecided(await action());
     } catch (reason) {
       setError(errorMessage(reason, "The decision could not be saved."));
       setIsBusy(false);
@@ -149,9 +148,11 @@ function SuggestionCard({
 // The review queue, and the people hidden from the public.
 function Suggestions({
   onPendingChange,
+  onEditAccepted,
   onPersonRestored,
 }: {
   onPendingChange: (pending: number) => void;
+  onEditAccepted: (suggestion: Suggestion) => void;
   onPersonRestored: (person: PersonPost) => void;
 }) {
   const [items, setItems] = useState<Suggestion[]>([]);
@@ -180,10 +181,13 @@ function Suggestions({
     };
   }, [onPendingChange]);
 
-  function handleDecided(id: string) {
-    setItems((current) => current.filter((item) => item.id !== id));
+  function handleDecided(decided: Suggestion) {
+    setItems((current) => current.filter((item) => item.id !== decided.id));
     setTotal(total - 1);
     onPendingChange(total - 1);
+    if (decided.status === "accepted" && decided.kind === "edit") {
+      onEditAccepted(decided);
+    }
   }
 
   async function restore(person: PersonPost) {

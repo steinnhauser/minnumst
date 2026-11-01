@@ -12,10 +12,10 @@ import {
   type Person,
   type PersonDetail,
 } from "./api";
-import SuggestionForm from "./SuggestionForm";
+import PersonProfile from "./PersonProfile";
+import SiteFooter from "./SiteFooter";
 import "./App.css";
 
-const REPOSITORY = "https://github.com/steinnhauser/minnumst";
 const CONTACT = "contact@minnumst.org";
 
 const DEFAULT_TITLE = document.title;
@@ -27,12 +27,6 @@ const RESULTS_PAGE_SIZE = 50;
 function profileSlug(pathname: string): string | null {
   const match = PROFILE_PATH.exec(pathname);
   return match ? decodeURIComponent(match[1]) : null;
-}
-
-function lifespan(person: Person): string {
-  const born = person.birth_date ? `Born ${person.birth_date}` : "";
-  const died = person.death_date ? `Died ${person.death_date}` : "";
-  return [born, died].filter(Boolean).join(" · ");
 }
 
 function App() {
@@ -242,11 +236,11 @@ function App() {
         <div className="search-content">
           <p className="eyebrow">
             <span className="eyebrow-mark" aria-hidden="true" />
-            STORIES, PHOTOGRAPHS, LIVES
+            STORIES, SOURCES, LIVES
           </p>
           <h1 id="page-title">Find a person.</h1>
           <p className="intro-copy">
-            Explore articles, photographs, and details from Icelandic lives.
+            Explore stories and details from Icelandic lives.
           </p>
 
           <form className="search-form" onSubmit={handleSearch} role="search">
@@ -268,7 +262,7 @@ function App() {
                       : undefined
                   }
                   aria-busy={isLoadingSuggestions}
-                  placeholder="Search for a persons details..."
+                  placeholder="Search for a person..."
                   value={searchTerm}
                   onChange={(event) => {
                     dismissSuggestions();
@@ -387,51 +381,7 @@ function App() {
           )}
 
           {selectedPerson && (
-            <article
-              className="person-detail"
-              aria-label="Person details"
-              tabIndex={0}
-            >
-              <div className="person-detail-heading">
-                <p className="eyebrow">PERSON PROFILE</p>
-                <h2>{selectedPerson.name}</h2>
-                <p className="person-dates">{lifespan(selectedPerson)}</p>
-              </div>
-              {selectedPerson.current_blog ? (
-                <div className="person-story">
-                  <h3>{selectedPerson.current_blog.title}</h3>
-                  {selectedPerson.current_blog.excerpt && (
-                    <p className="story-excerpt">
-                      {selectedPerson.current_blog.excerpt}
-                    </p>
-                  )}
-                  <p className="story-content">
-                    {selectedPerson.current_blog.content}
-                  </p>
-                </div>
-              ) : (
-                <p className="no-story">
-                  This is a short page: there is no published story yet. If you
-                  know this person&apos;s story, you can suggest one.
-                </p>
-              )}
-              {selectedPerson.sources.length > 0 && (
-                <ul className="person-sources" aria-label="Sources">
-                  {selectedPerson.sources.map((source) => (
-                    <li key={source.url}>
-                      <a href={source.url} rel="noreferrer">
-                        {source.title}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <SuggestionForm
-                key={selectedPerson.id}
-                person={selectedPerson}
-                contact={CONTACT}
-              />
-            </article>
+            <PersonProfile person={selectedPerson} contact={CONTACT} />
           )}
 
           <p className="public-note">
@@ -471,50 +421,12 @@ function App() {
       >
         <p className="eyebrow">A SHARED RECORD</p>
         <p>
-          A growing collection of stories, photographs, and details about people
-          and the lives they have shaped.
+          A growing collection of stories and details about people and the lives
+          they have shaped.
         </p>
       </section>
 
-      <footer className="site-footer">
-        <div>
-          <p className="eyebrow">MINNUMST</p>
-          <p>© 2026 Steinn Hauser Magnússon</p>
-          <p>Stories remain with their authors and sources.</p>
-          <a href={`mailto:${CONTACT}`}>{CONTACT}</a>
-        </div>
-        <nav aria-label="Project">
-          <p className="eyebrow">OPEN SOURCE</p>
-          <a href={REPOSITORY} rel="noreferrer">
-            Source code on GitHub
-          </a>
-          <a href={`${REPOSITORY}/blob/main/LICENSE`} rel="noreferrer">
-            Code licensed under Apache-2.0
-          </a>
-          <a href={`${REPOSITORY}/security/policy`} rel="noreferrer">
-            Report a security issue
-          </a>
-        </nav>
-        <div>
-          <p className="eyebrow">PEOPLE AND DATA</p>
-          <p>
-            This archive only holds people who died more than five years ago,
-            and it uses no tracking or analytics.
-          </p>
-          <a
-            href={`${REPOSITORY}#data-protection-and-sources`}
-            rel="noreferrer"
-          >
-            Data protection and sources
-          </a>
-          <a
-            href="https://images.unsplash.com/photo-1551632811-561732d1e306"
-            rel="noreferrer"
-          >
-            Landing photograph from Unsplash
-          </a>
-        </div>
-      </footer>
+      <SiteFooter contact={CONTACT} />
     </main>
   );
 }

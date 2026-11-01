@@ -1,5 +1,12 @@
 import { StrictMode } from "react";
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -19,6 +26,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.resetModules();
   Reflect.deleteProperty(window, "__MINNUMST_ENV__");
+  window.location.hash = "";
 });
 
 type ApiCall = { method: string; path: string };
@@ -200,7 +208,7 @@ describe("the desk's navigation", () => {
     expect(await within(nav).findByText("1")).toBeInTheDocument();
 
     await user.click(nav);
-    expect(nav).toHaveAttribute("aria-current", "page");
+    expect(await screen.findByRole("link", { current: "page" })).toBe(nav);
     expect(
       await screen.findByText("1 waiting for review."),
     ).toBeInTheDocument();
@@ -211,9 +219,125 @@ describe("the desk's navigation", () => {
     expect(await screen.findByText("Nobody is hidden.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("link", { name: /Blog pages/ }));
-    expect(screen.queryByText("1 waiting for review.")).toBeNull();
+    await waitFor(() =>
+      expect(screen.queryByText("1 waiting for review.")).toBeNull(),
+    );
     expect(
       screen.getByRole("button", { name: /Hidden Ada/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the queue directly from its address", async () => {
+    window.location.hash = "#suggestions";
+    stubApi(({ path }) =>
+      path.endsWith("/hidden")
+        ? apiResponse([])
+        : apiResponse(peoplePage([bjork])),
+    );
+
+    render(<App />);
+
+    expect(
+      await screen.findByText("0 waiting for review."),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    ["open in the editor", true],
+    ["not open", false],
+  ])(
+    "shows an accepted edit in the story of a person %s",
+    async (_, openFirst) => {
+      const user = userEvent.setup();
+      const accepted = apiRevision(1, {
+        title: "The accepted title",
+        content: "The accepted story.",
+      });
+      const fetchMock = vi.fn((input: RequestInfo | URL) => {
+        const path = new URL(String(input)).pathname;
+        if (path === "/api/admin/suggestions") {
+          return Promise.resolve(
+            apiResponse(
+              suggestionPage([
+                apiSuggestion({ person_id: "person-1", title: "Proposed" }),
+              ]),
+            ),
+          );
+        }
+        if (path.endsWith("/accept")) {
+          return Promise.resolve(
+            apiResponse(
+              apiSuggestion({ status: "accepted", current_revision: accepted }),
+            ),
+          );
+        }
+        if (path.endsWith("/hidden")) return Promise.resolve(apiResponse([]));
+        if (path.endsWith("/revisions")) {
+          return Promise.resolve(apiResponse([accepted]));
+        }
+        return Promise.resolve(apiResponse(peoplePage([ada, bjork])));
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      render(<App />);
+
+      if (openFirst) {
+        await user.click(await screen.findByRole("button", { name: /Ada/ }));
+      }
+      await user.click(screen.getByRole("link", { name: /Suggestions/ }));
+      await user.click(
+        await screen.findByRole("button", { name: "Accept and publish" }),
+      );
+      await screen.findByText("0 waiting for review.");
+      await user.click(screen.getByRole("link", { name: /Blog pages/ }));
+
+      if (!openFirst) {
+        await user.click(await screen.findByRole("button", { name: /Ada/ }));
+      }
+      await waitFor(() =>
+        expect(screen.getByLabelText(/^Story/)).toHaveValue(
+          "The accepted story.",
+        ),
+      );
+    },
+  );
+
+  it("ignores an accepted edit for someone no longer in the list", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const path = new URL(String(input)).pathname;
+        if (path === "/api/admin/suggestions") {
+          return Promise.resolve(
+            apiResponse(
+              suggestionPage([apiSuggestion({ person_id: "person-gone" })]),
+            ),
+          );
+        }
+        if (path.endsWith("/accept")) {
+          return Promise.resolve(
+            apiResponse(
+              apiSuggestion({
+                status: "accepted",
+                person_id: "person-gone",
+                current_revision: apiRevision(1),
+              }),
+            ),
+          );
+        }
+        if (path.endsWith("/hidden")) return Promise.resolve(apiResponse([]));
+        return Promise.resolve(apiResponse(peoplePage([bjork])));
+      }),
+    );
+    render(<App />);
+
+    await user.click(screen.getByRole("link", { name: /Suggestions/ }));
+    await user.click(
+      await screen.findByRole("button", { name: "Accept and publish" }),
+    );
+
+    expect(
+      await screen.findByText("0 waiting for review."),
     ).toBeInTheDocument();
   });
 

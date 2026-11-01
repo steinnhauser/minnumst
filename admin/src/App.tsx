@@ -7,14 +7,11 @@ import {
   type FormEvent,
 } from "react";
 import {
-  AlertTriangle,
   BookOpenText,
-  Clock3,
   FilePlus2,
   History,
   Inbox,
   Info,
-  Search,
   Save,
 } from "lucide-react";
 import {
@@ -29,8 +26,13 @@ import {
   updatePerson,
   type PersonPost,
   type PostInput,
+  type Suggestion,
 } from "./api";
 import { appConfig } from "./config";
+import PageDetails from "./PageDetails";
+import PageIndex from "./PageIndex";
+import PagePreview from "./PagePreview";
+import RevisionHistory from "./RevisionHistory";
 import Suggestions from "./Suggestions";
 import "./App.css";
 
@@ -39,12 +41,16 @@ type EditorTab = "write" | "preview" | "history";
 const nameConflict = "A person with this name and these dates already exists";
 const emptyDraft: PostInput = { title: "", excerpt: "", content: "" };
 
+function viewFromAddress() {
+  return window.location.hash === "#suggestions" ? "suggestions" : "pages";
+}
+
 function App() {
   const [posts, setPosts] = useState<PersonPost[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<EditorTab>("write");
   const [filter, setFilter] = useState("");
-  const [view, setView] = useState<"pages" | "suggestions">("pages");
+  const [view, setView] = useState(viewFromAddress);
   const [pendingCount, setPendingCount] = useState(0);
   const [personName, setPersonName] = useState("");
   const [birthDate, setBirthDate] = useState("");
@@ -101,6 +107,12 @@ function App() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const followAddress = () => setView(viewFromAddress());
+    window.addEventListener("hashchange", followAddress);
+    return () => window.removeEventListener("hashchange", followAddress);
   }, []);
 
   // The count on the navigation; a failure here shows in the queue itself.
@@ -300,6 +312,28 @@ function App() {
     }
   }
 
+  // An accepted edit is a new revision, so the desk's copy of that story is stale:
+  // drop the loaded history, and reload it if the person is open in the editor.
+  function handleSuggestionAccepted(suggestion: Suggestion) {
+    const post = posts.find((item) => item.id === suggestion.person_id);
+    const revision = suggestion.current_revision;
+    if (!post || !revision) return;
+    const updated: PersonPost = {
+      ...post,
+      blog: {
+        title: revision.title,
+        excerpt: revision.excerpt,
+        savedAt: revision.saved_at,
+        revisionCount: revision.revision_number,
+      },
+      revisions: [],
+    };
+    setPosts((current) =>
+      current.map((item) => (item.id === post.id ? updated : item)),
+    );
+    if (post.id === selectedId) void selectPost(updated);
+  }
+
   // A removal request is met by hiding the page: everything stays on record.
   async function handleHidePerson(post: PersonPost) {
     if (!confirmDiscard()) return;
@@ -339,7 +373,6 @@ function App() {
             className={`nav-item${view === "pages" ? " nav-item-active" : ""}`}
             href="#pages"
             aria-current={view === "pages" ? "page" : undefined}
-            onClick={() => setView("pages")}
           >
             <BookOpenText size={17} aria-hidden="true" />
             <span>Blog pages</span>
@@ -349,7 +382,6 @@ function App() {
             className={`nav-item${view === "suggestions" ? " nav-item-active" : ""}`}
             href="#suggestions"
             aria-current={view === "suggestions" ? "page" : undefined}
-            onClick={() => setView("suggestions")}
           >
             <Inbox size={17} aria-hidden="true" />
             <span>Suggestions</span>
@@ -382,6 +414,7 @@ function App() {
         {view === "suggestions" && (
           <Suggestions
             onPendingChange={setPendingCount}
+            onEditAccepted={handleSuggestionAccepted}
             onPersonRestored={handlePersonRestored}
           />
         )}
@@ -414,77 +447,23 @@ function App() {
           </div>
 
           <section className="workbench" aria-label="Blog page editor">
-            <aside className="page-index" aria-label="Saved pages">
-              <div className="index-heading">
-                <div>
-                  <h2>Pages</h2>
-                  <span>{posts.length} total</span>
-                </div>
-                <button
-                  className="index-add-button"
-                  type="button"
-                  onClick={startNewPage}
-                  aria-label="Create a new page"
-                  title="Create a new page"
-                >
-                  <FilePlus2 size={17} aria-hidden="true" />
-                </button>
-              </div>
-              <label className="filter-control">
-                <Search size={15} aria-hidden="true" />
-                <span className="visually-hidden">Filter by person name</span>
-                <input
-                  type="search"
-                  placeholder="Find a person"
-                  value={filter}
-                  onChange={(event) => setFilter(event.target.value)}
-                />
-              </label>
-              <div className="page-list">
-                {visiblePosts.map((post) => {
-                  const revision = currentRevision(post);
-                  return (
-                    <button
-                      className={`page-list-item${selectedId === post.id ? " selected" : ""}`}
-                      type="button"
-                      key={post.id}
-                      onClick={() => selectPost(post)}
-                      aria-current={selectedId === post.id ? "page" : undefined}
-                    >
-                      <span className="page-initial" aria-hidden="true">
-                        {post.personName.charAt(0).toLocaleUpperCase()}
-                      </span>
-                      <span className="page-list-copy">
-                        <strong>{post.personName}</strong>
-                        <span>
-                          {revision?.title ||
-                            post.blog?.title ||
-                            "Untitled page"}
-                        </span>
-                      </span>
-                      <span
-                        className="draft-indicator"
-                        aria-label="Saved in shared archive"
-                      />
-                    </button>
-                  );
-                })}
-                {visiblePosts.length === 0 && (
-                  <p className="index-empty">
-                    {isLoading
-                      ? "Loading people..."
-                      : loadError ||
-                        (posts.length === 0
-                          ? "No people have been added yet."
-                          : "No matching names.")}
-                  </p>
-                )}
-              </div>
-              <div className="index-footer">
-                <span className="draft-indicator" aria-hidden="true" />
-                <span>Shared archive</span>
-              </div>
-            </aside>
+            <PageIndex
+              posts={posts}
+              visiblePosts={visiblePosts}
+              selectedId={selectedId}
+              filter={filter}
+              emptyMessage={
+                isLoading
+                  ? "Loading people..."
+                  : loadError ||
+                    (posts.length === 0
+                      ? "No people have been added yet."
+                      : "No matching names.")
+              }
+              onFilterChange={setFilter}
+              onNewPage={startNewPage}
+              onSelect={(post) => void selectPost(post)}
+            />
 
             <div className="editor-column">
               <div className="editor-toolbar">
@@ -671,127 +650,25 @@ function App() {
               )}
 
               {tab === "preview" && (
-                <article className="article-preview" aria-label="Page preview">
-                  {selectedPost && (
-                    <p className="preview-person">
-                      A STORY ABOUT{" "}
-                      {selectedPost.personName.toLocaleUpperCase()}
-                    </p>
-                  )}
-                  <h2>{title || "Your page title"}</h2>
-                  {excerpt && <p className="preview-excerpt">{excerpt}</p>}
-                  <div className="preview-rule" />
-                  <p className="preview-body">
-                    {content || "Your story will appear here as you write."}
-                  </p>
-                  {selectedPost && (
-                    <span className="preview-route">
-                      Public story · {selectedPost.slug}
-                    </span>
-                  )}
-                </article>
+                <PagePreview
+                  post={selectedPost}
+                  title={title}
+                  excerpt={excerpt}
+                  content={content}
+                />
               )}
 
               {tab === "history" && (
-                <section className="history-view" aria-label="Revision history">
-                  <div className="form-heading">
-                    <div>
-                      <h2>Revision history</h2>
-                      <p>Earlier versions are retained when you save edits.</p>
-                    </div>
-                    <span className="draft-tag">{revisionCount} VERSIONS</span>
-                  </div>
-                  {(!selectedPost || !selectedPost.blog) && (
-                    <div className="history-empty">
-                      <History size={23} aria-hidden="true" />
-                      <p>Save this page to start its history.</p>
-                    </div>
-                  )}
-                  {selectedPost?.blog && (
-                    <ol className="revision-list">
-                      {[...selectedPost.revisions]
-                        .reverse()
-                        .map((revision, index) => (
-                          <li className="revision-item" key={revision.id}>
-                            <span
-                              className="revision-marker"
-                              aria-hidden="true"
-                            />
-                            <div className="revision-copy">
-                              <div className="revision-meta">
-                                <strong>
-                                  {index === 0
-                                    ? "Current version"
-                                    : "Saved version"}
-                                </strong>
-                                <span>
-                                  <Clock3 size={13} aria-hidden="true" />
-                                  {new Intl.DateTimeFormat("en", {
-                                    dateStyle: "medium",
-                                    timeStyle: "short",
-                                  }).format(new Date(revision.savedAt))}
-                                </span>
-                              </div>
-                              <h3>{revision.title}</h3>
-                              <p>{revision.excerpt || revision.content}</p>
-                            </div>
-                          </li>
-                        ))}
-                    </ol>
-                  )}
-                </section>
+                <RevisionHistory post={selectedPost} count={revisionCount} />
               )}
             </div>
 
-            <aside className="details-panel" aria-label="Page details">
-              <div className="details-heading">
-                <h2>Page details</h2>
-                <span className="detail-status">
-                  <span /> API
-                </span>
-              </div>
-              <div className="detail-block">
-                <span className="detail-label">PERSON</span>
-                <strong>{personName.trim() || "Not assigned"}</strong>
-              </div>
-              <div className="detail-block">
-                <span className="detail-label">PAGE ADDRESS</span>
-                <code>
-                  /people/
-                  {selectedPost?.slug || (personName ? "..." : "person-name")}
-                </code>
-                <span className="detail-note">
-                  Preview route · not published
-                </span>
-              </div>
-              <div className="detail-block">
-                <span className="detail-label">API BASE URL</span>
-                <strong>{appConfig.apiUrl}</strong>
-                <span className="detail-note">Shared API origin</span>
-              </div>
-              <div className="detail-block">
-                <span className="detail-label">HISTORY</span>
-                <strong>
-                  {revisionCount} saved
-                  {revisionCount === 1 ? " version" : " versions"}
-                </strong>
-                <span className="detail-note">
-                  {lastSavedAt
-                    ? `Last saved ${new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(lastSavedAt))}`
-                    : "No versions saved"}
-                </span>
-              </div>
-              <div className="details-warning">
-                <AlertTriangle size={15} aria-hidden="true" />
-                <p>
-                  Each save creates a new revision; previous versions remain
-                  available in history.
-                </p>
-              </div>
-              <p className="main-site-link">
-                Public profiles read from this archive.
-              </p>
-            </aside>
+            <PageDetails
+              post={selectedPost}
+              personName={personName}
+              revisionCount={revisionCount}
+              lastSavedAt={lastSavedAt}
+            />
           </section>
 
           <footer className="main-footer">

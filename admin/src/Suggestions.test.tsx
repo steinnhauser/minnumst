@@ -24,7 +24,8 @@ const hiddenPerson = apiPerson({
 
 function stubApi(
   items = [apiSuggestion()],
-  decide: () => Response = () => apiResponse(apiSuggestion()),
+  decide: () => Response = () =>
+    apiResponse(apiSuggestion({ status: "accepted" })),
   hidden = [hiddenPerson],
 ) {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -51,14 +52,16 @@ function postsTo(fetchMock: ReturnType<typeof stubApi>) {
 
 function renderQueue() {
   const onPendingChange = vi.fn();
+  const onEditAccepted = vi.fn();
   const onPersonRestored = vi.fn();
   render(
     <Suggestions
       onPendingChange={onPendingChange}
+      onEditAccepted={onEditAccepted}
       onPersonRestored={onPersonRestored}
     />,
   );
-  return { onPendingChange, onPersonRestored };
+  return { onPendingChange, onEditAccepted, onPersonRestored };
 }
 
 describe("the review queue", () => {
@@ -73,7 +76,7 @@ describe("the review queue", () => {
         }),
       }),
     ]);
-    const { onPendingChange } = renderQueue();
+    const { onPendingChange, onEditAccepted } = renderQueue();
 
     const current = await screen.findByRole("region", {
       name: "Current story",
@@ -95,6 +98,7 @@ describe("the review queue", () => {
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("Story")).toBeNull();
     expect(onPendingChange).toHaveBeenLastCalledWith(0);
+    expect(onEditAccepted).toHaveBeenCalledOnce();
     expect(postsTo(fetchMock)).toEqual([
       {
         path: "/api/admin/suggestions/suggestion-1/accept",
@@ -140,17 +144,20 @@ describe("the review queue", () => {
 
   it("marks a request as handled, showing the note and source as plain text", async () => {
     const user = userEvent.setup();
-    const fetchMock = stubApi([
-      apiSuggestion({
-        kind: "request",
-        title: null,
-        excerpt: null,
-        content: null,
-        note: "Please remove this.",
-        source_url: "https://example.org/a",
-      }),
-    ]);
-    renderQueue();
+    const fetchMock = stubApi(
+      [
+        apiSuggestion({
+          kind: "request",
+          title: null,
+          excerpt: null,
+          content: null,
+          note: "Please remove this.",
+          source_url: "https://example.org/a",
+        }),
+      ],
+      () => apiResponse(apiSuggestion({ kind: "request", status: "accepted" })),
+    );
+    const { onEditAccepted } = renderQueue();
 
     expect(await screen.findByText("Please remove this.")).toBeInTheDocument();
     expect(screen.getByText("https://example.org/a")).toBeInTheDocument();
@@ -163,12 +170,15 @@ describe("the review queue", () => {
       await screen.findByText("0 waiting for review."),
     ).toBeInTheDocument();
     expect(postsTo(fetchMock)[0].body).toBe("{}");
+    expect(onEditAccepted).not.toHaveBeenCalled();
   });
 
-  it("rejects a suggestion", async () => {
+  it("rejects a suggestion, which leaves the desk's stories alone", async () => {
     const user = userEvent.setup();
-    const fetchMock = stubApi();
-    renderQueue();
+    const fetchMock = stubApi(undefined, () =>
+      apiResponse(apiSuggestion({ status: "rejected" })),
+    );
+    const { onEditAccepted } = renderQueue();
 
     await user.click(
       await screen.findByRole("button", { name: "Reject and delete" }),
@@ -180,6 +190,7 @@ describe("the review queue", () => {
     expect(postsTo(fetchMock)[0].path).toBe(
       "/api/admin/suggestions/suggestion-1/reject",
     );
+    expect(onEditAccepted).not.toHaveBeenCalled();
   });
 
   it("keeps a suggestion and explains when a decision fails", async () => {
@@ -243,6 +254,7 @@ describe("the review queue", () => {
       <StrictMode>
         <Suggestions
           onPendingChange={onPendingChange}
+          onEditAccepted={vi.fn()}
           onPersonRestored={vi.fn()}
         />
       </StrictMode>,

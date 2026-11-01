@@ -169,7 +169,7 @@ describe("public people search", () => {
 
     expect(searchbox()).toHaveAttribute(
       "placeholder",
-      "Search for a persons details...",
+      "Search for a person...",
     );
     expect(
       screen.getByText("Public access · No sign-in required"),

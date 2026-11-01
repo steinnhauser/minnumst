@@ -173,8 +173,9 @@ services:
     labels:
       traefik.enable: "true"
       # Reads are public, and every write goes through Authentik first, with two
-      # routers above that: editors' routes need a login whatever the method, and
-      # the one public write, a visitor's suggestion, has its own stricter limits.
+      # routers above that: editors' routes need a login, and the one public write,
+      # a visitor's suggestion, has its own stricter limits. A browser's CORS
+      # preflight carries no login, so it stays public; the API answers it.
       traefik.http.routers.minnumst-api-read.rule: "Host(`{{ minnumst_api_domain }}`)"
       traefik.http.routers.minnumst-api-read.entrypoints: websecure
       traefik.http.routers.minnumst-api-read.priority: "1"
@@ -187,7 +188,7 @@ services:
       traefik.http.routers.minnumst-api-write.tls.certresolver: le
       traefik.http.routers.minnumst-api-write.middlewares: api-ratelimit@docker,authentik@docker
       traefik.http.routers.minnumst-api-write.service: minnumst-api
-      traefik.http.routers.minnumst-api-admin.rule: "Host(`{{ minnumst_api_domain }}`) && PathPrefix(`/api/admin`)"
+      traefik.http.routers.minnumst-api-admin.rule: "Host(`{{ minnumst_api_domain }}`) && PathPrefix(`/api/admin`) && !Method(`OPTIONS`)"
       traefik.http.routers.minnumst-api-admin.entrypoints: websecure
       traefik.http.routers.minnumst-api-admin.priority: "200"
       traefik.http.routers.minnumst-api-admin.tls.certresolver: le

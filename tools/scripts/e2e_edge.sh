@@ -91,6 +91,13 @@ done
 for path in //api/admin/suggestions /api/./admin/suggestions /api/%61dmin/suggestions /api/admin%2Fsuggestions; do
   check "no spelling of an editor route gets past the login: $path" "[345]??" "$(status --path-as-is "$api$path")"
 done
+# The local stack's API allows the desk's direct address (local.override.yml).
+desk_origin=http://127.0.0.1:5174
+preflight=$(curl "${curl_args[@]}" --output /dev/null --dump-header - --request OPTIONS --header "Origin: $desk_origin" \
+  --header 'Access-Control-Request-Method: POST' --header 'Access-Control-Request-Headers: content-type,x-request-id' \
+  "$api/api/admin/suggestions/00000000-0000-4000-8000-000000000000/accept" | tr -d '\r')
+check "a browser's preflight for an editor route passes without a login" "HTTP/* 200*" "$(head -1 <<<"$preflight")"
+check "the preflight allows the desk's origin" "*access-control-allow-origin: $desk_origin*" "${preflight,,}"
 check "the suggestion queue opens with authentication" 200 "$(status --header "$token" "$api/api/admin/suggestions")"
 
 name="Edge check $(date +%s)-$RANDOM"

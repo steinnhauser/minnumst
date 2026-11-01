@@ -121,6 +121,16 @@
       loop_control:
         label: "{{ item.method }} {{ item.url }}"
 
+    # A browser's preflight carries no login, and the desk can't work without it.
+    - name: A preflight from the desk reaches the API for an editors' route
+      ansible.builtin.uri:
+        url: "https://{{ minnumst_api_domain }}/api/admin/suggestions"
+        method: OPTIONS
+        headers:
+          Origin: "https://{{ minnumst_admin_domain }}"
+          Access-Control-Request-Method: GET
+        status_code: 200
+
     # An empty body fails validation before anything is stored, which still shows
     # that the request passed the edge without a login.
     - name: Anyone can reach the suggestion route without a login

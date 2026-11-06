@@ -1,0 +1,60 @@
+# Minnumst from commit to running host.
+# Source of docs/assets/diagram-delivery.svg; run `make diagrams` after editing.
+vars: {
+  ...@palette
+  d2-config: {
+    layout-engine: elk
+    pad: 24
+  }
+}
+classes: {
+  ...@classes
+  gate: {style: {fill: ${solid}; stroke: ${solid}; font-color: ${on-solid}; bold: true}}
+}
+style.fill: ${canvas}
+(** -> **)[*].style: {stroke: ${ink}; font-color: ${muted}}
+
+direction: right
+
+repo: One monorepo {
+  class: area
+  code: "api/ · web/ · admin/\npackages/ · docker/" {class: part}
+  infra: "infra/\nOpenTofu" {class: part}
+  deploy: "deploy/\nAnsible · ansible-vault" {class: part}
+}
+
+tag: "make release\na component tag, e.g. api-X.Y.Z" {class: auth; shape: oval}
+
+ci: GitHub Actions · ci.yml {
+  class: area
+  gates: Every push, pull request and tag {
+    class: internal
+    grid-columns: 2
+    grid-gap: 12
+    checks: "checks\nlint · OpenAPI · builds" {class: step}
+    tests: "tests\nSQLite + PostgreSQL · Vitest\n100% coverage" {class: step}
+    e2e: "e2e\nfull stack · Playwright + axe\nTrivy image gate" {class: step}
+    codeql: "codeql\nsecurity-extended" {class: step}
+  }
+  host: "host\nhardening applied twice · Lynis" {class: step}
+  ok: "ci-ok\nthe required check" {class: gate}
+  release: "release\nonly on a component tag" {class: gate}
+
+  gates -> ok
+  host -> ok
+  gates -> release
+}
+
+ghcr: "GHCR\nminnumst-api · -web · -admin\namd64 + arm64 · provenance · SBOM" {class: store}
+ghrel: "GitHub Release\nchangelog section" {class: result}
+cloud: "Hetzner Cloud\nserver · firewall · volume · DNS" {class: result}
+server: "Hardened host\nroles: host → docker → minnumst" {class: result}
+
+repo.code -> ci.gates
+tag -> ci.release
+ci.release -> ghcr
+ci.release -> ghrel
+repo.infra -> cloud: make infra apply
+ghcr -> repo.deploy: pinned by digest {style.stroke-dash: 3}
+repo.deploy -> server: make deploy
+cloud -> server

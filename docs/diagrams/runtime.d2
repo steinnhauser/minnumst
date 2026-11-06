@@ -1,0 +1,70 @@
+# Minnumst at runtime: who reaches what, and through which network.
+# Source of docs/assets/diagram-runtime.svg; run `make diagrams` after editing.
+vars: {
+  ...@palette
+  d2-config: {
+    layout-engine: elk
+    pad: 24
+  }
+}
+classes: {...@classes}
+style.fill: ${canvas}
+
+direction: down
+
+readers: Readers {class: person}
+visitors: "Visitors\nsuggesting an edit" {class: person}
+editors: Editors {class: person}
+
+hetzner: Hetzner Cloud {
+  class: area
+
+  firewall: "Provider firewall\n80 · 443 only" {class: part}
+  volume: "Data volume\nLUKS2-encrypted" {class: store}
+
+  host: Ubuntu 24.04 host · CIS Level 1 + NIST SP 800-53 {
+    style: {fill: ${card}; stroke: ${ink}; font-color: ${ink}; border-radius: 12; stroke-width: 2}
+
+    traefik: "Traefik\nTLS (Let's Encrypt) · HSTS\nsecurity headers · rate limits" {class: part; style.bold: true}
+
+    socket: socket network · internal {
+      class: internal
+      proxy: "Docker socket proxy\nread-only container list" {class: part}
+    }
+
+    edge: edge network {
+      class: network
+      web: "web\npublic archive" {class: app}
+      admin: "admin\neditorial desk" {class: app}
+      api: "api\nFastAPI" {class: app}
+      authentik: "Authentik server\nTOTP MFA" {class: auth}
+    }
+
+    backend: backend network · internal, no route out {
+      class: internal
+      migrate: "migrate\none-shot Alembic" {class: part}
+      worker: "Authentik worker\nconfigured as code" {class: auth}
+      postgres: "PostgreSQL 18\nminnumst · authentik" {class: store}
+    }
+
+    backup: "Nightly backup\nsystemd timer · age-encrypted" {class: part}
+  }
+}
+
+readers -> hetzner.firewall: HTTPS {class: open}
+visitors -> hetzner.firewall: HTTPS {class: open}
+editors -> hetzner.firewall: HTTPS {class: open}
+hetzner.firewall -> hetzner.host.traefik {class: open}
+
+hetzner.host.traefik -> hetzner.host.edge.web: open {class: open}
+hetzner.host.traefik -> hetzner.host.edge.api: "reads open\nsuggestions: 5/min, 128 KB, no login" {class: open}
+hetzner.host.traefik -> hetzner.host.edge.authentik: "forward-auth\nadmin · API writes · /api/admin" {class: guarded}
+hetzner.host.traefik -> hetzner.host.edge.admin: after login {class: guarded}
+hetzner.host.traefik -> hetzner.host.socket.proxy: discovers services {class: quiet}
+
+hetzner.host.edge.api -> hetzner.host.backend.postgres: "runtime role\ninsert-only revisions" {class: open}
+hetzner.host.backend.migrate -> hetzner.host.backend.postgres: schema owner {class: quiet}
+hetzner.host.edge.authentik -> hetzner.host.backend.postgres {class: quiet}
+hetzner.host.backend.worker -> hetzner.host.backend.postgres {class: quiet}
+hetzner.host.backup -> hetzner.host.backend.postgres: pg_dump {class: quiet}
+hetzner.host.backend.postgres -> hetzner.volume {class: quiet}

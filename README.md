@@ -37,14 +37,10 @@ It is self-hosted with OpenTofu, Ansible and Docker Compose behind Traefik, with
 
 ## Architecture
 
-```text
-                 ┌──────────────── Traefik (HTTPS, ACME) ────────────────┐
-  readers ──────▶│ web/    public archive, suggestions (React)          │
-  editors ──────▶│ admin/  editorial desk (React)   ◀── Authentik auth   │
-                 │ api/    FastAPI ── PostgreSQL     ◀── auth on writes  │
-                 └───────────────────────────────────────────────────────┘
-                   deployed by deploy/ (Ansible, Docker Compose, ansible-vault)
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagram-runtime-dark.svg">
+  <img src="docs/assets/diagram-runtime.svg" alt="Runtime: readers, visitors and editors reach a provider firewall and Traefik on a hardened Ubuntu host. Traefik routes to web, admin and the API on the edge network; admin, API writes and /api/admin go through Authentik forward-auth first. The API, migrations and Authentik use PostgreSQL on an internal backend network; Traefik finds services through a socket proxy on its own internal network; a nightly encrypted backup reads the database, which lives on a LUKS-encrypted volume.">
+</picture>
 
 | Path                                                 | What it is                                                                                        | Stack                                                                   |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
@@ -74,21 +70,7 @@ Minnumst is built so that the only thing reachable from the internet is a TLS-te
 
 Every host setting in [`deploy/`](deploy/) cites the CIS section and NIST control it implements, and the [deployment guide](deploy/README.md#what-the-playbook-enforces) maps them in one table, with the few deliberate deviations explained.
 
-```text
-                     internet
-                        │ 80 → redirect, 443 TLS (Let's Encrypt)
-                ┌───────▼────────┐  security headers · HSTS · rate limit (API)
-                │    Traefik     │──── forward-auth ────▶ Authentik (TOTP MFA)
-                └──┬─────┬─────┬─┘
-     edge network  │     │     │            socket network (internal)
-            ┌──────▼┐ ┌──▼────┐ ┌▼─────┐    Traefik ──▶ Docker API proxy
-            │  web  │ │ admin │ │ api  │                (list containers only)
-            └───────┘ └───────┘ └──┬───┘
-                    backend network│(internal, no route out)
-                               ┌───▼─────┐
-                              │PostgreSQL│
-                               └─────────┘
-```
+The [architecture diagram](#architecture) shows these networks and which routes need a login.
 
 **Network**
 
@@ -234,6 +216,11 @@ For quicker iteration, run the development servers instead, each in its own term
 <!-- prettier-ignore-end -->
 
 ## CI and releases
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagram-delivery-dark.svg">
+  <img src="docs/assets/diagram-delivery.svg" alt="Delivery: code in the monorepo goes through the CI checks, tests, end-to-end and CodeQL jobs; a component tag from make release publishes multi-arch images with provenance and an SBOM to GHCR and a GitHub Release. OpenTofu in infra/ creates the Hetzner server, firewall, volume and DNS, and Ansible in deploy/ deploys the digest-pinned images to the hardened host.">
+</picture>
 
 One workflow, [`ci.yml`](.github/workflows/ci.yml), runs on every push, pull request and release tag, using the same `make` targets:
 

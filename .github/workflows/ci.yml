@@ -82,6 +82,10 @@ jobs:
         with:
           version: v0.76.1
           cache: true
+      - name: Install D2 (pinned and checksummed in the script)
+        run: |
+          bash tools/scripts/diagrams.sh setup "$RUNNER_TEMP/bin"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - run: make format-check lint openapi-check build
 
   tests:

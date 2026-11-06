@@ -13,7 +13,7 @@ Thanks for contributing to Minnumst. Minnumst holds stories about people's famil
 
 ## Setup
 
-Requirements: [uv](https://docs.astral.sh/uv/) (it installs the Python version in `.python-version`), Node.js 22 (`.nvmrc`) with npm, GNU Make, [OpenTofu](https://opentofu.org) and [Trivy](https://trivy.dev) (for `make lint`'s check of `infra/`), and Docker with Compose v2 for the PostgreSQL tests and the local stack.
+Requirements: [uv](https://docs.astral.sh/uv/) (it installs the Python version in `.python-version`), Node.js 22 (`.nvmrc`) with npm, GNU Make, [OpenTofu](https://opentofu.org) and [Trivy](https://trivy.dev) (for `make lint`'s check of `infra/`), [D2](https://d2lang.com) for the diagrams (`make diagrams setup` installs the pinned version), and Docker with Compose v2 for the PostgreSQL tests and the local stack.
 
 ```sh
 make install
@@ -25,16 +25,16 @@ Dependencies are managed at the root as well. Add a Python dependency with `uv a
 
 ## Checks
 
-| Command              | What it runs                                                                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `make format`        | Ruff (Python) and Prettier (TypeScript, JavaScript, CSS, Markdown, YAML, JSON)                                                                         |
-| `make lint`          | Ruff, mypy, ESLint, ShellCheck, zizmor, ansible-lint, the playbook syntax check, and `tofu fmt`/`validate` plus a Trivy scan of `infra/`               |
-| `make test`          | pytest on SQLite and Vitest for both frontends and the shared packages, failing below 100% coverage (lines and branches, and functions for TypeScript) |
-| `make test-postgres` | The API tests against PostgreSQL in a disposable container (Testcontainers)                                                                            |
-| `make openapi-check` | Fails if `api/openapi.json` is stale; regenerate it with `make openapi`                                                                                |
-| `make build`         | The API wheel and both frontend production builds                                                                                                      |
-| `make validate`      | All of the above, as CI runs them                                                                                                                      |
-| `make stack-test`    | The full stack in containers with the end-to-end tests (see below)                                                                                     |
+| Command              | What it runs                                                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `make format`        | Ruff (Python) and Prettier (TypeScript, JavaScript, CSS, Markdown, YAML, JSON)                                                                              |
+| `make lint`          | Ruff, mypy, ESLint, ShellCheck, zizmor, ansible-lint, the playbook syntax check, `tofu fmt`/`validate` plus a Trivy scan of `infra/`, and the diagram check |
+| `make test`          | pytest on SQLite and Vitest for both frontends and the shared packages, failing below 100% coverage (lines and branches, and functions for TypeScript)      |
+| `make test-postgres` | The API tests against PostgreSQL in a disposable container (Testcontainers)                                                                                 |
+| `make openapi-check` | Fails if `api/openapi.json` is stale; regenerate it with `make openapi`                                                                                     |
+| `make build`         | The API wheel and both frontend production builds                                                                                                           |
+| `make validate`      | All of the above, as CI runs them                                                                                                                           |
+| `make stack-test`    | The full stack in containers with the end-to-end tests (see below)                                                                                          |
 
 Run `make validate` before opening a pull request, and `make stack-test` as well for changes that cross components, such as the API contract, images, ports or the Compose template.
 
@@ -46,6 +46,12 @@ When an API route or schema changes, change the contract in one pull request, in
 4. Update the route-level tests in `tools/scripts/e2e_api.py` (every route has a case there), and run `make stack-test`.
 
 When a model changes, run `make migration MESSAGE="describe the change"`, review the generated file in `api/src/minnumst_api/migrations/versions/`, and grant any new table to the runtime role in the same migration. `make test` fails if the models and the migrations disagree.
+
+## Diagrams
+
+The README's diagrams are written in [D2](https://d2lang.com) in `docs/diagrams/` and rendered to SVG in `docs/assets/`. Each diagram is drawn twice, in the colours of `palette.d2` and of `palette-dark.d2`, and the README shows the one that matches the reader's GitHub theme. Shared shapes and arrow styles are in `classes.d2`.
+
+After editing a `.d2` file, run `make diagrams` and commit the source together with the SVGs. `make lint` (and so CI) fails if an SVG doesn't match its source. The D2 version and its checksums are pinned in `tools/scripts/diagrams.sh`, because a different version can draw the same source differently.
 
 ## Trying a feature in a browser
 

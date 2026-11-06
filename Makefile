@@ -27,7 +27,7 @@ unexport VIRTUAL_ENV
 	openapi openapi-check migration build validate clean ci \
 	dev-api dev-web dev-admin \
 	stack-config up wait seed e2e contract edge backup-test browser stack-test ps logs down db-update db-clear db-reset \
-	deploy-check deploy release infra infra-check infra-plan infra-apply infra-inventory infra-backup ssh import preview
+	deploy-check deploy release diagrams diagrams-check infra infra-check infra-plan infra-apply infra-inventory infra-backup ssh import preview
 
 help:
 	@printf '%s\n' \
@@ -44,6 +44,9 @@ help:
 	  '  migration       Generate a database migration from the models (MESSAGE="…")' \
 	  '  build           Build the API wheel and both frontends' \
 	  '  validate        All of the above, as CI runs it (needs Docker)' \
+	  '  diagrams        Render docs/diagrams/*.d2 to light and dark SVGs in docs/assets/' \
+	  '  diagrams check  Fail if a rendered diagram is out of date (part of lint)' \
+	  '  diagrams setup  Install the pinned D2 version in ~/.local/bin' \
 	  '  clean           Remove build and test output' \
 	  '' \
 	  'Development servers (run each in its own terminal; settings via environment variables or a .env file)' \
@@ -104,7 +107,7 @@ format-check:
 	$(UV_RUN) ruff format --check .
 	npm run format:check
 
-lint: deploy-check infra-check
+lint: deploy-check infra-check diagrams-check
 	docker compose --file tools/compose/preview.yml config --quiet
 	$(UV_RUN) ruff check .
 	$(UV_RUN) mypy
@@ -233,6 +236,18 @@ deploy:
 release:
 	@test -n "$(COMPONENT)" || { echo 'Usage: make release COMPONENT=api|web|admin|deploy [INCREMENT=…] [DRY_RUN=1]'; exit 2; }
 	$(UV_RUN) python tools/scripts/release.py bump $(COMPONENT) $(if $(INCREMENT),--increment $(INCREMENT)) $(if $(DRY_RUN),--dry-run)
+
+# `make diagrams check`: the word after `diagrams` is its subcommand, not another target.
+ifeq (diagrams,$(firstword $(MAKECMDGOALS)))
+check setup:
+	@:
+endif
+
+diagrams:
+	@bash tools/scripts/diagrams.sh $(filter-out diagrams,$(MAKECMDGOALS))
+
+diagrams-check:
+	@bash tools/scripts/diagrams.sh check
 
 # `make infra plan`: the word after `infra` is its subcommand, not another target.
 ifeq (infra,$(firstword $(MAKECMDGOALS)))

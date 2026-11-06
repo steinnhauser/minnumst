@@ -2,6 +2,10 @@
 
 [![CI](https://github.com/steinnhauser/minnumst/actions/workflows/ci.yml/badge.svg)](https://github.com/steinnhauser/minnumst/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![api release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=api-*&sort=semver&label=release&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-api)
+[![web release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=web-*&sort=semver&label=release&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-web)
+[![admin release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=admin-*&sort=semver&label=release&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-admin)
+[![deploy release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=deploy-*&sort=semver&label=release&logo=ansible&logoColor=white)](https://github.com/steinnhauser/minnumst/releases?q=deploy-&expanded=true)
 
 ![Minnumst: a written history of our ancestors](docs/assets/minnumst-concept.png)
 
@@ -246,6 +250,15 @@ One workflow, [`ci.yml`](.github/workflows/ci.yml), runs on every push, pull req
 | `release`  | On a release tag only: publishes the component's multi-arch image to GHCR and its GitHub Release                                    |
 
 Dependabot keeps npm, uv, Docker base images and GitHub Actions up to date, in weekly grouped pull requests.
+
+The latest release of each component, read live from GitHub Releases:
+
+| Component | Latest release                                                                                                                                                                                                              | Published as                                                                                                    |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `api`     | [![api](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=api-*&sort=semver&label=latest&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/releases?q=api-&expanded=true)           | [`ghcr.io/steinnhauser/minnumst-api`](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-api)     |
+| `web`     | [![web](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=web-*&sort=semver&label=latest&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/releases?q=web-&expanded=true)           | [`ghcr.io/steinnhauser/minnumst-web`](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-web)     |
+| `admin`   | [![admin](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=admin-*&sort=semver&label=latest&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/releases?q=admin-&expanded=true)     | [`ghcr.io/steinnhauser/minnumst-admin`](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-admin) |
+| `deploy`  | [![deploy](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=deploy-*&sort=semver&label=latest&logo=ansible&logoColor=white)](https://github.com/steinnhauser/minnumst/releases?q=deploy-&expanded=true) | GitHub Release only (Ansible roles, no image)                                                                   |
 
 Each component is versioned on its own, with tags such as `api-0.2.0`. `make release COMPONENT=api` reads the Conventional Commits that touched the component since its last tag, bumps the version, adds a `CHANGELOG.md` section, commits and tags; it never pushes. Pushing the tag runs the checks again and then publishes `ghcr.io/steinnhauser/minnumst-api:0.2.0` (and `:0.2`) for `linux/amd64` and `linux/arm64`, with provenance and an SBOM, plus a GitHub Release with that changelog section. `deploy` releases have no image.
 

@@ -4,12 +4,18 @@
 [![Coverage: 100%, enforced in CI](https://img.shields.io/badge/coverage-100%25-brightgreen)](#test-coverage)
 [![Beta site status](https://img.shields.io/website?url=https%3A%2F%2Fbeta.minnumst.org&label=beta&up_message=online&down_message=offline)](https://beta.minnumst.org)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![api release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=api-*&sort=semver&label=&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-api)
+[![web release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=web-*&sort=semver&label=&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-web)
+[![admin release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=admin-*&sort=semver&label=&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-admin)
+[![deploy release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=deploy-*&sort=semver&label=&logo=ansible&logoColor=white)](https://github.com/steinnhauser/minnumst/releases?q=deploy-&expanded=true)
 
-[![api release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=api-*&sort=semver&label=release&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-api)
-[![web release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=web-*&sort=semver&label=release&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-web)
-[![admin release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=admin-*&sort=semver&label=release&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-admin)
-[![deploy release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=deploy-*&sort=semver&label=release&logo=ansible&logoColor=white)](https://github.com/steinnhauser/minnumst/releases?q=deploy-&expanded=true)
-[![Python version](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fsteinnhauser%2Fminnumst%2Fmain%2Fapi%2Fpyproject.toml&logo=python&logoColor=white)](api/pyproject.toml)
+[![TypeScript](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsteinnhauser%2Fminnumst%2Fmain%2Fpackage.json&search=%22typescript%22%3A%20%22%5B~%5E%5D%3F%28%5B0-9%5D%2B%5C.%5B0-9%5D%2B%29&replace=%241&label=TypeScript&logo=typescript&logoColor=white&color=3178C6)](package.json)
+[![React](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsteinnhauser%2Fminnumst%2Fmain%2Fweb%2Fpackage.json&search=%22react%22%3A%20%22%5B~%5E%5D%3F%28%5B0-9%5D%2B%5C.%5B0-9%5D%2B%29&replace=%241&label=React&logo=react&logoColor=white&color=149ECA)](web/package.json)
+[![Python version](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fsteinnhauser%2Fminnumst%2Fmain%2Fapi%2Fpyproject.toml&label=Python&logo=python&logoColor=white&color=3776AB)](api/pyproject.toml)
+[![PostgreSQL](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsteinnhauser%2Fminnumst%2Fmain%2Fdeploy%2Finventory%2Fgroup_vars%2Fall%2Fvars.yml&search=postgres_image%3A%20postgres%3A%28%5B0-9%5D%2B%29&replace=%241&label=PostgreSQL&logo=postgresql&logoColor=white&color=4169E1)](deploy/inventory/group_vars/all/vars.yml)
+[![OpenTofu](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsteinnhauser%2Fminnumst%2Fmain%2Finfra%2Fversions.tf&search=required_version%20%3D%20%22%28%5B%5E%22%5D%2B%29%22&replace=%241&label=OpenTofu&logo=opentofu&logoColor=white&color=4C4C4C)](infra/versions.tf)
+[![Ansible](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsteinnhauser%2Fminnumst%2Fmain%2Fuv.lock&search=name%20%3D%20%22ansible-core%22%5Cs%2Bversion%20%3D%20%22%28%5B0-9%5D%2B%5C.%5B0-9%5D%2B%29&replace=%241&label=Ansible&logo=ansible&logoColor=white&color=1A1918)](deploy/)
+[![Traefik](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsteinnhauser%2Fminnumst%2Fmain%2Fdeploy%2Finventory%2Fgroup_vars%2Fall%2Fvars.yml&search=traefik_image%3A%20traefik%3Av%28%5B0-9%5D%2B%5C.%5B0-9%5D%2B%29&replace=%241&label=Traefik&logo=traefikproxy&logoColor=white&color=24A1C1)](deploy/inventory/group_vars/all/vars.yml)
 
 ![Minnumst: a written history of our ancestors](docs/assets/minnumst-concept.png)
 

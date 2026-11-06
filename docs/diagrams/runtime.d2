@@ -13,7 +13,7 @@ style.fill: ${canvas}
 direction: down
 
 readers: Readers {class: person}
-visitors: "Visitors\nsuggesting an edit" {class: person}
+visitors: "Visitors\nsuggesting edits" {class: person}
 editors: Editors {class: person}
 
 hetzner: Hetzner Cloud {
@@ -23,13 +23,14 @@ hetzner: Hetzner Cloud {
   volume: "Data volume\nLUKS2-encrypted" {class: store}
 
   host: Ubuntu 24.04 host · CIS Level 1 + NIST SP 800-53 {
-    style: {fill: ${card}; stroke: ${ink}; font-color: ${ink}; border-radius: 12; stroke-width: 2}
+    label.near: top-left
+    style: {font-size: 24; fill: ${card}; stroke: ${ink}; font-color: ${ink}; border-radius: 12; stroke-width: 2}
 
     traefik: "Traefik\nTLS (Let's Encrypt) · HSTS\nsecurity headers · rate limits" {class: part; style.bold: true}
 
-    socket: socket network · internal {
+    socket: socket network {
       class: internal
-      proxy: "Docker socket proxy\nread-only container list" {class: part}
+      proxy: "Docker socket proxy\nread-only" {class: part}
     }
 
     edge: edge network {
@@ -40,14 +41,14 @@ hetzner: Hetzner Cloud {
       authentik: "Authentik server\nTOTP MFA" {class: auth}
     }
 
-    backend: backend network · internal, no route out {
+    backend: backend network {
       class: internal
       migrate: "migrate\none-shot Alembic" {class: part}
       worker: "Authentik worker\nconfigured as code" {class: auth}
-      postgres: "PostgreSQL 18\nminnumst · authentik" {class: store}
+      postgres: "PostgreSQL 18\nminnumst · authentik\nrevisions insert-only" {class: store}
     }
 
-    backup: "Nightly backup\nsystemd timer · age-encrypted" {class: part}
+    backup: "Nightly backup\nage-encrypted" {class: part}
   }
 }
 
@@ -57,14 +58,24 @@ editors -> hetzner.firewall: HTTPS {class: open}
 hetzner.firewall -> hetzner.host.traefik {class: open}
 
 hetzner.host.traefik -> hetzner.host.edge.web: open {class: open}
-hetzner.host.traefik -> hetzner.host.edge.api: "reads open\nsuggestions: 5/min, 128 KB, no login" {class: open}
+hetzner.host.traefik -> hetzner.host.edge.api: "reads · suggestions\n5/min, 128 KB, no login" {class: open}
 hetzner.host.traefik -> hetzner.host.edge.authentik: "forward-auth\nadmin · API writes · /api/admin" {class: guarded}
 hetzner.host.traefik -> hetzner.host.edge.admin: after login {class: guarded}
 hetzner.host.traefik -> hetzner.host.socket.proxy: discovers services {class: quiet}
 
-hetzner.host.edge.api -> hetzner.host.backend.postgres: "runtime role\ninsert-only revisions" {class: open}
+hetzner.host.edge.api -> hetzner.host.backend.postgres {class: open}
 hetzner.host.backend.migrate -> hetzner.host.backend.postgres: schema owner {class: quiet}
 hetzner.host.edge.authentik -> hetzner.host.backend.postgres {class: quiet}
 hetzner.host.backend.worker -> hetzner.host.backend.postgres {class: quiet}
-hetzner.host.backup -> hetzner.host.backend.postgres: pg_dump {class: quiet}
+hetzner.host.backend.postgres -> hetzner.host.backup: pg_dump {class: quiet}
 hetzner.host.backend.postgres -> hetzner.volume {class: quiet}
+
+legend: "" {
+  near: bottom-center
+  style: {fill: ${canvas}; stroke: ${canvas}}
+  grid-columns: 3
+  grid-gap: 24
+  internal: "Internal network\nno route out" {class: internal; label.near: center-center; width: 260}
+  login: "Coral arrow\nneeds a login (Authentik)" {class: auth; width: 300}
+  quiet: "Dashed arrow\ninternal traffic" {class: step; style.stroke-dash: 3; width: 260}
+}

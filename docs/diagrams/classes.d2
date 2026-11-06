@@ -1,41 +1,45 @@
 # Shapes and arrows shared by every diagram. Colours come from the palette.
+# Fonts are large because GitHub shrinks the SVGs to the README's width.
+# People outside the system.
 person: {
-  shape: person
-  style: {fill: ${card}; stroke: ${muted}; font-color: ${ink}}
+  style: {font-size: 20; fill: ${card}; stroke: ${muted}; font-color: ${ink}; border-radius: 999; stroke-width: 2}
 }
 # One of our own services.
 app: {
-  style: {fill: ${solid}; stroke: ${solid}; font-color: ${on-solid}; border-radius: 8; bold: true}
+  style: {font-size: 20; fill: ${solid}; stroke: ${solid}; font-color: ${on-solid}; border-radius: 8; bold: true}
 }
 # Something we run or configure but did not write.
 part: {
-  style: {fill: ${card}; stroke: ${ink}; font-color: ${ink}; border-radius: 8}
+  style: {font-size: 20; fill: ${card}; stroke: ${ink}; font-color: ${ink}; border-radius: 8}
 }
 # A step that runs and finishes, such as a CI job.
 step: {
-  style: {fill: ${card}; stroke: ${muted}; font-color: ${ink}; border-radius: 8}
+  style: {font-size: 20; fill: ${card}; stroke: ${muted}; font-color: ${ink}; border-radius: 8}
 }
 # Identity: Authentik and the trigger a person starts.
 auth: {
-  style: {fill: ${coral-soft}; stroke: ${coral}; font-color: ${ink}; border-radius: 8}
+  style: {font-size: 20; fill: ${coral-soft}; stroke: ${coral}; font-color: ${ink}; border-radius: 8}
 }
 store: {
   shape: cylinder
-  style: {fill: ${store}; stroke: ${ink}; font-color: ${ink}}
+  style: {font-size: 20; fill: ${store}; stroke: ${ink}; font-color: ${ink}}
 }
 result: {
-  style: {fill: ${store}; stroke: ${ink}; font-color: ${ink}; border-radius: 8}
+  style: {font-size: 20; fill: ${store}; stroke: ${ink}; font-color: ${ink}; border-radius: 8}
 }
 area: {
-  style: {fill: ${panel}; stroke: ${line}; font-color: ${muted}; border-radius: 12}
+  label.near: top-left
+  style: {font-size: 24; fill: ${panel}; stroke: ${line}; font-color: ${muted}; border-radius: 12}
 }
 network: {
-  style: {fill: ${panel}; stroke: ${muted}; font-color: ${muted}; border-radius: 10}
+  label.near: bottom-left
+  style: {font-size: 22; fill: ${panel}; stroke: ${muted}; font-color: ${muted}; border-radius: 10}
 }
 # An internal network or group: dashed.
 internal: {
-  style: {fill: ${panel}; stroke: ${muted}; font-color: ${muted}; border-radius: 10; stroke-dash: 4}
+  label.near: bottom-left
+  style: {font-size: 22; fill: ${panel}; stroke: ${muted}; font-color: ${muted}; border-radius: 10; stroke-dash: 4}
 }
-open: {style: {stroke: ${ink}; font-color: ${muted}}}
-guarded: {style: {stroke: ${coral}; font-color: ${coral}; stroke-width: 2}}
-quiet: {style: {stroke: ${muted}; font-color: ${muted}; stroke-dash: 3}}
+open: {style: {font-size: 18; stroke: ${ink}; font-color: ${muted}}}
+guarded: {style: {font-size: 18; stroke: ${coral}; font-color: ${coral}; stroke-width: 2}}
+quiet: {style: {font-size: 18; stroke: ${muted}; font-color: ${muted}; stroke-dash: 3}}

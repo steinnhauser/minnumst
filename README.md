@@ -1,11 +1,15 @@
 # Minnumst
 
 [![CI](https://github.com/steinnhauser/minnumst/actions/workflows/ci.yml/badge.svg)](https://github.com/steinnhauser/minnumst/actions/workflows/ci.yml)
+[![Coverage: 100%, enforced in CI](https://img.shields.io/badge/coverage-100%25-brightgreen)](#test-coverage)
+[![Beta site status](https://img.shields.io/website?url=https%3A%2F%2Fbeta.minnumst.org&label=beta&up_message=online&down_message=offline)](https://beta.minnumst.org)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 [![api release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=api-*&sort=semver&label=release&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-api)
 [![web release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=web-*&sort=semver&label=release&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-web)
 [![admin release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=admin-*&sort=semver&label=release&logo=docker&logoColor=white)](https://github.com/steinnhauser/minnumst/pkgs/container/minnumst-admin)
 [![deploy release](https://img.shields.io/github/v/release/steinnhauser/minnumst?filter=deploy-*&sort=semver&label=release&logo=ansible&logoColor=white)](https://github.com/steinnhauser/minnumst/releases?q=deploy-&expanded=true)
+[![Python version](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fsteinnhauser%2Fminnumst%2Fmain%2Fapi%2Fpyproject.toml&logo=python&logoColor=white)](api/pyproject.toml)
 
 ![Minnumst: a written history of our ancestors](docs/assets/minnumst-concept.png)
 

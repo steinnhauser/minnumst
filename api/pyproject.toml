@@ -3,7 +3,7 @@ authors = [{name = "Steinn Hauser Magnússon", email = "hausersteinn@gmail.com"}
 dependencies = [
   "alembic>=1.16,<2.0",
   "fastapi>=0.115,<1.0",
-  "pydantic-settings>=2.6,<3.0",
+  "pydantic-settings>=2.16.2,<3.0",
   "psycopg[binary]>=3.3.6,<4.0",
   "sqlalchemy>=2.0,<3.0",
   "uvicorn[standard]>=0.54.0,<1.0",

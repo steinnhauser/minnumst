@@ -13,7 +13,7 @@ minnumst_log_level: INFO
 # Exact versions pinned by digest, so a re-pushed tag can't change what runs.
 minnumst_public_image: ghcr.io/steinnhauser/minnumst-web:0.7.0@sha256:6e3710162ef9d66760cc0cbfca7f866eb422a480de4237184b30d5e494b420f5
 minnumst_admin_image: ghcr.io/steinnhauser/minnumst-admin:0.5.0@sha256:6d57eac4f99070483f7634f841cf1777191c8e9ed7ccf329d23228aacd6b5bbf
-minnumst_api_image: ghcr.io/steinnhauser/minnumst-api:0.5.0@sha256:97c67d22c0367a5ae3018fc1f058033a89f6401409fa89bcc0f665be439f448b
+minnumst_api_image: ghcr.io/steinnhauser/minnumst-api:0.5.1@sha256:da35b00cfd06e265fde16dff18a9ef68a4886a7283647839e07521034a3522f8
 
 # Third-party images stay on version tags so patch releases (security fixes)
 # arrive on the next deploy; Dependabot can't update digests in this file.

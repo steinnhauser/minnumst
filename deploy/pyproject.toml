@@ -1,6 +1,6 @@
 [project]
 authors = [{name = "Steinn Hauser Magnússon", email = "hausersteinn@gmail.com"}]
-dependencies = ["ansible-core>=2.16,<3.0"]
+dependencies = ["ansible-core>=2.22.0,<3.0"]
 description = "Ansible deployment for the Minnumst services"
 name = "minnumst-deploy"
 requires-python = ">=3.13"
